@@ -229,7 +229,7 @@ export function eventICS(e: CampusEvent) {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//My Little Gobbler//Campus Events//EN",
+    "PRODID:-//My Gobbler//Campus Events//EN",
     "CALSCALE:GREGORIAN",
     "BEGIN:VEVENT",
     `UID:${e.id}@my-little-gobbler`,

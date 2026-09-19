@@ -6,7 +6,7 @@ import { flushAnalytics } from "./analytics.js";
 import { startDiscordCollection } from "./discord-jobs.js";
 await connectDB();
 createApp().listen(config.port, "0.0.0.0", () =>
-  console.log(`My Little Gobbler listening on ${config.port}`),
+  console.log(`My Gobbler listening on ${config.port}`),
 );
 const background = (job: () => Promise<void>, name: string) => {
   void job().catch(() => console.warn("background_job_failed", { job: name }));

@@ -1,5 +1,5 @@
 /**
- * My Little Gobbler boundary contracts, version 1.
+ * My Gobbler boundary contracts, version 1.
  * This file contains wire data and interfaces ONLY: no validation, fetching,
  * matching, storage, SDK imports, secrets, fixtures, or business implementation.
  * Dates on the wire are ISO strings, never Date/Luxon/Mongo objects.

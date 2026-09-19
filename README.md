@@ -1,12 +1,12 @@
-# My Little Gobbler
+# My Gobbler
 
-**Your little guide to campus life.** A student-built Virginia Tech campus companion. Not affiliated with or endorsed by Virginia Tech.
+**Your campus. Your kind of day.** A student-built Virginia Tech campus companion. Not affiliated with or endorsed by Virginia Tech.
 
 ## Current delivery status
 
 The application now runs against a real **MongoDB Atlas M0** cluster and **Gemini free-tier API**. Account/profile persistence, live discovery, saves, ICS and grounded Gemini responses were verified end to end on 2026-09-19. **Production V1 is not complete:** the owner chose to keep hosting pending for Vultr under a $0-beyond-credits hard-cap requirement. Vultr free-compute approval, connected-provider setup and deployed HTTPS verification remain outstanding. There is no public deployment URL yet.
 
-Existing private source repository: https://github.com/JARA-org/vtevents. The repository name is preserved; application and service slugs use `my-little-gobbler`.
+Existing private source repository: https://github.com/JARA-org/vtevents. The repository name is preserved; the application display name and app slug are `My Gobbler` / `my-gobbler`. Existing cloud resource names and calendar UIDs retain their original identifiers for compatibility. See `CHANGELOG.md` and `MAKEOVER_HANDOFF.md` for the local visual refresh.
 
 ## Run locally
 

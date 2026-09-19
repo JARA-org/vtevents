@@ -1,0 +1,85 @@
+@font-face {
+  font-family: Nunito;
+  src: url("/fonts/Nunito.ttf") format("truetype");
+  font-weight: 200 1000;
+  font-display: swap;
+}
+:root {
+  --vt-maroon: #630031;
+  --vt-burnt-orange: #cf4420;
+  --brand-maroon: #af3737;
+  --brand-burgundy: #5b0612;
+  --brand-gold: #fcbd1c;
+  --brand-orange: #ef9902;
+  --brand-red: #c40216;
+  --ink: #020101;
+  --paper: #fff8f2;
+  --surface: #ffffff;
+  --muted: #6b5b5b;
+  --success: #2e7d32;
+  --warning: #ef9902;
+  --error: #c40216;
+}
+body {
+  background: var(--paper);
+  font-family: Nunito, system-ui, sans-serif;
+}
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 80ms ease,
+    box-shadow 80ms ease,
+    background-color 120ms ease;
+  touch-action: manipulation;
+}
+[role="button"]:not([aria-disabled="true"]):hover {
+  filter: brightness(0.975);
+}
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+[role="button"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--brand-gold) !important;
+  outline-offset: 3px;
+}
+input,
+textarea {
+  caret-color: var(--vt-maroon);
+}
+.gobbler-error-modal {
+  padding: 0;
+  border: 2px solid var(--brand-burgundy);
+  border-radius: 20px;
+  width: min(440px, calc(100vw - 48px));
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  background: white;
+  color: var(--ink);
+  box-shadow: 0 8px 0 rgba(2, 1, 1, 0.15);
+}
+.gobbler-error-modal::backdrop {
+  background: rgba(2, 1, 1, 0.55);
+}
+[data-testid="event-card"] {
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+@media (hover: hover) {
+  [data-testid="event-card"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #e7d8cd;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}

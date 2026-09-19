@@ -3,10 +3,8 @@ import { Link } from "expo-router";
 import {
   View,
   Text,
-  Pressable,
   TextInput,
   ScrollView,
-  Image,
   StyleSheet,
   useWindowDimensions,
   Linking,
@@ -29,6 +27,11 @@ import type {
   HealthView,
 } from "@gobbler/shared";
 import { backend } from "../services/backend";
+import { C, font } from "../components/theme";
+import { Button, Chip, Field, Gobbler, Pressable } from "../components/ui";
+import { useError } from "../components/ErrorModal";
+import { SignInCard } from "../components/SignInCard";
+import { Landing } from "../components/Landing";
 // Blank UI form state only; domain defaults are returned by bootstrap.
 const blankProfile: Profile = {
   name: "",
@@ -40,17 +43,6 @@ const blankProfile: Profile = {
 };
 const CAMPUS_TZ = "America/New_York"; // presentation formatting only
 import { DateTime } from "luxon";
-const C = {
-  ink: "#30232B",
-  muted: "#746770",
-  maroon: "#6B183B",
-  orange: "#D44C19",
-  cream: "#FFF8EC",
-  paper: "#FBFAF7",
-  line: "#E8E1DE",
-  green: "#28684C",
-  pink: "#F5E9EC",
-};
 type Page =
   | "landing"
   | "discover"
@@ -70,6 +62,7 @@ const date = (s: string, fmt = "ccc, LLL d · h:mm a") =>
   DateTime.fromISO(s).setZone(CAMPUS_TZ).toFormat(fmt);
 
 function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
+  const reportError = useError();
   const [audioUrl, setAudioUrl] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
@@ -88,11 +81,13 @@ function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
   return (
     <View style={{ gap: 10 }}>
       <Button
-        label={busy ? "Preparing Gobbler’s voice…" : "Listen to Gobbler"}
+        label="Listen to Gobbler"
         icon="volume-high-outline"
         secondary
         disabled={!enabled || busy || !!audioUrl}
+        loading={busy}
         onPress={async () => {
+          reportError("");
           setBusy(true);
           setNotice("");
           try {
@@ -104,7 +99,7 @@ function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
             );
             setNotice("Your audio is ready. Press play to listen.");
           } catch (e) {
-            setNotice(
+            reportError(
               e instanceof Error
                 ? e.message
                 : "Voice is unavailable. You can still read the events below.",
@@ -141,110 +136,19 @@ function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
     </View>
   );
 }
-function Button({
-  label,
-  onPress,
-  secondary = false,
-  disabled = false,
-  icon,
-}: {
-  label: string;
-  onPress: () => void;
-  secondary?: boolean;
-  disabled?: boolean;
-  icon?: React.ComponentProps<typeof Ionicons>["name"];
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
-        s.button,
-        secondary && s.buttonSecondary,
-        disabled && { opacity: 0.45 },
-        pressed && { opacity: 0.75 },
-      ]}
-    >
-      {icon && (
-        <Ionicons
-          name={icon}
-          size={18}
-          color={secondary ? C.maroon : "white"}
-        />
-      )}
-      <Text style={[s.buttonText, secondary && { color: C.maroon }]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-function Chip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active?: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[s.chip, active && s.activeChip]}
-    >
-      <Text style={[s.chipText, active && { color: "white" }]}>{label}</Text>
-    </Pressable>
-  );
-}
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  secure = false,
-}: {
-  label: string;
-  value: string;
-  onChange: (x: string) => void;
-  placeholder?: string;
-  secure?: boolean;
-}) {
-  return (
-    <View style={{ gap: 7 }}>
-      <Text style={s.label}>{label}</Text>
-      <TextInput
-        accessibilityLabel={label}
-        style={s.input}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={C.muted}
-        secureTextEntry={secure}
-        autoCapitalize="none"
-      />
-    </View>
-  );
-}
-const mascot = require("../assets/gobbler-mascot.png");
-function Gobbler({ size = 64 }: { size?: number }) {
-  return (
-    <Image
-      source={mascot}
-      accessibilityLabel="Gobbler, a friendly turkey wearing a backpack"
-      style={{ width: size, height: size }}
-      resizeMode="contain"
-    />
-  );
-}
 export default function Home() {
+  const setError = useError();
   const { width } = useWindowDimensions(),
     mobile = width < 800;
   const impressions = useRef(new Set<string>());
-  const [page, setPage] = useState<Page>("landing"),
+  const scroll = useRef<ScrollView>(null);
+  const requestedPage =
+    Platform.OS === "web"
+      ? new URLSearchParams(location.search).get("page")
+      : null;
+  const [page, setPage] = useState<Page>(
+      requestedPage === "auth" ? "auth" : "landing",
+    ),
     [user, setUser] = useState<UserSummary | null>(null),
     [profile, setProfile] = useState<Profile>(blankProfile),
     [emptyProfile, setEmptyProfile] = useState<Profile>(blankProfile),
@@ -259,7 +163,6 @@ export default function Home() {
     [calendar, setCalendar] = useState(false),
     [destination, setDestination] = useState("ics"),
     [loading, setLoading] = useState(false),
-    [error, setError] = useState(""),
     [toast, setToast] = useState(""),
     [connections, setConnections] = useState<ConnectionView[]>([]),
     [sources, setSources] = useState<Record<string, SourceHealth>>({}),
@@ -310,9 +213,12 @@ export default function Home() {
     setCalendar(false);
     setError("");
     if (Platform.OS === "web") {
-      document.title = `${p === "landing" ? "Your little guide to campus life" : p.charAt(0).toUpperCase() + p.slice(1)} · My Little Gobbler`;
+      document.title = "My Gobbler";
     }
   };
+  useEffect(() => {
+    scroll.current?.scrollTo({ y: 0, animated: false });
+  }, [page, selected]);
   useEffect(() => {
     if (!user && page !== "landing" && page !== "auth") setPage("auth");
   }, [user, page]);
@@ -338,7 +244,7 @@ export default function Home() {
       })
       .catch(() =>
         setError(
-          "The backend is unavailable. Start the backend to use this app.",
+          "We can’t reach My Gobbler right now. Check your connection and try again.",
         ),
       );
     backend
@@ -353,12 +259,14 @@ export default function Home() {
         setSaved(me.saved);
         setFeedback(me.feedback);
         setPage(
-          me.profile.onboarded
-            ? Platform.OS === "web" &&
-              new URLSearchParams(location.search).get("page") === "settings"
-              ? "settings"
-              : "discover"
-            : "onboarding",
+          requestedPage === "landing" || requestedPage === "auth"
+            ? requestedPage
+            : me.profile.onboarded
+              ? Platform.OS === "web" &&
+                new URLSearchParams(location.search).get("page") === "settings"
+                ? "settings"
+                : "discover"
+              : "onboarding",
         );
       })
       .catch(() => {});
@@ -463,7 +371,7 @@ export default function Home() {
         );
       }
       notify(
-        next ? "Saved to your little list." : "Removed from saved events.",
+        next ? "Added to your saved plans." : "Removed from saved events.",
       );
     });
   const viewEvent = (e: CampusEvent) => {
@@ -483,7 +391,7 @@ export default function Home() {
         );
         const a = document.createElement("a");
         a.href = url;
-        a.download = `my-little-gobbler-${e.id}.ics`;
+        a.download = `my-gobbler-${e.id}.ics`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -509,7 +417,10 @@ export default function Home() {
           ? "#F1DFE7"
           : "#EEEAF5";
     return (
-      <View style={[s.eventCard, !mobile && !compact && { width: "48%" }]}>
+      <View
+        testID="event-card"
+        style={[s.eventCard, !mobile && !compact && { width: "48%" }]}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={"View " + e.title}
@@ -744,19 +655,26 @@ export default function Home() {
   return (
     <View style={s.root}>
       <ScrollView
+        ref={scroll}
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
+        stickyHeaderIndices={[0]}
       >
-        <View style={s.header}>
+        <View style={[s.header, { paddingHorizontal: mobile ? 24 : 56 }]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="My Little Gobbler home"
+            accessibilityLabel="My Gobbler home"
             style={s.brand}
             onPress={() => go("landing")}
           >
-            <Gobbler size={49} />
-            <Text style={[s.brandText, mobile && { fontSize: 17 }]}>
-              My Little Gobbler<Text style={{ color: C.orange }}>.</Text>
+            <Gobbler head size={46} decorative />
+            <Text
+              style={[
+                s.brandText,
+                mobile && { fontFamily: font, fontSize: 17 },
+              ]}
+            >
+              My Gobbler
             </Text>
           </Pressable>
           <Link href="/clubs" style={{ color: C.maroon, padding: 10 }}>
@@ -772,7 +690,10 @@ export default function Home() {
                     onPress={() => go(p)}
                     style={[
                       s.navItem,
-                      page === p && { borderBottomColor: C.maroon },
+                      page === p && {
+                        borderBottomColor: C.maroon,
+                        backgroundColor: C.pink,
+                      },
                     ]}
                   >
                     <Text
@@ -790,21 +711,30 @@ export default function Home() {
               )}
             </View>
           )}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={user ? "Settings" : "Sign in"}
-            onPress={() => {
-              if (!user) setSignUp(false);
-              go(user ? "settings" : "auth");
-            }}
-            style={s.avatar}
-          >
-            <Ionicons
-              name={user ? "settings-outline" : "person-outline"}
-              size={22}
-              color={C.maroon}
+          {user ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              onPress={() => go("settings")}
+              style={s.avatar}
+            >
+              <Ionicons
+                accessible={false}
+                name="settings-outline"
+                size={22}
+                color={C.maroon}
+              />
+            </Pressable>
+          ) : (
+            <Button
+              secondary
+              label="Sign in"
+              onPress={() => {
+                setSignUp(false);
+                go("auth");
+              }}
             />
-          </Pressable>
+          )}
         </View>
 
         {mobile && page !== "landing" && page !== "auth" && (
@@ -843,13 +773,7 @@ export default function Home() {
             )}
           </View>
         )}
-        <View style={[s.main, { paddingHorizontal: mobile ? 20 : 44 }]}>
-          {!!error && (
-            <View accessibilityRole="alert" style={s.error}>
-              <Text style={[s.body, { color: "#8C2525" }]}>{error}</Text>
-              <Button secondary label="Dismiss" onPress={() => setError("")} />
-            </View>
-          )}
+        <View style={[s.main, { paddingHorizontal: mobile ? 24 : 56 }]}>
           {!!toast && (
             <View accessibilityLiveRegion="polite" style={s.toast}>
               <Text style={s.body}>{toast}</Text>
@@ -862,168 +786,38 @@ export default function Home() {
             </View>
           )}
           {page === "landing" && (
-            <>
-              <View
-                style={[
-                  s.hero,
-                  mobile && { flexDirection: "column", paddingVertical: 28 },
-                ]}
-              >
-                <View style={{ flex: 1, gap: 24 }}>
-                  <View style={s.eyebrow}>
-                    <Text style={s.eyebrowText}>
-                      A LITTLE CURIOUS. A LOT TO DISCOVER.
-                    </Text>
-                  </View>
-                  <Text
-                    accessibilityRole="header"
-                    style={[
-                      s.heroTitle,
-                      mobile && { fontSize: 44, lineHeight: 49 },
-                    ]}
-                  >
-                    Find your people.{"\n"}Make your campus
-                    <Text style={{ color: C.orange }}> yours.</Text>
-                  </Text>
-                  <Text
-                    style={[
-                      s.body,
-                      { fontSize: 19, lineHeight: 29, maxWidth: 480 },
-                    ]}
-                  >
-                    Meet My Little Gobbler. Your little guide to campus life,
-                    with things you’ll love and time to actually do them.
-                  </Text>
-                  <View style={s.wrap}>
-                    <Button
-                      label="Sign in"
-                      icon="sparkles-outline"
-                      onPress={() => {
-                        setSignUp(false);
-                        go("auth");
-                      }}
-                    />
-                    <Button
-                      label="Create your account"
-                      secondary
-                      onPress={() => {
-                        setSignUp(true);
-                        go("auth");
-                      }}
-                    />
-                  </View>
-                  <Text style={s.meta}>
-                    Sign in to discover events, save favorites, and connect your
-                    calendar.
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    s.mascotHero,
-                    mobile && { width: "100%", minHeight: 270 },
-                  ]}
-                >
-                  <View style={s.mascotCircle}>
-                    <Gobbler size={mobile ? 270 : 350} />
-                  </View>
-                  <View style={s.speech}>
-                    <Text
-                      style={{
-                        fontSize: 17,
-                        fontWeight: "700",
-                        color: C.maroon,
-                      }}
-                    >
-                      Hey, Hokie. Let’s get you out there.
-                    </Text>
-                  </View>
-                </View>
-              </View>
-              <View style={[s.steps, mobile && { flexDirection: "column" }]}>
-                {[
-                  [
-                    "01",
-                    "A little about you",
-                    "Pick your interests and tell us when you have time.",
-                  ],
-                  [
-                    "02",
-                    "A few good possibilities",
-                    "Explore real campus listings with clear reasons they fit.",
-                  ],
-                  [
-                    "03",
-                    "Something to look forward to",
-                    "Save a favorite or bring it along to your calendar.",
-                  ],
-                ].map(([n, title, copy]) => (
-                  <View key={n} style={{ flex: 1, gap: 12 }}>
-                    <Text style={s.stepNumber}>{n}</Text>
-                    <Text style={s.sectionTitle}>{title}</Text>
-                    <Text style={s.body}>{copy}</Text>
-                  </View>
-                ))}
-              </View>
-              <View
-                style={[
-                  s.row,
-                  {
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    paddingVertical: 32,
-                    gap: 16,
-                  },
-                ]}
-              >
-                <Text style={s.sectionTitle}>
-                  Campus is happening. Find your part in it.
-                </Text>
-                <Button
-                  label="Sign in to explore events"
-                  secondary
-                  onPress={() => {
-                    go("discover");
-                  }}
-                />
-              </View>
-            </>
+            <Landing
+              signedIn={!!user}
+              onStart={() => {
+                if (user) go("discover");
+                else {
+                  setSignUp(true);
+                  go("auth");
+                }
+              }}
+              onSignIn={() => {
+                setSignUp(false);
+                go("auth");
+              }}
+            />
           )}
           {page === "auth" && (
-            <View
-              style={[
-                s.panel,
-                {
-                  maxWidth: 520,
-                  alignSelf: "center",
-                  width: "100%",
-                  marginVertical: 28,
-                },
-              ]}
-            >
-              <Gobbler size={90} />
-              <Text accessibilityRole="header" style={s.pageTitle}>
-                {signUp ? "A little more you." : "Welcome back, Hokie."}
-              </Text>
-              <Text style={s.body}>
-                {signUp
-                  ? "Create an account to keep your interests, saved events, and schedule together."
-                  : "Sign in to pick up where you left off."}
-              </Text>
-              {signUp && (
-                <Field label="Your name" value={name} onChange={setName} />
-              )}
-              <Field label="Email" value={email} onChange={setEmail} />
-              <Field
-                label="Password (at least 12 characters)"
-                value={password}
-                onChange={setPassword}
-                secure
-              />
-              <Button
-                label={signUp ? "Create account" : "Sign in"}
-                disabled={loading}
-                onPress={() =>
-                  run(async () => {
+            <SignInCard
+              signUp={signUp}
+              name={name}
+              email={email}
+              password={password}
+              loading={loading}
+              setName={setName}
+              setEmail={setEmail}
+              setPassword={setPassword}
+              onToggle={() => {
+                setSignUp(!signUp);
+                setPassword("");
+              }}
+              onSubmit={() => {
+                if (!loading)
+                  void run(async () => {
                     await (signUp ? backend.signUp : backend.signIn)({
                       email,
                       password,
@@ -1033,24 +827,9 @@ export default function Home() {
                     setPassword("");
                     const me = await loadMe();
                     go(me.profile.onboarded ? "discover" : "onboarding");
-                  })
-                }
-              />
-              <Button
-                secondary
-                label={
-                  signUp
-                    ? "Already have an account? Sign in"
-                    : "New here? Create an account"
-                }
-                onPress={() => setSignUp(!signUp)}
-              />
-              {!health.accounts && (
-                <Text style={s.meta}>
-                  Sign-in is temporarily unavailable. Please try again later.
-                </Text>
-              )}
-            </View>
+                  });
+              }}
+            />
           )}
           {user && page === "onboarding" && (
             <View
@@ -1108,11 +887,14 @@ export default function Home() {
                   </Text>
                   <Text
                     accessibilityRole="header"
-                    style={[s.pageTitle, mobile && { fontSize: 30 }]}
+                    style={[
+                      s.pageTitle,
+                      mobile && { fontFamily: font, fontSize: 30 },
+                    ]}
                   >
                     {profile.onboarded
-                      ? `Hey, ${profile.name}. What’s your next little adventure?`
-                      : "There’s a little something for everyone."}
+                      ? `Hey, ${profile.name}. Find your kind of day.`
+                      : "Find your corner of campus."}
                   </Text>
                   <Text style={s.body}>
                     Good company. New interests. A reason to close your laptop.
@@ -1141,7 +923,7 @@ export default function Home() {
                 ]}
               >
                 <View>
-                  <Text style={s.sectionTitle}>Your next campus moment</Text>
+                  <Text style={s.sectionTitle}>Good things on campus</Text>
                   <Text style={[s.meta, { marginTop: 7 }]}>
                     {"Real campus listings, with room to explore."}
                   </Text>
@@ -1159,7 +941,13 @@ export default function Home() {
                   placeholderTextColor={C.muted}
                   value={search}
                   onChangeText={setSearch}
-                  style={{ flex: 1, fontSize: 16, color: C.ink, padding: 12 }}
+                  style={{
+                    flex: 1,
+                    fontFamily: font,
+                    fontSize: 16,
+                    color: C.ink,
+                    padding: 12,
+                  }}
                 />
               </View>
               <ScrollView
@@ -1190,13 +978,13 @@ export default function Home() {
                 <View style={s.panel}>
                   <Text style={s.sectionTitle}>
                     {events.length
-                      ? "No little adventures match these filters."
+                      ? "No events match just yet."
                       : "No current listings are available."}
                   </Text>
                   <Text style={s.body}>
                     {events.length
                       ? "Try another interest or a wider date range."
-                      : "The campus feed may still be refreshing. We never replace missing live events with samples."}
+                      : "The campus feed may still be refreshing. Try again in a moment."}
                   </Text>
                   <Button
                     secondary
@@ -1379,6 +1167,7 @@ export default function Home() {
                   </Text>
                   <Button
                     disabled={loading}
+                    loading={loading}
                     label={
                       destination === "ics"
                         ? "Download calendar file"
@@ -1784,7 +1573,7 @@ export default function Home() {
                     <Text style={s.sectionTitle}>Your data, your choice</Text>
                     <Text style={s.body}>
                       {
-                        "Delete your profile, saved events, connections, and private schedule from My Little Gobbler. Events already added to external calendars remain there."
+                        "Delete your profile, saved events, connections, and private schedule from My Gobbler. Events already added to external calendars remain there."
                       }
                     </Text>
                     {user && (
@@ -1857,23 +1646,29 @@ export default function Home() {
           )}
         </View>
         <View style={s.footer}>
-          <Text style={[s.brandText, { fontSize: 17 }]}>
-            My Little Gobbler.
+          <View style={[s.brand, { gap: 12 }]}>
+            <Gobbler head size={46} decorative />
+            <Text style={[s.brandText, { color: "#FFF8F2" }]}>My Gobbler</Text>
+          </View>
+          <Text style={[s.meta, { color: "#F6D9C6", textAlign: "center" }]}>
+            Your campus. Your kind of day.
           </Text>
-          <Text style={[s.meta, { textAlign: "center" }]}>
-            Your little guide to campus life.
+          <Text
+            style={[
+              s.small,
+              { color: "#F6D9C6", textAlign: "center", maxWidth: 510 },
+            ]}
+          >
+            Made with Hokie spirit. Student-built and independently run. Not
+            affiliated with or endorsed by Virginia Tech.
           </Text>
-          <Text style={[s.small, { textAlign: "center" }]}>
-            Student-built with a little Hokie spirit. Not affiliated with or
-            endorsed by Virginia Tech.
+          <Text style={[s.small, { color: "#F6D9C6" }]}>
+            © {new Date().getFullYear()} My Gobbler
           </Text>
         </View>
       </ScrollView>
     </View>
   );
-}
-function brFallback() {
-  return null;
 }
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.paper },
@@ -1890,15 +1685,16 @@ const s = StyleSheet.create({
   },
   brand: { flexDirection: "row", alignItems: "center", gap: 8 },
   brandText: {
-    fontSize: 22,
-    fontWeight: "800",
+    fontFamily: font,
+    fontSize: 25,
+    fontWeight: "900",
     color: C.maroon,
     letterSpacing: -0.7,
   },
   avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: C.cream,
     alignItems: "center",
     justifyContent: "center",
@@ -1911,58 +1707,42 @@ const s = StyleSheet.create({
     gap: 10,
   },
   navItem: {
-    paddingVertical: 28,
-    paddingHorizontal: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     borderBottomWidth: 3,
     borderBottomColor: "transparent",
   },
-  navText: { fontSize: 15, color: C.muted },
+  navText: { fontFamily: font, fontSize: 15, color: C.muted },
   main: {
     width: "100%",
     maxWidth: 1240,
     alignSelf: "center",
-    paddingVertical: 32,
+    paddingVertical: 40,
     gap: 24,
     flex: 1,
   },
-  hero: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 25,
-    paddingVertical: 64,
-  },
-  heroTitle: {
-    fontSize: 61,
-    lineHeight: 66,
-    fontWeight: "800",
-    color: C.maroon,
-    letterSpacing: -2.4,
-  },
-  eyebrow: {
-    alignSelf: "flex-start",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "#F3E8D7",
-  },
   eyebrowText: {
+    fontFamily: font,
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 1.5,
     color: C.maroon,
   },
-  body: { fontSize: 16, lineHeight: 25, color: C.ink },
-  meta: { fontSize: 14, lineHeight: 21, color: C.muted },
-  small: { fontSize: 12, lineHeight: 18, color: C.muted },
-  label: { fontSize: 14, fontWeight: "700", color: C.ink },
+  body: { fontFamily: font, fontSize: 16, lineHeight: 25, color: C.ink },
+  meta: { fontFamily: font, fontSize: 14, lineHeight: 21, color: C.muted },
+  small: { fontFamily: font, fontSize: 12, lineHeight: 18, color: C.muted },
+  label: { fontFamily: font, fontSize: 14, fontWeight: "700", color: C.ink },
   pageTitle: {
-    fontSize: 37,
+    fontFamily: font,
+    fontSize: 36,
     lineHeight: 44,
     fontWeight: "800",
     letterSpacing: -1.1,
     color: C.maroon,
   },
   sectionTitle: {
+    fontFamily: font,
     fontSize: 22,
     lineHeight: 29,
     fontWeight: "700",
@@ -1970,108 +1750,39 @@ const s = StyleSheet.create({
     color: C.ink,
   },
   eventTitle: {
+    fontFamily: font,
     fontSize: 22,
     lineHeight: 27,
     fontWeight: "700",
     letterSpacing: -0.4,
     color: C.ink,
   },
-  button: {
-    minHeight: 48,
-    borderRadius: 10,
-    backgroundColor: C.maroon,
-    paddingHorizontal: 20,
-    paddingVertical: 13,
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "center",
-    alignItems: "center",
+  linkText: {
+    fontFamily: font,
+    fontSize: 14,
+    fontWeight: "700",
+    color: C.maroon,
   },
-  buttonSecondary: {
-    backgroundColor: "white",
-    borderWidth: 1,
-    borderColor: "#D7C6C9",
-  },
-  buttonText: { fontSize: 15, fontWeight: "700", color: "white" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#DCCFD0",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 16,
-    color: C.ink,
-    backgroundColor: "white",
-    minHeight: 48,
-  },
-  chip: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: C.line,
-    backgroundColor: "white",
-  },
-  activeChip: { backgroundColor: C.maroon, borderColor: C.maroon },
-  chipText: { fontSize: 14, fontWeight: "500", color: C.ink },
-  linkText: { fontSize: 14, fontWeight: "700", color: C.maroon },
   panel: {
     backgroundColor: "white",
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: C.line,
     borderRadius: 16,
     padding: 24,
     gap: 18,
   },
-  mascotHero: {
-    width: "45%",
-    minHeight: 390,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mascotCircle: {
-    borderRadius: 200,
-    backgroundColor: "#FBE6C4",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 10,
-  },
-  speech: {
-    backgroundColor: "white",
-    borderWidth: 1,
-    borderColor: C.line,
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    marginTop: -12,
-    transform: [{ rotate: "-3deg" }],
-  },
-  steps: {
-    flexDirection: "row",
-    gap: 40,
-    paddingVertical: 38,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: C.line,
-  },
-  stepNumber: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: C.orange,
-    letterSpacing: 2,
-  },
   welcome: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: C.cream,
+    backgroundColor: "#FFEECF",
     padding: 32,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#F0E6D7",
+    borderWidth: 2,
+    borderColor: "#EDD9AF",
     gap: 20,
   },
   searchBar: {
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: C.line,
     borderRadius: 12,
     backgroundColor: "white",
@@ -2085,11 +1796,12 @@ const s = StyleSheet.create({
   },
   eventCard: {
     width: "100%",
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: C.line,
     borderRadius: 16,
     backgroundColor: "white",
     overflow: "hidden",
+    boxShadow: "0 4px 0 #E7D8CD",
   },
   eventTop: {
     height: 143,
@@ -2106,12 +1818,19 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   dateMonth: {
+    fontFamily: font,
     fontSize: 12,
     fontWeight: "700",
     color: C.maroon,
     letterSpacing: 1,
   },
-  dateDay: { fontSize: 27, lineHeight: 32, fontWeight: "700", color: C.maroon },
+  dateDay: {
+    fontFamily: font,
+    fontSize: 27,
+    lineHeight: 32,
+    fontWeight: "700",
+    color: C.maroon,
+  },
   categoryTag: {
     alignSelf: "flex-start",
     backgroundColor: "#FFFFFFBB",
@@ -2131,18 +1850,21 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    padding: 6,
+    padding: 10,
+    borderWidth: 2,
+    borderColor: C.line,
+    borderRadius: 12,
+    backgroundColor: C.paper,
   },
   columns: { flexDirection: "row", gap: 28, alignItems: "flex-start" },
   divider: { height: 1, backgroundColor: C.line },
-  error: { backgroundColor: "#FFF0F0", borderRadius: 12, padding: 18, gap: 10 },
   toast: { backgroundColor: "#EBF4EB", padding: 14, borderRadius: 10 },
   footer: {
     alignItems: "center",
     gap: 9,
     borderTopWidth: 1,
     borderColor: C.line,
-    padding: 28,
-    backgroundColor: "white",
+    padding: 40,
+    backgroundColor: C.burgundy,
   },
 });

@@ -81,7 +81,7 @@ export function createApp() {
   const auth =
     db && process.env.BETTER_AUTH_SECRET
       ? betterAuth({
-          appName: "My Little Gobbler",
+          appName: "My Gobbler",
           baseURL: config.origin,
           secret: process.env.BETTER_AUTH_SECRET,
           database: mongodbAdapter(db, { client: mongoClient }),
@@ -111,7 +111,7 @@ export function createApp() {
     )
       return res
         .status(403)
-        .json({ message: "This request must come from My Little Gobbler." });
+        .json({ message: "This request must come from My Gobbler." });
     next();
   });
   const protect = async (req: Request, res: Response, next: NextFunction) => {
@@ -211,7 +211,7 @@ export function createApp() {
   app.get("/api/health", (_req, res) =>
     res.json({
       ok: true,
-      name: "My Little Gobbler",
+      name: "My Gobbler",
       database: !!db,
       accounts: !!auth,
       gemini: !!process.env.GEMINI_API_KEY,
@@ -235,7 +235,7 @@ export function createApp() {
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="my-little-gobbler-${e.id.replace(/[^a-zA-Z0-9-]/g, "")}.ics"`,
+      `attachment; filename="my-gobbler-${e.id.replace(/[^a-zA-Z0-9-]/g, "")}.ics"`,
     );
     res.send(eventICS(e));
   });
@@ -513,7 +513,18 @@ export function createApp() {
   });
   const publicDir = resolve(process.cwd(), "apps/frontend/dist");
   if (existsSync(publicDir)) {
-    app.use(express.static(publicDir, { maxAge: "1h" }));
+    app.use(
+      express.static(publicDir, {
+        maxAge: "1h",
+        // Public asset response hook: only HTML cache headers change. No auth,
+        // persistence, retry or transaction. Revalidate the entry document so a
+        // deployment cannot leave browsers running a retired frontend for an hour.
+        setHeaders(res, filePath) {
+          if (filePath.endsWith(".html"))
+            res.setHeader("Cache-Control", "no-cache");
+        },
+      }),
+    );
     app.get("/{*path}", (req, res, next) =>
       req.path.startsWith("/api/")
         ? next()

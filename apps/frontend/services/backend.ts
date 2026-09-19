@@ -12,12 +12,32 @@ async function request<K extends keyof HttpApi>(
     headers:
       body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch(() => {
+    throw new Error(
+      "We can’t reach My Gobbler right now. Check your connection and try again.",
+    );
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    throw new Error(
-      error.message || "The backend is unavailable. Please try again.",
-    );
+    const message = typeof error.message === "string" ? error.message : "";
+    const friendly =
+      response.status >= 500
+        ? "We couldn’t finish that request. Give us a moment, then try again."
+        : response.status === 429
+          ? "A few too many requests at once. Wait a moment, then try again."
+          : path === "/auth/sign-in/email" && response.status === 401
+            ? "We couldn’t sign you in. Check your email and password, then try again."
+            : /invalid email/i.test(message)
+              ? "That email looks incomplete. Enter your email address and try again."
+              : /password.*short|password.*12/i.test(message)
+                ? "Your password needs at least 12 characters. Add a few more and try again."
+                : /already exists|already registered|email.*taken/i.test(
+                      message,
+                    )
+                  ? "That email already has a Gobbler account. Try signing in instead."
+                  : message ||
+                    "We couldn’t finish that request. Check your details and try again.";
+    throw new Error(friendly);
   }
   if (response.headers.get("content-type")?.includes("audio/")) {
     return {

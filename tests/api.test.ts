@@ -2,6 +2,9 @@ import { testEvents } from "./fixtures/events.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { emptyProfile } from "../apps/backend/src/domain.js";
@@ -15,11 +18,30 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
   const store = await import("../apps/backend/src/store.js");
   await store.connectDB();
   const { createApp } = await import("../apps/backend/src/app.js");
-  const app = createApp();
+  const originalCwd = process.cwd();
+  const fixtureRoot = mkdtempSync(join(tmpdir(), "gobbler-http-assets-"));
+  const fixturePublic = join(fixtureRoot, "apps/frontend/dist");
+  mkdirSync(fixturePublic, { recursive: true });
+  writeFileSync(
+    join(fixturePublic, "index.html"),
+    "<!doctype html><title>Gobbler test</title>",
+  );
+  // Public HTML regression fixture; independent of an Expo build. Only app
+  // construction needs the fixture cwd; request handlers retain its absolute path.
+  let app: ReturnType<typeof createApp>;
+  try {
+    process.chdir(fixtureRoot);
+    app = createApp();
+  } finally {
+    process.chdir(originalCwd);
+  }
   const a = request.agent(app),
     b = request.agent(app),
     origin = "http://localhost:3000";
   try {
+    const landing = await request(app).get("/");
+    assert.equal(landing.status, 200);
+    assert.match(landing.headers["cache-control"], /no-cache|max-age=0/);
     const unauth = await request(app).get("/api/me");
     assert.equal(unauth.status, 401);
     assert.equal(
@@ -472,6 +494,7 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
       0,
     );
   } finally {
+    rmSync(fixtureRoot, { recursive: true, force: true });
     await store.mongoClient?.close();
     await mongo.stop();
   }

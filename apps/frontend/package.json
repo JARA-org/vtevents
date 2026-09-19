@@ -5,7 +5,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start --web",
-    "build": "expo export --platform web"
+    "build": "expo export --platform web && node ../../scripts/brand-web.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "*",
