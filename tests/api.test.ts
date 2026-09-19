@@ -15,6 +15,23 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
   process.env.BETTER_AUTH_SECRET = randomBytes(32).toString("hex");
   process.env.TOKEN_ENCRYPTION_KEY = randomBytes(32).toString("hex");
   process.env.APP_ORIGIN = "http://localhost:3000";
+  // This test process owns only its isolated Mongo replica set and synthetic
+  // provider fixtures. Empty values prevent dotenv from importing live local
+  // credentials; individual provider cases install mocks below. No real cloud
+  // access, retries or cross-test transaction is permitted by this fixture.
+  for (const key of [
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "CANVAS_CLIENT_ID",
+    "CANVAS_CLIENT_SECRET",
+    "GEMINI_API_KEY",
+    "ELEVENLABS_API_KEY",
+    "ELEVENLABS_VOICE_ID",
+    "DATABRICKS_HOST",
+    "DATABRICKS_TOKEN",
+    "DATABRICKS_WAREHOUSE_ID",
+  ])
+    process.env[key] = "";
   const store = await import("../apps/backend/src/store.js");
   await store.connectDB();
   const { createApp } = await import("../apps/backend/src/app.js");
