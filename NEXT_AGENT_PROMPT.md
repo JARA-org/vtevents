@@ -33,7 +33,7 @@ User authorizes creating necessary **free** accounts/resources/credentials under
 - GitHub CLI authenticated as `0utsights` (John Surles), has JARA-org access. Other account `theuser2012` is inactive; do not switch identities casually.
 - No production credentials found. No Atlas/Render/Gemini/Databricks resources provisioned. Owner email requested once; no reply yet. Browser Render tab at login, user takeover requested while implementation continued.
 - Local server was started via `npm run local`, tool session 90146, port 3000, with real local Mongo replica set persisting in ignored `work/local-mongo`. It runs code from its startup and may need restart to include latest backend edits. Generated development secrets are in ignored `work/local-secrets.json`; never print/commit them.
-- Browser automation available through `mcp__cua_repl`. Read its current documentation after context reset. Browser id `1`; Render tab `1`, app tab `2`. These handles may be stale; inspect before reuse. Last viewport override was 390x844 and should be reset before finishing.
+- Browser automation available through `mcp__cua_repl`. Read its current documentation after context reset. Browser id `1`; Render tab `1`, app tab `2`. These handles may be stale; inspect before reuse. Mobile QA used 390x844; viewport was reset to default and both tabs marked for handoff.
 - **Sites project already created exactly once:** `appgprj_6aae24e2bd588191a3b403b7ff3b54ba`, slug `my-little-gobbler`. `.openai/hosting.json` persists it with static directory `apps/frontend/dist`. Private, **not deployed**. DO NOT call create_site again. Obtain refreshed source write credential for this same project if needed, never expose/persist it. Prior functions store keys `gobbler.site` and `gobbler.site.result` might still hold the response, but do not rely on persistence across agents.
 - Static preview is explicitly separate from production: `EXPO_PUBLIC_PREVIEW_ONLY=true`, demo runs in browser and live tab loads a dated public-event snapshot. Accounts/connections are disabled with an honest banner. Generate snapshot with `npx tsx scripts/snapshot.ts`, preview build with `npx tsx scripts/build-preview.ts`. Normal `npm run build` produces full Node deployment frontend (no preview flag). Snapshot file contains only public source records.
 
@@ -43,7 +43,7 @@ User authorizes creating necessary **free** accounts/resources/credentials under
 - 15 tests passed before latest changes; current suite includes mocked Google repeated-write assertion. Re-run and record final results rather than assuming.
 - Desktop landing design and mobile 390px discovery visually inspected. Demo save/details/calendar destination review/ICS download exercised. Mobile document width matched viewport (no horizontal overflow).
 - Test credentials are synthetic; actual personal account data was not used.
-- Final validation command was re-run when preparing this handoff; inspect `PROGRESS.md` for its terminal result.
+- Final handoff validation passed: typecheck, 15/15 tests (including mocked Google repeated-write check), normal production build. Source checkpoint `b9fde92462e32fe0fd7cafd83b71b566ade847e5` pushed to JARA main and remote SHA verified. A subsequent documentation-only commit records this completion.
 
 ## Priority next actions
 

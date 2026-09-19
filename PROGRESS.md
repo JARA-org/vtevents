@@ -21,4 +21,5 @@ Implement shared scheduling/event model, integration modules and security, front
 - Production Atlas, Render, Gemini, Google OAuth, Canvas, Discord and Databricks not provisioned/live-tested. Owner email and Render sign-in were requested; no answer received. No payment method or billable resource enabled.
 - `NEXT_AGENT_PROMPT.md` contains the full resumable takeover prompt. README and docs cover architecture, integration status, resource inventory, tests and demo.
 - 13 moderate transitive dependency audit findings remain; inspect nested lockfile resolution despite overrides. More targeted launch-readiness work is listed in the takeover prompt.
-- Preparing safe source commit/push to existing private `JARA-org/vtevents/main`. Local secrets, database, dependencies and builds are ignored. Audit scratch moved into ignored `work/`.
+- Source checkpoint `b9fde92462e32fe0fd7cafd83b71b566ade847e5` pushed successfully to private `JARA-org/vtevents/main`; local and remote SHAs matched. 45 project files added; staged secret/path scan passed. Local secrets, database, dependencies and builds are ignored. Audit scratch moved into ignored `work/`.
+- Browser viewport reset to default. App and Render sign-in tabs marked for handoff. No production deployment has been claimed.
