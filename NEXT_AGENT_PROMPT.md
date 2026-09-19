@@ -56,7 +56,7 @@ Both original Google reference documents are now **read successfully via Google 
 
 **Restart fix:** MongoMemoryReplSet reuses old replica membership, so persist its port in ignored `work/local-mongo-port`. This checkout's legacy data uses port55739; new checkouts default27027. Stop/start cycle succeeded after patch. Do not delete the database to work around startup. Stop server/Mongo before npm ci on Windows or binary removal gets EPERM.
 
-Last local session: 89786 (may change/be stale); backend began before the final manual-sync status patch. Restart if verifying that patch. Frontend production export is current. Browser viewport reset to default. A synthetic QA account was created; no personal data. Test scripts may use disposable synthetic accounts, never real credentials.
+Last local session: 70802 (may change/be stale), restarted with the latest backend changes. Frontend production export is current. Browser viewport reset to default. A synthetic QA account was created; no personal data. Test scripts may use disposable synthetic accounts, never real credentials.
 
 Browser verified sign-in → interests → Friday recurring availability → live event search → Isidore String Quartet details → save → calendar destination review → ICS feedback. ICS endpoint separately returned HTTP200 text/calendar and valid VCALENDAR. Added busy block; UI changed free→conflict. Friday-after-five assistant returned stored events with conflict notes. Prior desktop1280/mobile390 QA passed. Latest viewport override was not honored (actual512); no horizontal overflow at512. Do not claim fresh390 validation until measured.
 
