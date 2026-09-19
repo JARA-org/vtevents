@@ -6,7 +6,7 @@
 | VT Sports | **Live and tested:** 349 structured records across official sport schedules on 2026-09-19 | None for public metadata; unannounced starts and missing ends remain unknown |
 | Better Auth | **Local tested:** isolated accounts, profiles and deletion against real local Mongo | Production Atlas cluster and secrets |
 | MongoDB Atlas | Implemented, not provisioned | Intended owner email, account sign-in and M0 project/cluster |
-| Gemini | Backend adapter implemented; deterministic fallback tested | Owner’s free-tier project/API key and live model test |
+| Gemini | Structured query/ranking adapter implemented; success/grounding rejection/budget/failure mocked | First-use AI Studio terms, free-tier project/API key and live model test |
 | Google Calendar | OAuth+PKCE, free/busy, write and revoke implemented; duplicate writes tested with mocked provider | Owner Google Cloud project, Calendar API enabled, consent screen, OAuth client, test-user consent |
 | Canvas | Scoped OAuth, paginated courses/calendar/announcements, refresh/revoke and guarded writes implemented | Virginia Tech must issue/enable an OAuth developer key with permitted scopes; user consent; write permission for writes |
 | Discord | OAuth identity/guild checks, bot channel allowlist, selection and private announcement sync implemented | Owner developer application/bot; server admin install; Message Content intent; explicit allowed announcement channel IDs |
@@ -54,6 +54,8 @@ OAuth redirect: `https://YOUR_ORIGIN/api/connections/discord/callback`; user sco
 ## Databricks
 
 Use Free Edition only; do not start a paid workspace or trial requiring a payment method. Configure workspace URL, token, and warehouse ID. Run `npx tsx scripts/provision-analytics.ts`. It creates `workspace.default.gobbler_interactions` through the supported SQL Statement Execution API. `docs/analytics.sql` contains two useful dashboard queries (daily actions, event engagement). Create a dashboard with these datasets once workspace access is available. No deployed dashboard is claimed before that is done.
+
+The official Free Edition signup was reached through https://docs.databricks.com/aws/en/getting-started/free-edition. It requires personal sign-in and terms acceptance. The old `/learn/free` URL returns 404. Free Edition is intended for learning and personal prototypes; reassess its terms if this student project becomes commercial.
 
 ## Official references checked
 

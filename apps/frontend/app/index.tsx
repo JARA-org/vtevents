@@ -412,9 +412,13 @@ export default function Home() {
       const a = document.createElement("a");
       a.href = url;
       a.download = `my-little-gobbler-${e.id}.ics`;
+      document.body.appendChild(a);
       a.click();
+      a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
-      notify("Calendar file downloaded. Open it in your calendar to finish.");
+      notify(
+        "Calendar download started. Open the file in your calendar to finish.",
+      );
     } else Linking.openURL("/api/events/" + e.id + "/ics?mode=" + mode);
   };
   function EventCard({
@@ -734,7 +738,10 @@ export default function Home() {
             accessibilityLabel={
               user || mode === "demo" ? "Settings" : "Sign in"
             }
-            onPress={() => go(user || mode === "demo" ? "settings" : "auth")}
+            onPress={() => {
+              if (!user && mode !== "demo") setSignUp(false);
+              go(user || mode === "demo" ? "settings" : "auth");
+            }}
             style={s.avatar}
           >
             <Ionicons
@@ -1523,7 +1530,7 @@ export default function Home() {
                   {mode === "demo"
                     ? "Demo Gobbler uses sample events and deterministic matching."
                     : profile.aiEnabled
-                      ? "Gemini can interpret your question. Schedule checks and event details come from app records."
+                      ? "Gemini can match your question to campus events. Schedule checks and explanations come from app records."
                       : "Gobbler uses deterministic matching. Enable Gemini in Settings to interpret more natural questions."}
                 </Text>
               </View>
@@ -1595,11 +1602,12 @@ export default function Home() {
                         color={C.maroon}
                       />
                       <Text style={[s.body, { flex: 1 }]}>
-                        Use Gemini to understand my questions
+                        Use Gemini to match my interests and questions
                       </Text>
                     </Pressable>
                     <Text style={s.meta}>
-                      When enabled, your typed question is sent to Google
+                      When enabled, your typed question, selected interest
+                      categories, and public event listings are sent to Google
                       Gemini. Don’t include private details. Calendar contents,
                       tokens, and Discord messages are never sent. Google’s free
                       tier may use prompts to improve its products.

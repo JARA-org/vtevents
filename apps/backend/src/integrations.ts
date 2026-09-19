@@ -346,7 +346,7 @@ export async function addCalendar(userId: string, p: Provider, e: CampusEvent) {
       400,
       "Sample events cannot be written to a connected calendar. Use the sample ICS download.",
     );
-  if (!e.end || e.endEstimated || e.status === "cancelled")
+  if (!e.end || e.endEstimated || e.timeTBD || e.status === "cancelled")
     throw new HttpError(
       400,
       "This event needs confirmed start and end times before adding it.",

@@ -19,13 +19,13 @@ const text = (s: unknown) =>
       : "";
 export function classify(s: string): CampusEvent["categories"] {
   const rules = [
-    /art|music|dance|paint|film|theat|craft/i,
-    /sport|soccer|football|volley|basketball|wrestl/i,
-    /outdoor|hik|trail|nature|climb/i,
-    /tech|cod|scien|engineer|robot|hack/i,
-    /communit|volunteer|service|cultur|internation/i,
-    /career|internship|resume|networking/i,
-    /food|coffee|cookie|social|game|trivia/i,
+    /\b(?:arts?|music\w*|danc\w*|paint\w*|film\w*|theat\w*|craft\w*|pottery)\b/i,
+    /\b(?:sports?|soccer|football|volley\w*|basketball|wrestl\w*)\b/i,
+    /\b(?:outdoors?|hike\w*|hiking|trails?|nature|climb\w*)\b/i,
+    /\b(?:technology|coding|code|scien\w*|engineer\w*|robot\w*|hack\w*)\b/i,
+    /\b(?:communit\w*|volunteer\w*|service|cultur\w*|international)\b/i,
+    /\b(?:career\w*|internship\w*|resume|networking)\b/i,
+    /\b(?:food|coffee|cookies?|social\w*|games?|trivia|dinner|picnic)\b/i,
   ];
   return categories.filter((_, i) => rules[i].test(s));
 }
@@ -202,8 +202,12 @@ export async function fetchSports() {
         .slice(i, i + 3)
         .map(async (url) => parseSports(await (await remote(url)).text(), url)),
     );
-    for (const r of results)
-      if (r.status === "fulfilled") events.push(...r.value);
+    // Partial snapshots must not remove events from a failed schedule.
+    for (const r of results) {
+      if (r.status === "rejected")
+        throw new Error("An official sports schedule could not be refreshed.");
+      events.push(...r.value);
+    }
   }
   if (!events.length)
     throw new Error(

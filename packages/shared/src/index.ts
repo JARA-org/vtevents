@@ -111,15 +111,27 @@ export function scheduleFit(event: CampusEvent, profile: Profile): Fit {
       reason: "Overlaps a busy block in your schedule.",
     };
   const intervals: { start: number; end: number; kind: string }[] = [];
+  let ambiguousTime = false;
   for (let day = start.startOf("day"); day <= end; day = day.plus({ days: 1 }))
     for (const b of profile.recurring.filter(
       (b) => b.weekday === day.weekday,
     )) {
       const [sh, sm] = b.start.split(":").map(Number),
         [eh, em] = b.end.split(":").map(Number);
+      const blockStart = day.set({ hour: sh, minute: sm }),
+        blockEnd = day.set({ hour: eh, minute: em });
+      if (
+        blockStart.toFormat("HH:mm") !== b.start ||
+        blockEnd.toFormat("HH:mm") !== b.end ||
+        blockStart.getPossibleOffsets().length > 1 ||
+        blockEnd.getPossibleOffsets().length > 1
+      ) {
+        ambiguousTime = true;
+        continue;
+      }
       intervals.push({
-        start: day.set({ hour: sh, minute: sm }).toMillis(),
-        end: day.set({ hour: eh, minute: em }).toMillis(),
+        start: blockStart.toMillis(),
+        end: blockEnd.toMillis(),
         kind: b.kind,
       });
     }
@@ -132,6 +144,12 @@ export function scheduleFit(event: CampusEvent, profile: Profile): Fit {
     )
   )
     return { status: "conflict", reason: "Overlaps your recurring busy time." };
+  if (ambiguousTime)
+    return {
+      status: "unknown",
+      reason:
+        "A recurring block falls in a daylight-saving clock change. Confirm your availability for this date.",
+    };
   let covered = start.toMillis();
   for (const b of intervals
     .filter((b) => b.kind === "free")
@@ -198,6 +216,11 @@ export function eventICS(e: CampusEvent) {
       ? `DTSTART;VALUE=DATE:${DateTime.fromISO(e.start).setZone(e.timezone).toFormat("yyyyMMdd")}`
       : `DTSTART:${stamp(e.start)}`,
     ...(e.end && !e.timeTBD && !e.allDay ? [`DTEND:${stamp(e.end)}`] : []),
+    ...(e.end && e.allDay && !e.timeTBD
+      ? [
+          `DTEND;VALUE=DATE:${DateTime.fromISO(e.end).setZone(e.timezone).toFormat("yyyyMMdd")}`,
+        ]
+      : []),
     `SUMMARY:${esc(e.title)}`,
     `DESCRIPTION:${esc((e.mode === "demo" ? "SAMPLE EVENT — not a real listing.\n" : "") + (e.timeTBD ? "Start time is to be confirmed.\n" : "") + e.description + "\nSource: " + e.sources[0].url)}`,
     ...(e.location ? [`LOCATION:${esc(e.location)}`] : []),

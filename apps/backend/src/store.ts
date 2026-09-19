@@ -21,6 +21,13 @@ export async function connectDB() {
     db.collection("profiles").createIndex({ userId: 1 }, { unique: true }),
     db.collection("events").createIndex({ id: 1 }, { unique: true }),
     db
+      .collection("source_snapshots")
+      .createIndex({ source: 1 }, { unique: true }),
+    db.collection("ai_budget").createIndex({ day: 1 }, { unique: true }),
+    db
+      .collection("analytics_deletions")
+      .createIndex({ pseudonym: 1 }, { unique: true }),
+    db
       .collection("saved")
       .createIndex({ userId: 1, eventId: 1 }, { unique: true }),
     db

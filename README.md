@@ -27,7 +27,7 @@ For Atlas, copy `.env.example` to ignored `.env`, fill real backend values secur
 - Responsive Expo Router/React Native/TypeScript website, original turkey mascot, landing page and account-free demo.
 - Better Auth email/password sign-in, persistent profiles, editable interests, recurring availability, one-time busy blocks, saves and feedback.
 - Public event discovery, filters, details, provenance, freshness, cancellation handling and cross-source deduplication.
-- Deterministic recommendations and grounded Gobbler responses. Optional backend-only Gemini interprets natural language into validated filters; event IDs and explanations are grounded in stored records.
+- Deterministic recommendations and grounded Gobbler responses. Optional backend-only Gemini interprets questions and ranks up to 40 public event candidates; unknown IDs are rejected, and explanations and schedule facts come from stored records.
 - Schedule conflicts and explicit unknown availability. America/New_York campus display; UTC timestamps and retained source timezone.
 - Working ICS download with stable UIDs, escaping and line folding. Connected-calendar confirmation and duplicate prevention.
 - OAuth connection paths, encrypted credentials/private context, sync/disconnect, account deletion, analytics outbox and refresh job endpoint.
@@ -67,9 +67,9 @@ Tests use an isolated disposable MongoDB replica set, synthetic accounts and moc
 - Passwords are hashed by Better Auth. Session cookies are HTTP-only, secure in production, and protected by trusted origins and origin validation.
 - OAuth uses expiring, single-use, user-bound state; Google also uses PKCE. Provider tokens and fetched private context are AES-256-GCM encrypted. Keep the encryption key backed up securely; rotating it requires re-encrypting or reconnecting.
 - Shared public event records contain no personal calendar or Discord data. Every private API derives its owner from the authenticated session.
-- Gemini receives only opted-in typed questions, not calendars or Discord content. Its free-tier terms may allow use of questions for product improvement; this is disclosed before opt-in.
+- Gemini receives opted-in typed questions, selected interest categories, and bounded public event text. Calendar contents, user identity, saves, credentials and Discord content are excluded. Its free-tier terms may allow use of prompts for product improvement; this is disclosed before opt-in. Requests have a unique daily budget record and SDK retries are disabled.
 - Analytics contains pseudonymous IDs, event IDs, action types and timestamps. No raw calendar text, messages or tokens. Failures queue for bounded retries and do not break the app.
 - The demo stores only sample preferences/saves in browser local storage. Public source links always lead to the original listing.
-- Account deletion removes app-owned data and credentials. Calendar events already written to external services remain in those services. Disconnect attempts token revocation and reports if manual provider revocation is still needed.
+- Account deletion removes account data and credentials and queues remote analytics erasure. A pseudonymous suppression marker is retained to prevent delayed analytics writes from restoring erased activity; erasure retries during outages. Calendar events already written to external services remain in those services. Disconnect attempts token revocation and reports if manual provider revocation is still needed.
 
 Production launch remains gated on owner provisioning, real provider testing, campus/server approvals where needed, and final deployed verification.

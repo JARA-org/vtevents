@@ -20,10 +20,19 @@ try {
 for (const [k, v] of Object.entries(secrets)) process.env[k] ||= String(v);
 let local: MongoMemoryReplSet | undefined;
 if (!process.env.MONGODB_URI) {
+  // Replica-set membership persists with the data: reuse its original port.
+  let port = 27027;
+  try {
+    port = Number(await readFile("work/local-mongo-port", "utf8"));
+  } catch {}
   local = await MongoMemoryReplSet.create({
-    instanceOpts: [{ dbPath: "work/local-mongo" }],
+    instanceOpts: [{ dbPath: "work/local-mongo", port }],
     replSet: { count: 1, storageEngine: "wiredTiger" },
   });
+  await writeFile(
+    "work/local-mongo-port",
+    String(local.servers[0].instanceInfo!.port),
+  );
   process.env.MONGODB_URI = local.getUri();
   console.log(
     "Local development database ready. Production Atlas is not configured.",

@@ -19,7 +19,7 @@ import { config, HttpError } from "./config.js";
 import { db, database, mongoClient } from "./store.js";
 import { sourceStatus, liveEvents, refreshSources } from "./coordinator.js";
 import { askGobbler } from "./assistant.js";
-import { analyticsKinds, track, flushAnalytics } from "./analytics.js";
+import { analyticsKinds, track, eraseAnalytics } from "./analytics.js";
 import {
   Provider,
   startOAuth,
@@ -89,12 +89,10 @@ export function createApp() {
   if (auth) app.all("/api/auth/*splat", toNodeHandler(auth));
   else
     app.all("/api/auth/*splat", (_q, r) =>
-      r
-        .status(503)
-        .json({
-          message:
-            "Account services are awaiting MongoDB configuration. Try the demo.",
-        }),
+      r.status(503).json({
+        message:
+          "Account services are awaiting MongoDB configuration. Try the demo.",
+      }),
     );
   app.use(express.json({ limit: "64kb" }));
   app.use("/api", (req, res, next) => {
@@ -118,9 +116,9 @@ export function createApp() {
     res.locals.session = session.session;
     next();
   };
-  const profile = async (id: string) => {
+  const profile = async (id: string, name = "Hokie") => {
     const p = await database().collection("profiles").findOne({ userId: id });
-    return p ? profileSchema.parse(p) : emptyProfile;
+    return p ? profileSchema.parse(p) : { ...emptyProfile, name };
   };
   const currentEvent = (id: string) => {
     const e = liveEvents().find((e) => e.id === id);
@@ -182,7 +180,7 @@ export function createApp() {
   app.get("/api/me", protect, async (_req, res) => {
     const id = res.locals.user.id;
     const [p, saved, feedback] = await Promise.all([
-      profile(id),
+      profile(id, res.locals.user.name),
       database().collection("saved").find({ userId: id }).toArray(),
       database().collection("feedback").find({ userId: id }).toArray(),
     ]);
@@ -262,7 +260,19 @@ export function createApp() {
         .parse(req.body);
       const id = res.locals.user.id,
         p = await withPrivateContext(id, await profile(id));
-      res.json(await askGobbler(query, liveEvents(), p, [], {}));
+      const [saved, feedback] = await Promise.all([
+        database().collection("saved").find({ userId: id }).toArray(),
+        database().collection("feedback").find({ userId: id }).toArray(),
+      ]);
+      res.json(
+        await askGobbler(
+          query,
+          liveEvents(),
+          p,
+          saved.map((r) => r.eventId),
+          Object.fromEntries(feedback.map((r) => [r.eventId, r.value])),
+        ),
+      );
     },
   );
   app.post("/api/analytics", protect, async (req, res) => {
@@ -327,11 +337,21 @@ export function createApp() {
     const p = z
       .enum(["google", "canvas", "discord"])
       .parse(req.params.provider);
-    res.json(
-      p === "discord"
-        ? await syncDiscord(res.locals.user.id)
-        : await syncCalendar(res.locals.user.id, p),
-    );
+    try {
+      res.json(
+        p === "discord"
+          ? await syncDiscord(res.locals.user.id)
+          : await syncCalendar(res.locals.user.id, p),
+      );
+    } catch (error) {
+      await database()
+        .collection("connections")
+        .updateOne(
+          { userId: res.locals.user.id, provider: p },
+          { $set: { status: "error", lastAttempt: new Date() } },
+        );
+      throw error;
+    }
   });
   app.delete("/api/connections/:provider", protect, async (req, res) => {
     const p = z
@@ -396,6 +416,7 @@ export function createApp() {
     const id = res.locals.user.id;
     const { ObjectId } = await import("mongodb");
     const identifiers = ObjectId.isValid(id) ? [id, new ObjectId(id)] : [id];
+    await eraseAnalytics(id);
     for (const p of ["google", "canvas"] as const) await disconnect(id, p);
     for (const name of [
       "profiles",
@@ -451,16 +472,14 @@ export function createApp() {
         console.error("request_failed", {
           kind: error instanceof Error ? error.name : "unknown",
         });
-      res
-        .status(status)
-        .json({
-          message:
-            error instanceof HttpError
-              ? error.message
-              : status === 400
-                ? "Some fields are invalid. Check your entries."
-                : "Something went wrong. Please try again.",
-        });
+      res.status(status).json({
+        message:
+          error instanceof HttpError
+            ? error.message
+            : status === 400
+              ? "Some fields are invalid. Check your entries."
+              : "Something went wrong. Please try again.",
+      });
     },
   );
   return app;

@@ -23,3 +23,19 @@ Implement shared scheduling/event model, integration modules and security, front
 - 13 moderate transitive dependency audit findings remain; inspect nested lockfile resolution despite overrides. More targeted launch-readiness work is listed in the takeover prompt.
 - Source checkpoint `b9fde92462e32fe0fd7cafd83b71b566ade847e5` pushed successfully to private `JARA-org/vtevents/main`; local and remote SHAs matched. 45 project files added; staged secret/path scan passed. Local secrets, database, dependencies and builds are ignored. Audit scratch moved into ignored `work/`.
 - Browser viewport reset to default. App and Render sign-in tabs marked for handoff. No production deployment has been claimed.
+
+## Resumed checkpoint — 2026-09-19 08:00 UTC
+
+- Read both original Google reference documents through the connected Drive account; prompt still governs scope.
+- Investigated Stripe Projects catalog/preflight: Render Free available, Atlas/Gemini absent, Stripe browser authentication required. No substitute database or billable resources created.
+- Core account browser steps remain pending: Render GitHub consent (`0utsights`), Atlas login, AI Studio first-use terms on observed Google session. Discord developer login and Databricks Free Edition signup also reached; personal sign-in/consent required. No production URL yet.
+- Existing Sites project now returns NOT_FOUND to current connected account. Preserved project ID and did not create a duplicate.
+- Fixed lockfile override resolution; clean install and audits now report zero vulnerabilities.
+- Added transactional per-source snapshots with removal handling and canonical identity/provenance preservation. Failed partial sports refresh retains prior records. Fixed category substring false positives.
+- Extended Gemini to validated semantic ranking of bounded public candidates, with unknown-ID rejection, unique daily budget, disabled SDK retries, and deterministic fallback even if budget storage fails. Updated opt-in disclosure; private schedules/messages never sent.
+- Added durable remote analytics erasure/suppression and tested it with mocked Databricks. Background failures are redacted and caught; failed manual provider sync persists error status.
+- Fixed persistent local Mongo restart by preserving its port. Existing data survived stop/start. Live adapters refreshed again: 2,219 GobblerConnect / 349 Sports; 1,503 current/ongoing listings.
+- Added DST ambiguous/nonexistent boundary handling and multi-day all-day ICS end dates. Fixed sign-in navigation and initial profile display name.
+- 21/21 tests, frontend/backend typechecks and production build passed. Browser verified synthetic-account onboarding, live search/details/save, calendar review/export feedback, saved schedule conflict and grounded Friday-after-five fallback. Live ICS endpoint separately verified HTTP200 text/calendar.
+- Latest browser viewport remained512 despite390 request; measured no overflow at512. Earlier390/1280 checks remain separate evidence. Production/real Gemini and connected provider verification remain blocked.
+- Rewrote NEXT_AGENT_PROMPT.md and updated handoff/inventory/verification with exact current state. Production launch is not complete; email verification/recovery and final deployed QA also remain.
