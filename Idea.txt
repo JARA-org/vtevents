@@ -1,0 +1,2 @@
+We are developing a personalized Virginia Tech student sidekick app. Our app’s main focus is to 
+assist students in finding events around the Virginia Tech campus based on initial questions and canvas availability.
