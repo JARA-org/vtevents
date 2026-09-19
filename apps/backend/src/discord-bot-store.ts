@@ -4,10 +4,17 @@ import type {
   DiscordBotReceipt,
 } from "../../../packages/shared/src/contracts.js";
 import { database, mongoClient } from "./store.js";
+import { discordClubSetup } from "./club-accounts.js";
+import { randomUUID } from "node:crypto";
 
 /** Only this repository owns bot policy, exclusions, and command receipts. No OAuth/private records are read. */
 export const discordBotRepository: DiscordBotRepository = {
   async apply(command: DiscordBotCommand): Promise<DiscordBotReceipt> {
+    if (
+      ["watch", "submit"].includes(command.action) &&
+      !(await discordClubSetup.linked(command.guildId))
+    )
+      return { content: "Sign in and link a club first using /gobbler setup." };
     const db = database();
     if (!mongoClient) throw new Error("Database unavailable");
     const session = mongoClient.startSession();
@@ -38,6 +45,7 @@ export const discordBotRepository: DiscordBotRepository = {
             channelId: string;
             actorId: string;
             updatedAt: Date;
+            watchFrom?: string;
           }>("discord_bot_channels");
           let content: string;
           if (command.action === "ignore") {
@@ -94,10 +102,36 @@ export const discordBotRepository: DiscordBotRepository = {
                   },
                   { upsert: true, session },
                 );
+              await db
+                .collection("discord_message_jobs")
+                .updateOne(
+                  { _id: messageKey as never },
+                  {
+                    $set: {
+                      guildId: command.guildId,
+                      channelId: command.channelId,
+                      messageId: command.messageId,
+                      revision: randomUUID(),
+                      dueAt: new Date(),
+                    },
+                  },
+                  { upsert: true, session },
+                );
               content =
-                "This message is designated as public input for the configured collector. No other messages in this channel are selected.";
+                process.env.DISCORD_COLLECTION_ENABLED === "true"
+                  ? "This message is queued for collection. Extraction requires AI configuration and available server budget. No other messages in this channel are selected."
+                  : "This message is selected, but collection is disabled. Enable DISCORD_COLLECTION_ENABLED on the backend to process it. No other messages in this channel are selected.";
             }
           } else {
+            const previousChannel = await channels.findOne(
+              { _id: key },
+              { session },
+            );
+            // A signed interaction snowflake is a chronological boundary: no history backfill.
+            const watchFrom =
+              previousChannel?.enabled && previousChannel.watchFrom
+                ? previousChannel.watchFrom
+                : command.interactionId;
             await channels.updateOne(
               { _id: key },
               {
@@ -105,7 +139,9 @@ export const discordBotRepository: DiscordBotRepository = {
                   guildId: command.guildId,
                   channelId: command.channelId,
                   enabled: command.action === "watch",
-                  ...(command.action === "watch" ? { scan: {} } : {}),
+                  ...(command.action === "watch"
+                    ? { watchFrom, scan: { cursor: watchFrom } }
+                    : {}),
                   actorId: command.actorId,
                   updatedAt: new Date(),
                 },
@@ -147,15 +183,24 @@ export const discordBotRepository: DiscordBotRepository = {
     }
   },
   async eligible(input) {
+    if (!(await discordClubSetup.linked(input.guildId))) return false;
     const key = `${input.guildId}:${input.channelId}`;
     const db = database();
     const channel = await db
-      .collection<{ _id: string; enabled: boolean }>("discord_bot_channels")
+      .collection<{ _id: string; enabled: boolean; watchFrom?: string }>(
+        "discord_bot_channels",
+      )
       .findOne({ _id: key });
     const submitted = await db
       .collection<{ _id: string }>("discord_bot_submissions")
       .findOne({ _id: `${key}:${input.messageId}` });
-    if (!channel?.enabled && !submitted) return false;
+    if (
+      (!channel?.enabled ||
+        (channel.watchFrom &&
+          BigInt(input.messageId) <= BigInt(channel.watchFrom))) &&
+      !submitted
+    )
+      return false;
     return !(await db
       .collection<{ _id: string }>("discord_bot_exclusions")
       .findOne({ _id: `${key}:${input.messageId}` }));

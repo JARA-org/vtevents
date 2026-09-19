@@ -125,3 +125,45 @@ Official protocol references:
 
 - [Receiving and responding to interactions](https://docs.discord.com/developers/interactions/receiving-and-responding)
 - [Application commands](https://docs.discord.com/developers/interactions/application-commands)
+
+## Collection inspection and AI limits
+
+Use `/gobbler recent` in a channel to privately inspect up to five collected message previews, their extraction status, and links to the originals. Use `/gobbler status` to inspect the channel selection, enabled flags, server ID, and current budgets. Both require Manage Server plus channel read access for the caller and bot. Register the updated commands and restart the backend after upgrading. There is no web message viewer yet. Qualified candidates remain staged, not published events.
+
+Collection polls every two minutes while the backend runs; no message-triggered cloud function or Gateway listener is deployed. New messages and edits are processed when discovered, and older tracked messages are rechecked in bounded batches. This is eventual detection, not immediate delivery. Polling, hashing, permission checks, and rate limits require no AI; only text interpretation uses the model.
+
+Default maximum extraction attempts: 20 globally per UTC day (`DISCORD_AI_DAILY_LIMIT`), 5 per server per UTC day (`DISCORD_AI_GUILD_DAILY_LIMIT`), 2 per server per UTC hour (`DISCORD_AI_GUILD_HOURLY_LIMIT`), and 2 per message per UTC day (`DISCORD_AI_MESSAGE_DAILY_LIMIT`). Limits are atomic persistent database reservations using Discord guild/channel/message IDs; renaming a server does not reset them. Failed calls still count. The same content fingerprint gets at most one attempt per UTC day, with completed revisions cached beyond that. These are request caps, not dollar budgets.
+
+Each run permits at most five AI calls. New/edited messages settle for 90 seconds and input is limited to 6,000 characters. Budget-blocked or oversized messages remain pending. Daily/hourly windows reset at UTC boundaries. AI remains opt-in through `DISCORD_AI_ENABLED=true` and a configured provider key. Viewing status or recent messages never calls AI.
+
+## Updated server-only policy
+
+The previous app/day, message/day and five-calls/run limits above are superseded. Only server hourly and daily spending caps apply (defaults 2 and 5), shared by posts and edits. `DISCORD_AI_DAILY_LIMIT` and `DISCORD_AI_MESSAGE_DAILY_LIMIT` no longer configure the active worker. Failed attempts count; each content fingerprint is attempted once across quota resets. There are still input-size, settling-time and worker-duration bounds; those are processing safeguards, not app-wide spending quotas. Work waiting for budget may be processed in a later window, but attempted unchanged text is never automatically retried.
+
+Watch activation starts with subsequent posts and does not backfill channel history. To select an older message, use its Apps menu → `Submit to Gobbler (public)`. Edits to selected messages are detected by the existing poll. This release does not deploy a real-time Discord Gateway listener or cloud function. Club-level Discord/GobblerConnect ownership links and conflict-review workflows are specified in Master.md but not implemented yet.
+
+## Club setup and sign-in
+
+Discord ingestion now requires a server linked to an owned website club workspace. Run `/gobbler setup` as a server administrator (Manage Server). An unlinked server's other commands also offer setup; Ignore and Unwatch continue to work without a link. Open the private ten-minute link, sign in/create a website account, then create a new club or select one you already own. Submitting that form automatically connects the server. One server links to one club; a club links to one server. No personal Discord OAuth is used, and no Discord channel settings are modified.
+
+The link is a bearer authorization from the Discord administrator: do not share it. Only its hash is stored, and the token travels in the URL fragment until posted to the authenticated backend. It expires after ten minutes and cannot be redeemed by another account after use. A failed link leaves no partially created club. All access and binding checks run on the backend. Club events are matched by stable club ID, never by organizer name; staged Discord proposals are shown separately from published events.
+
+Visit `/clubs` or use the site's Clubs link. Website accounts belong to representatives rather than shared club passwords. The dashboard is read-only for events; claiming imported club identities, event CRUD and manual conflict resolution are future work. Existing watched servers stop collection until linked; setup does not automatically watch any additional channels.
+
+Deployment: build/restart the backend and register the updated commands. `APP_ORIGIN` must be the reachable website origin used for sign-in. The development tunnel that exposes only `/api/discord/interactions` cannot serve the club page; use the local website on the same computer or deploy the website for remote club representatives. This implementation does not expand the restricted tunnel or enable paid services.
+
+## Automatic publication and corrections
+
+Qualified Discord messages now publish directly to website discovery and the club event list; no approval action is required. Pending and rejected messages stay unpublished. Existing qualified records become eligible without rerunning the model. The club page offers Edit event after publication, with ownership checks, stale-edit protection and an audit history. Corrections survive Discord re-extraction, but withdrawal of the source removes public visibility. Date-only events show Time TBD and remain listed through the local event date. This replaces the earlier staged-only behavior described above. Collection and AI still require their enabled settings and provider credentials; this change does not enable paid AI services automatically.
+
+## Live post/edit processing
+
+The two-minute collection poll is replaced in production by a Discord Gateway listener. New posts and text edits in eligible channels enqueue their exact message IDs; submissions from the message menu enqueue immediately. Rapid edits settle for three seconds. Only local pending jobs are checked by the queue timer; channel history is not scanned. Embed-only updates (such as a YouTube preview arriving) do not trigger extraction. Deletion events withdraw events and prevent in-flight work from recreating them.
+
+Enable DISCORD_COLLECTION_ENABLED and DISCORD_AI_ENABLED and supply GEMINI_API_KEY locally. Enable Message Content Intent on the app's Bot page in Discord Developer Portal. `/gobbler status` reports listener connection state; disconnected/error requires checking the running backend and bot intent/token. The worker records pending messages without an AI key, and retains work while waiting for budgets. Server caps still apply. No unsolicited Discord messages or reactions are sent.
+
+Restart the backend after code/environment changes. The listener needs a continuously running backend and outbound network access; it does not require a public inbound endpoint for message notifications. Slash/message commands still use the signed interactions endpoint. Accepted queued work survives restarts; messages posted while the backend was entirely offline may need explicit resubmission. This change does not relax the full-date requirement: use a day/month/year rather than just today.
+
+## Relative dates now supported
+
+The full-date requirement above is superseded. Today/tomorrow and reasonably resolvable weekday or partial-date references can qualify. The model receives the original Discord posting timestamp and campus timezone, not the time the worker runs. Edited messages retain their original date anchor. Ambiguous announcements remain unpublished. Re-submit an earlier rejected announcement to process it under the updated rules; the normal server budget still applies. Event time remains Time TBD until time extraction is implemented.

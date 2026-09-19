@@ -5,10 +5,21 @@ import express from "express";
 import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import {
-  handleDiscordInteraction,
+  handleDiscordInteraction as handleInteraction,
   verifyDiscordRequest,
   eligibleDiscordMessage,
 } from "../apps/backend/src/discord-bot.js";
+const linkedSetup = {
+  linked: async () => true,
+  setup: async () => ({ url: "https://example.test/clubs" }),
+};
+const handleDiscordInteraction: typeof handleInteraction = (
+  value,
+  app,
+  repo,
+  inspect,
+  setup = linkedSetup,
+) => handleInteraction(value, app, repo, inspect, setup);
 import type {
   DiscordBotRepository,
   DiscordBotCommand,
@@ -174,6 +185,19 @@ test("signed bot HTTP commands persist isolated policy with atomic replay protec
   process.env.DISCORD_CLIENT_ID = "200";
   const store = await import("../apps/backend/src/store.js");
   await store.connectDB();
+  await store
+    .database()
+    .collection("user")
+    .insertOne({ id: "test-club-owner" });
+  await store
+    .database()
+    .collection("managed_clubs")
+    .insertOne({
+      name: "Test club",
+      ownerId: "test-club-owner",
+      requestId: "test-link",
+      discordGuildId: "300",
+    });
   const { registerDiscordBotRoutes } =
     await import("../apps/backend/src/discord-bot-http.js");
   const { discordBotRepository: repo } =
@@ -213,6 +237,11 @@ test("signed bot HTTP commands persist isolated policy with atomic replay protec
     assert.equal(enabled.status, 200);
     assert.equal(enabled.body.data.flags, 64);
     assert.equal(await repo.eligible(input), true);
+    assert.equal(
+      await repo.eligible({ ...input, messageId: "99" }),
+      false,
+      "watching does not authorize old history",
+    );
     assert.equal(await repo.eligible({ ...input, guildId: "301" }), false);
     const disable = {
       ...command(),
@@ -334,6 +363,94 @@ test("signed bot HTTP commands persist isolated policy with atomic replay protec
     await collection.release();
     assert.equal(await collection.reserveAI(1), true);
     assert.equal(await collection.reserveAI(1), false);
+    await store
+      .database()
+      .collection("discord_extraction_budget")
+      .deleteMany({});
+    const reservation = {
+      guildId: "300",
+      channelId: "400",
+      messageId: "800",
+      fingerprint: "v1",
+      limits: {
+        globalDaily: 3,
+        guildDaily: 2,
+        guildHourly: 2,
+        messageDaily: 2,
+      },
+    };
+    assert.equal(await collection.reserveExtraction(reservation), true);
+    assert.equal(
+      await collection.reserveExtraction(reservation),
+      false,
+      "same revision cannot spend twice",
+    );
+    const concurrent = await Promise.all(
+      ["v2", "v3", "v4"].map((fingerprint) =>
+        collection.reserveExtraction({ ...reservation, fingerprint }),
+      ),
+    );
+    assert.equal(
+      concurrent.filter(Boolean).length,
+      1,
+      "concurrent workers cannot exceed server or message budgets",
+    );
+    assert.equal(
+      await collection.reserveExtraction({ ...reservation, guildId: "301" }),
+      true,
+    );
+    assert.equal(
+      await collection.reserveExtraction({ ...reservation, guildId: "302" }),
+      false,
+      "global cap applies across servers",
+    );
+    assert.equal(
+      (
+        await store
+          .database()
+          .collection("discord_extraction_budget")
+          .findOne({})
+      )?.count,
+      3,
+      "denials consume no budget",
+    );
+    const serverOnly = {
+      ...reservation,
+      guildId: "500",
+      limits: {
+        ...reservation.limits,
+        serverOnly: true,
+        globalDaily: 0,
+        messageDaily: 0,
+        guildDaily: 4,
+        guildHourly: 4,
+      },
+    };
+    for (const fingerprint of ["a", "b", "c", "d"])
+      assert.equal(
+        await collection.reserveExtraction({ ...serverOnly, fingerprint }),
+        true,
+        "no per-message or app cap",
+      );
+    assert.equal(
+      await collection.reserveExtraction({ ...serverOnly, fingerprint: "e" }),
+      false,
+      "posts and edits share server cap",
+    );
+    assert.equal(
+      await collection.reserveExtraction({ ...serverOnly, guildId: "501" }),
+      true,
+      "another server has an independent budget",
+    );
+    await store
+      .database()
+      .collection("discord_extraction_counters")
+      .deleteMany({ _id: /^guild:500:/ });
+    assert.equal(
+      await collection.reserveExtraction({ ...serverOnly, fingerprint: "a" }),
+      false,
+      "budget reset does not retry an attempted revision",
+    );
     await send({ ...disable, id: "109" });
     assert.equal(
       await store
@@ -364,4 +481,108 @@ test("signed bot HTTP commands persist isolated policy with atomic replay protec
     await store.mongoClient?.close();
     await mongo.stop();
   }
+});
+
+test("inspection is private, channel-scoped, permission checked, and never writes", async () => {
+  let reads = 0;
+  const repo = {
+    apply: async () => {
+      throw new Error("must not write");
+    },
+    eligible: async () => true,
+  };
+  const inspect = {
+    inspect: async (scope: { guildId: string; channelId: string }) => {
+      reads++;
+      assert.deepEqual(scope, { guildId: "300", channelId: "400" });
+      return {
+        ...scope,
+        watching: true,
+        collectionEnabled: true,
+        aiEnabled: false,
+        limits: {
+          globalDaily: 20,
+          guildDaily: 5,
+          guildHourly: 2,
+          messageDaily: 2,
+        },
+        usage: { globalDaily: 0, guildDaily: 0, guildHourly: 0 },
+        messages: [],
+      };
+    },
+  };
+  const input = {
+    ...command(),
+    member: { user: { id: "500" }, permissions: "66592" },
+    data: { name: "gobbler", type: 1, options: [{ name: "recent", type: 1 }] },
+  };
+  const result = await handleDiscordInteraction(input, "200", repo, inspect);
+  assert.equal(result.data?.flags, 64);
+  assert.equal(reads, 1);
+  await handleDiscordInteraction(
+    { ...input, member: { user: { id: "500" }, permissions: "32" } },
+    "200",
+    repo,
+    inspect,
+  );
+  await handleDiscordInteraction(
+    { ...input, app_permissions: "0" },
+    "200",
+    repo,
+    inspect,
+  );
+  await handleDiscordInteraction(input, "999", repo, inspect);
+  assert.equal(reads, 1);
+});
+
+test("unlinked server gets private setup, non-admin cannot obtain it, opt-out still works", async () => {
+  let setupCalls = 0,
+    writes = 0;
+  const setup = {
+    linked: async () => false,
+    setup: async () => {
+      setupCalls++;
+      return { url: "https://example.test/clubs#discord=secret" };
+    },
+  };
+  const repo = {
+    apply: async () => {
+      writes++;
+      return { content: "done" };
+    },
+    eligible: async () => false,
+  };
+  const result = await handleInteraction(
+    command(),
+    "200",
+    repo,
+    undefined,
+    setup,
+  );
+  assert.equal(result.data?.flags, 64);
+  assert.match(result.data?.content || "", /Set up your club/);
+  assert.equal(writes, 0);
+  await handleInteraction(
+    { ...command(), member: { user: { id: "500" }, permissions: "0" } },
+    "200",
+    repo,
+    undefined,
+    setup,
+  );
+  assert.equal(setupCalls, 1);
+  await handleInteraction(
+    {
+      ...command(),
+      data: {
+        name: "gobbler",
+        type: 1,
+        options: [{ name: "unwatch", type: 1 }],
+      },
+    },
+    "200",
+    repo,
+    undefined,
+    setup,
+  );
+  assert.equal(writes, 1);
 });

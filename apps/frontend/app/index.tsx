@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { Link } from "expo-router";
 import {
   View,
   Text,
@@ -758,6 +759,9 @@ export default function Home() {
               My Little Gobbler<Text style={{ color: C.orange }}>.</Text>
             </Text>
           </Pressable>
+          <Link href="/clubs" style={{ color: C.maroon, padding: 10 }}>
+            Clubs
+          </Link>
           {!mobile && page !== "landing" && page !== "auth" && (
             <View style={s.row}>
               {(["discover", "saved", "schedule", "gobbler"] as Page[]).map(

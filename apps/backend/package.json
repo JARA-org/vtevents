@@ -5,16 +5,17 @@
   "type": "module",
   "dependencies": {
     "@gobbler/shared": "1.0.0",
-    "express": "^5.1.0",
-    "mongodb": "^6.20.0",
-    "better-auth": "^1.4.0",
     "@google/genai": "^1.0.0",
-    "helmet": "^8.1.0",
-    "express-rate-limit": "^8.1.0",
+    "better-auth": "^1.4.0",
+    "cheerio": "^1.1.2",
+    "discord.js": "^14.27.0",
     "dotenv": "^17.2.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
     "luxon": "^3.7.2",
-    "zod": "^4.1.0",
+    "mongodb": "^6.20.0",
     "node-ical": "^0.22.0",
-    "cheerio": "^1.1.2"
+    "zod": "^4.1.0"
   }
 }

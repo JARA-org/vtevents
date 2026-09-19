@@ -269,6 +269,19 @@ export interface Operation<Input, Output> {
   output: Output;
 }
 export interface HttpApi {
+  /** PATCH /api/clubs/events/:eventId. Authenticated owner correction of published Discord event; revision checked, audited, no provider writes. */
+  editClubEvent: Operation<ClubEventEdit, CampusEvent>;
+  /** GET /api/clubs/mine. Session-scoped owned clubs, no side effects. */
+  myClubs: Operation<void, { clubs: ManagedClub[]; canCreate?: boolean }>;
+  /** POST /api/clubs. Create a new owned workspace, optionally consume Discord ticket atomically. Never claims imported clubs. */
+  createClub: Operation<CreateManagedClubInput, ManagedClub>;
+  /** GET /api/clubs/:clubId/workspace. Owner check; read events and staged candidates only. */
+  clubWorkspace: Operation<{ clubId: Id }, ClubWorkspace>;
+  /** POST /api/clubs/discord. Owner check; atomically consume Discord ticket, persist one-to-one server binding. */
+  linkClubDiscord: Operation<
+    { clubId: Id; discordTicket: string },
+    ManagedClub
+  >;
   /** POST /api/narration. Session required; reserves voice budget, reads public events, caches generated audio. No automatic retry. Binary audio/mpeg is decoded to this transport DTO. */
   narrate: Operation<{ eventIds: Id[] }, AudioData>;
   /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. GET /api/discord/owned-servers. Session-scoped provider read; no writes. */
@@ -939,6 +952,8 @@ export interface DiscordCollectedMessage {
 }
 /** A qualified proposal, not a canonical event or permission to write calendars. Date-only until time interpretation is implemented. */
 export interface DiscordEventCandidate {
+  /** Explanation for a date inferred from the message's original posting time. Absent for explicit full dates. */
+  dateReasoning?: string;
   date: LocalDate;
   title: string;
   description: string;
@@ -990,6 +1005,49 @@ export interface DiscordCollectionRepository {
   release(): Promise<void>;
   /** Atomic daily reservation before extraction; fails closed on unavailable storage. No refund/retry after uncertain spending. */
   reserveAI(limit: number): Promise<boolean>;
+  /** Atomic global/server/hour/message/revision reservation before inference. Denial increments nothing. Failed calls retain reservations; no automatic refund. */
+  reserveExtraction(input: DiscordExtractionReservation): Promise<boolean>;
+}
+export interface DiscordExtractionReservation {
+  guildId: Id;
+  channelId: Id;
+  messageId: Id;
+  fingerprint: string;
+  limits: DiscordExtractionLimits;
+}
+export interface DiscordExtractionLimits {
+  /** When true, only guildDaily/guildHourly are spending caps. Legacy fields remain for older callers. Absence retains the previous policy. */
+  serverOnly?: boolean;
+  globalDaily: number;
+  guildDaily: number;
+  guildHourly: number;
+  messageDaily: number;
+}
+export interface DiscordCollectionInspection {
+  listenerStatus?:
+    "connected" | "starting" | "disconnected" | "disabled" | "error";
+  guildId: Id;
+  channelId: Id;
+  watching: boolean;
+  collectionEnabled: boolean;
+  aiEnabled: boolean;
+  limits: DiscordExtractionLimits;
+  usage: { globalDaily: number; guildDaily: number; guildHourly: number };
+  messages: {
+    messageId: Id;
+    sourceUrl: string;
+    preview: string;
+    status: "pending" | "qualified" | "rejected";
+    eventTitle?: string;
+    eventDate?: LocalDate;
+  }[];
+}
+export interface DiscordInspectionService {
+  /** Read-only inspection for a Discord-signed server admin with current channel read access. Scope comes from the interaction, never arbitrary command arguments. No AI, refresh, or writes. */
+  inspect(input: {
+    guildId: Id;
+    channelId: Id;
+  }): Promise<DiscordCollectionInspection>;
 }
 export interface DiscordMessageReader {
   /** Bot-authenticated GET only. Validates channel/guild identity; returns newest-first page. 404/403 become unavailable, 429 pauses work. */
@@ -1002,5 +1060,94 @@ export interface DiscordMessageReader {
 }
 export interface DiscordTextExtractor {
   /** Public text only; bounded model inference without tools. Output is untrusted and must pass deterministic evidence/date/location validation. May spend reserved budget. */
-  propose(text: string): Promise<unknown>;
+  propose(text: string, context?: DiscordExtractionContext): Promise<unknown>;
+}
+/** Trusted provider metadata, never taken from announcement instructions. */
+export interface DiscordExtractionContext {
+  postedAt: Instant;
+  timezone: string;
+}
+
+/** Authenticated club administration workspace; creation does not claim imported identities. */
+export interface ManagedClub extends Extensible {
+  id: Id;
+  name: string;
+  discordGuildId: Id | null;
+}
+export interface ClubWorkspace {
+  /** Backend-prepared edit forms for already published events. Missing means editing unavailable. */
+  editableEvents?: ClubEventEdit[];
+  club: ManagedClub;
+  events: CampusEvent[];
+  candidates: {
+    messageId: Id;
+    sourceUrl: string;
+    candidate: DiscordEventCandidate;
+  }[];
+}
+export interface CreateManagedClubInput {
+  name: string;
+  requestId: string;
+  discordTicket?: string;
+}
+export interface ClubAccountService {
+  /** Session-derived user only. Reads owned clubs; no provider, AI or writes. */
+  list(userId: Id): Promise<{ clubs: ManagedClub[]; canCreate?: boolean }>;
+  /** Validates name/ticket. Atomically creates new identity and owner membership, optionally binds guild and consumes ticket. Idempotent by user/requestId. Never claims imported clubs. Invalid/expired/used tickets fail without creating a club. */
+  create(userId: Id, input: CreateManagedClubInput): Promise<ManagedClub>;
+  /** Owner-scoped event/candidate read; forbidden for other users. No refresh or model calls. */
+  workspace(userId: Id, clubId: Id): Promise<ClubWorkspace>;
+  /** Consumes short-lived ticket and binds guild to an existing caller-owned club atomically. Same owner/club retry is safe; conflicting bindings fail. */
+  link(
+    userId: Id,
+    input: { clubId: Id; discordTicket: string },
+  ): Promise<ManagedClub>;
+}
+export interface DiscordClubSetupService {
+  /** Trusted signed guild admin only. Issues a ten-minute bearer capability, stored hashed, returned only in private response. No Discord mutations or AI. */
+  setup(input: { guildId: Id; actorId: Id }): Promise<{ url: string }>;
+  /** Reads whether a guild has an active club owner. No writes/AI. */
+  linked(guildId: Id): Promise<boolean>;
+}
+
+export interface ClubEventValues {
+  title: string;
+  description: string;
+  date: LocalDate;
+  location: string | null;
+  onlineUrl: string | null;
+  isOnline: boolean;
+}
+export interface ClubEventEdit {
+  eventId: Id;
+  revision: string;
+  values: ClubEventValues;
+}
+export interface DiscordPublicationService {
+  /** Reads qualified records, revalidates evidence and current consent, and projects published events with stable IDs and owner corrections. No AI/provider calls or writes. No approval stage. */
+  list(input?: {
+    includePast?: boolean;
+  }): Promise<{ event: CampusEvent; edit: ClubEventEdit }[]>;
+  /** Session-derived owner only. Edits an already-published event, checks revision, atomically stores correction and audit record. No creation, provider/calendar writes or AI. Invalid, stale, withdrawn or unauthorized requests fail. */
+  edit(userId: Id, input: ClubEventEdit): Promise<CampusEvent>;
+}
+
+export interface DiscordMessageTrigger extends DiscordReadTarget {
+  messageId: Id;
+  kind: "upsert" | "delete";
+}
+export interface DiscordMessageJob extends DiscordReadTarget {
+  messageId: Id;
+  revision: string;
+  leaseOwner: string;
+}
+export interface DiscordTriggerQueue {
+  /** Trusted Gateway/command IDs only. Coalesces work durably; stores IDs, not message text. Rechecks eligibility before enqueue. */
+  enqueue(target: DiscordReadTarget, delayMs: number): Promise<void>;
+  /** Permanent withdrawal for provider-deleted messages; serializes with candidate writes. No provider/AI calls. */
+  withdraw(target: DiscordReadTarget): Promise<void>;
+  /** Claims one due ID-only job with a bounded lease; null if idle. */
+  claim(): Promise<DiscordMessageJob | null>;
+  /** Completes/reschedules the claimed revision without deleting newer edits. No AI; safe after crashes via lease expiry. */
+  finish(job: DiscordMessageJob, retryMs?: number): Promise<void>;
 }

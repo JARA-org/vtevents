@@ -18,7 +18,17 @@ function files(dir) {
 }
 // Explicit current dependencies. New modules need an owner/port and reviewed edges.
 const edges = {
+  "club-accounts.ts": ["store", "config"],
+  "discord-publication.ts": [
+    "store",
+    "config",
+    "domain",
+    "discord-event-rules",
+    "discord-bot-store",
+  ],
   "app.ts": [
+    "discord-publication",
+    "club-accounts",
     "domain",
     "discovery",
     "config",
@@ -42,7 +52,13 @@ const edges = {
   "discovery.ts": ["domain", "config"],
   "assistant.ts": ["domain", "store"],
   "integrations.ts": ["domain", "config", "store", "security", "analytics"],
+  "discord-limits.ts": [],
+  "discord-gateway.ts": [],
+  "discord-trigger-store.ts": ["store", "discord-bot-store"],
   "discord-jobs.ts": [
+    "discord-gateway",
+    "discord-trigger-store",
+    "discord-limits",
     "store",
     "discord-bot-store",
     "discord-collection-store",
@@ -58,10 +74,20 @@ const edges = {
   "discord-reader.ts": [],
   "discord-event-rules.ts": [],
   "discord-extractor.ts": [],
-  "discord-collection-store.ts": ["store"],
+  "discord-collection-store.ts": [
+    "club-accounts",
+    "store",
+    "discord-limits",
+    "discord-bot-store",
+  ],
   "discord-bot.ts": [],
-  "discord-bot-store.ts": ["store"],
-  "discord-bot-http.ts": ["discord-bot", "discord-bot-store"],
+  "discord-bot-store.ts": ["store", "club-accounts"],
+  "discord-bot-http.ts": [
+    "club-accounts",
+    "discord-bot",
+    "discord-bot-store",
+    "discord-collection-store",
+  ],
   "narration.ts": ["domain", "store", "config"],
   "analytics.ts": ["store", "security", "config"],
   "jobs.ts": ["store", "integrations", "coordinator", "analytics"],

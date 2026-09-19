@@ -153,6 +153,7 @@ test("collector excludes before AI, caches revisions, removes deleted messages a
     acquire: async () => true,
     release: async () => {},
     reserveAI: async () => budget,
+    reserveExtraction: async () => budget,
   };
   const deps = {
     store,
@@ -162,7 +163,14 @@ test("collector excludes before AI, caches revisions, removes deleted messages a
     },
     reader: { list: async () => [], get: async () => current },
     extractor: {
-      propose: async () => {
+      propose: async (
+        _text: string,
+        context?: { postedAt: string; timezone: string },
+      ) => {
+        assert.deepEqual(context, {
+          postedAt: current!.createdAt,
+          timezone: "America/New_York",
+        });
         ai++;
         return proposal;
       },
@@ -174,6 +182,31 @@ test("collector excludes before AI, caches revisions, removes deleted messages a
   assert.equal(records.get("3")?.status, "qualified");
   await collectDiscordMessages(deps);
   assert.equal(ai, 1, "unchanged content must not call AI again");
+  await collectDiscordMessages({
+    ...deps,
+    targets: [ref],
+    settleMs: 0,
+    store: {
+      ...store,
+      channels: async () => {
+        throw new Error("event-driven mode cannot scan history");
+      },
+      messages: async () => {
+        throw new Error("event-driven mode cannot scan other messages");
+      },
+    },
+  });
+  assert.equal(ai, 1, "duplicate notifications reuse the processed revision");
+  current = {
+    ...current!,
+    text: text + " edited",
+    editedAt: new Date().toISOString(),
+  };
+  await collectDiscordMessages(deps);
+  assert.equal(ai, 1, "recent edits settle before AI");
+  current = { ...current!, text: "x".repeat(6001), editedAt: null };
+  await collectDiscordMessages(deps);
+  assert.equal(ai, 1, "oversized input cannot spend AI budget");
   current = { ...current!, text: "[NO-AI] " + text };
   await collectDiscordMessages(deps);
   assert.equal(ai, 1);
@@ -207,6 +240,7 @@ test("collector checkpoints multi-page catch-up without skipping backlog", async
     acquire: async () => true,
     release: async () => {},
     reserveAI: async () => false,
+    reserveExtraction: async () => false,
   };
   const reader = {
     get: async () => null,
@@ -276,4 +310,53 @@ test("Discord adapter only GETs designated resources, validates guild, and honor
   await assert.rejects(limited.list({ guildId: "1", channelId: "2" }));
   await assert.rejects(limited.list({ guildId: "1", channelId: "2" }));
   assert.equal(calls, 1);
+});
+
+test("relative dates use original posting time in campus timezone, including midnight, DST and year rollover", () => {
+  const infer = (phrase: string, date: string, postedAt: string) => {
+    const announcement = `Chess night ${phrase} at Squires`;
+    const value = {
+      ...proposal,
+      date,
+      onlineUrl: null,
+      isOnline: false,
+      dateReasoning: "Resolved from the original local posting date.",
+      evidence: { ...proposal.evidence, date: phrase, online: null },
+    };
+    return validateDiscordCandidate(value, announcement, {
+      postedAt,
+      timezone: "America/New_York",
+    });
+  };
+  assert.ok(infer("today", "2026-09-19", "2026-09-20T01:00:00Z"));
+  assert.equal(
+    infer("today", "2026-09-20", "2026-09-20T01:00:00Z"),
+    null,
+    "UTC date must not replace campus date",
+  );
+  assert.ok(infer("tomorrow", "2027-01-01", "2026-12-31T22:00:00Z"));
+  assert.ok(infer("tomorrow", "2026-03-09", "2026-03-08T05:30:00Z"));
+  assert.ok(infer("September 25", "2026-09-25", "2026-09-19T21:00:00Z"));
+  assert.ok(infer("next Friday", "2026-09-25", "2026-09-19T21:00:00Z"));
+  assert.equal(
+    infer("next Friday", "2026-09-26", "2026-09-19T21:00:00Z"),
+    null,
+  );
+  assert.equal(infer("today", "2099-09-19", "2026-09-19T21:00:00Z"), null);
+  assert.equal(infer("soon", "2026-09-25", "2026-09-19T21:00:00Z"), null);
+  assert.equal(
+    infer("February 30, 2026", "2026-03-02", "2026-02-01T21:00:00Z"),
+    null,
+  );
+  assert.equal(infer("today", "2026-09-19", "invalid"), null);
+  const relative = {
+    ...proposal,
+    dateReasoning: "today",
+    evidence: { ...proposal.evidence, date: "today" },
+  };
+  assert.equal(
+    validateDiscordCandidate(relative, "Chess night today at Squires"),
+    null,
+    "relative dates require trusted metadata",
+  );
 });

@@ -42,6 +42,8 @@ import {
   withPrivateContext,
 } from "./integrations.js";
 import { registerDiscordBotRoutes } from "./discord-bot-http.js";
+import { discordPublication } from "./discord-publication.js";
+import { clubAccounts } from "./club-accounts.js";
 import { runJobs } from "./jobs.js";
 import { unseal, pseudonym } from "./security.js";
 export function createApp() {
@@ -126,8 +128,46 @@ export function createApp() {
     const p = await database().collection("profiles").findOne({ userId: id });
     return p ? profileSchema.parse(p) : { ...emptyProfile, name };
   };
-  const currentEvent = (id: string) => {
-    const e = liveEvents().find((e) => e.id === id);
+  app.get("/api/clubs/mine", protect, async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await clubAccounts.list(res.locals.user.id));
+  });
+  app.post("/api/clubs", protect, async (req, res) =>
+    res.json(await clubAccounts.create(res.locals.user.id, req.body)),
+  );
+  app.post("/api/clubs/discord", protect, async (req, res) =>
+    res.json(await clubAccounts.link(res.locals.user.id, req.body)),
+  );
+  app.get("/api/clubs/:clubId/workspace", protect, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const workspace = await clubAccounts.workspace(
+      res.locals.user.id,
+      String(req.params.clubId),
+    );
+    const published = (
+      await discordPublication.list({ includePast: true })
+    ).filter((row) => row.event.clubId === workspace.club.id);
+    res.json({
+      ...workspace,
+      events: [...workspace.events, ...published.map((row) => row.event)],
+      candidates: [],
+      editableEvents: published.map((row) => row.edit),
+    });
+  });
+  app.patch("/api/clubs/events/:eventId", protect, async (req, res) => {
+    res.json(
+      await discordPublication.edit(res.locals.user.id, {
+        ...req.body,
+        eventId: String(req.params.eventId),
+      }),
+    );
+  });
+  const currentEvents = async () => [
+    ...liveEvents(),
+    ...(await discordPublication.list()).map((row) => row.event),
+  ];
+  const currentEvent = async (id: string) => {
+    const e = (await currentEvents()).find((e) => e.id === id);
     if (!e)
       throw new HttpError(
         404,
@@ -161,7 +201,7 @@ export function createApp() {
     res.json(
       discoverEvents(
         input,
-        liveEvents(),
+        await currentEvents(),
         p,
         saved.map((r) => r.eventId),
         Object.fromEntries(feedback.map((r) => [r.eventId, r.value])),
@@ -179,15 +219,19 @@ export function createApp() {
       sources: sourceStatus,
     }),
   );
-  app.get("/api/events", protect, (req, res) => {
+  app.get("/api/events", protect, async (req, res) => {
     if (req.query.mode && req.query.mode !== "live")
       throw new HttpError(400, "Unsupported event mode.");
-    res.json({ mode: "live", events: liveEvents(), sources: sourceStatus });
+    res.json({
+      mode: "live",
+      events: await currentEvents(),
+      sources: sourceStatus,
+    });
   });
-  app.get("/api/events/:id/ics", protect, (req, res) => {
+  app.get("/api/events/:id/ics", protect, async (req, res) => {
     if (req.query.mode && req.query.mode !== "live")
       throw new HttpError(400, "Unsupported event mode.");
-    const e = currentEvent(String(req.params.id));
+    const e = await currentEvent(String(req.params.id));
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
     res.setHeader(
       "Content-Disposition",
@@ -231,7 +275,7 @@ export function createApp() {
         .toArray();
     res.json({
       recommendations: recommendations(
-        liveEvents(),
+        await currentEvents(),
         p,
         saved.map((x) => x.eventId),
         Object.fromEntries(feedback.map((f) => [f.eventId, f.value])),
@@ -239,7 +283,7 @@ export function createApp() {
     });
   });
   app.put("/api/saved/:id", protect, async (req, res) => {
-    currentEvent(String(req.params.id));
+    await currentEvent(String(req.params.id));
     const { saved } = z.object({ saved: z.boolean() }).parse(req.body),
       filter = { userId: res.locals.user.id, eventId: req.params.id };
     if (saved) {
@@ -257,7 +301,7 @@ export function createApp() {
         value: z.union([z.literal(-1), z.literal(1)]),
       })
       .parse(req.body);
-    currentEvent(body.eventId);
+    await currentEvent(body.eventId);
     await database()
       .collection("feedback")
       .updateOne(
@@ -285,7 +329,7 @@ export function createApp() {
       res.json(
         await askGobbler(
           query,
-          liveEvents(),
+          await currentEvents(),
           p,
           saved.map((r) => r.eventId),
           Object.fromEntries(feedback.map((r) => [r.eventId, r.value])),
@@ -297,7 +341,7 @@ export function createApp() {
     const { kind, eventId } = z
       .object({ kind: z.enum(analyticsKinds), eventId: z.string() })
       .parse(req.body);
-    currentEvent(eventId);
+    await currentEvent(eventId);
     await track(res.locals.user.id, kind, eventId);
     res.json({ ok: true });
   });
@@ -311,7 +355,7 @@ export function createApp() {
         .strict()
         .parse(req.body);
       const audio = await narrate(
-        [...new Set(eventIds)].slice(0, 3).map(currentEvent),
+        await Promise.all([...new Set(eventIds)].slice(0, 3).map(currentEvent)),
       );
       res.setHeader("Cache-Control", "private, no-store");
       res.type("audio/mpeg").send(audio);
@@ -381,12 +425,10 @@ export function createApp() {
     ],
     protect,
     (_q, r) =>
-      r
-        .status(410)
-        .json({
-          message:
-            "Discord is now a server bot. Configure channels inside Discord.",
-        }),
+      r.status(410).json({
+        message:
+          "Discord is now a server bot. Configure channels inside Discord.",
+      }),
   );
   app.get("/api/private-context", protect, async (_q, r) => {
     const rows = await database()
@@ -419,7 +461,7 @@ export function createApp() {
       await addCalendar(
         res.locals.user.id,
         body.destination,
-        currentEvent(body.eventId),
+        await currentEvent(body.eventId),
       ),
     );
   });

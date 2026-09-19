@@ -1,6 +1,10 @@
 import { createPublicKey, verify } from "node:crypto";
 import { z } from "zod";
-import type { DiscordBotRepository } from "../../../packages/shared/src/contracts.js";
+import type {
+  DiscordBotRepository,
+  DiscordInspectionService,
+  DiscordClubSetupService,
+} from "../../../packages/shared/src/contracts.js";
 
 const snowflake = z.string().regex(/^\d{1,20}$/);
 const schema = z.object({
@@ -117,6 +121,8 @@ export async function handleDiscordInteraction(
   value: unknown,
   applicationId: string,
   repository: DiscordBotRepository,
+  inspection?: DiscordInspectionService,
+  clubSetup?: DiscordClubSetupService,
 ) {
   const parsed = schema.safeParse(value);
   if (!parsed.success || parsed.data.application_id !== applicationId)
@@ -141,6 +147,41 @@ export async function handleDiscordInteraction(
     channelId: input.channel_id,
     actorId: input.member.user.id,
   };
+  const subcommand =
+    input.data.name === "gobbler" &&
+    input.data.type === 1 &&
+    input.data.options?.length === 1 &&
+    input.data.options[0].type === 1
+      ? input.data.options[0].name
+      : undefined;
+  const safeOptOut =
+    (input.data.type === 3 && input.data.name === "Ignore for Gobbler") ||
+    subcommand === "unwatch";
+  if (
+    !safeOptOut &&
+    (subcommand === "setup" ||
+      !clubSetup ||
+      !(await clubSetup.linked(input.guild_id)))
+  ) {
+    if (!clubSetup)
+      return reply("Club setup is unavailable. Please try again later.");
+    if (subcommand === "setup" && (await clubSetup.linked(input.guild_id))) {
+      const link = await clubSetup.setup({
+        guildId: input.guild_id,
+        actorId: input.member.user.id,
+      });
+      return reply(
+        `This server is already linked to a club. [Sign in to your club workspace](${link.url}) to access its events.`,
+      );
+    }
+    const link = await clubSetup.setup({
+      guildId: input.guild_id,
+      actorId: input.member.user.id,
+    });
+    return reply(
+      `Sign in and create or select your club to use Gobbler. This private link expires in 10 minutes and links this server automatically when you submit the club form. Do not share it.\n[Set up your club](${link.url})`,
+    );
+  }
   if (
     input.data.type === 3 &&
     ["Ignore for Gobbler", "Submit to Gobbler (public)"].includes(
@@ -182,6 +223,48 @@ export async function handleDiscordInteraction(
   )
     return reply("Unknown Gobbler command.");
   const option = input.data.options[0];
+  if (option.type === 1 && ["recent", "status"].includes(option.name)) {
+    const canRead = (p: bigint) => !!(p & 8n) || (p & 66560n) === 66560n;
+    if (!canRead(permissions) || !canRead(BigInt(input.app_permissions || "0")))
+      return reply(
+        "You and the bot need View Channel and Read Message History here.",
+      );
+    if (!inspection) return reply("Collection inspection is unavailable.");
+    const result = await inspection.inspect({
+      guildId: input.guild_id,
+      channelId: input.channel_id,
+    });
+    if (option.name === "status")
+      return reply(
+        [
+          `Server ID: ${result.guildId}`,
+          `Channel watched: ${result.watching ? "yes" : "no"}`,
+          `Collection: ${result.collectionEnabled ? "enabled" : "disabled"}; AI: ${result.aiEnabled ? "enabled" : "disabled"}`,
+          `Server AI attempts (posts + edits): ${result.usage.guildDaily}/${result.limits.guildDaily} per UTC day, ${result.usage.guildHourly}/${result.limits.guildHourly} per UTC hour.`,
+          `Live message listener: ${result.listenerStatus || "disconnected"}. Posts and edits queue extraction after a short settling delay. Each content revision is attempted once.`,
+          ...(!result.aiEnabled
+            ? [
+                "AI needs DISCORD_AI_ENABLED=true and a configured GEMINI_API_KEY on the backend.",
+              ]
+            : []),
+        ].join("\n"),
+      );
+    const plain = (s: string) =>
+      s
+        .replace(/[\\`*_{}\[\]()<>~|@]/g, "")
+        .replace(/[\r\n]/g, " ")
+        .slice(0, 160);
+    return reply(
+      result.messages.length
+        ? result.messages
+            .map(
+              (m) =>
+                `**${m.status}**${m.eventDate ? ` — ${m.eventDate}` : ""}\n${plain(m.preview)}\n[Open original message](${m.sourceUrl})`,
+            )
+            .join("\n\n")
+        : "No collected messages in this channel yet. Check /gobbler status. Pending messages await AI availability, settling time, or budget. Qualified events publish automatically on the website.",
+    );
+  }
   if (option.type !== 1 || !["watch", "unwatch"].includes(option.name))
     return reply("Unknown Gobbler command.");
   if (option.name === "watch") {
@@ -223,6 +306,23 @@ export const discordBotCommands = [
     contexts: [0],
     integration_types: [0],
     options: [
+      {
+        name: "setup",
+        description:
+          "Sign in on the website and link this Discord server to your club",
+        type: 1,
+      },
+      {
+        name: "recent",
+        description:
+          "Privately inspect up to five collected messages in this channel",
+        type: 1,
+      },
+      {
+        name: "status",
+        description: "Privately inspect collection settings and AI budgets",
+        type: 1,
+      },
       {
         name: "watch",
         description:

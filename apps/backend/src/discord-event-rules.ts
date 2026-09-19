@@ -1,10 +1,14 @@
 import { z } from "zod";
 import { DateTime } from "luxon";
-import type { DiscordEventCandidate } from "../../../packages/shared/src/contracts.js";
+import type {
+  DiscordEventCandidate,
+  DiscordExtractionContext,
+} from "../../../packages/shared/src/contracts.js";
 const quote = z.string().trim().min(1).max(2000);
 const proposal = z
   .object({
     date: z.string(),
+    dateReasoning: z.string().trim().min(1).max(1000).optional(),
     title: quote.max(300),
     description: z.string().max(12000),
     location: quote.nullable(),
@@ -24,6 +28,10 @@ const proposal = z
 export function explicitDiscordDate(value: string): string | null {
   const cleaned = value
     .trim()
+    .replace(
+      /^(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+/i,
+      "",
+    )
     .replace(/(\d)(st|nd|rd|th)\b/gi, "$1")
     .replace(/,/g, "")
     .replace(/\s+/g, " ");
@@ -33,6 +41,7 @@ export function explicitDiscordDate(value: string): string | null {
     "MMM d yyyy",
     "d MMMM yyyy",
     "d MMM yyyy",
+    "M/d/yyyy",
   ]) {
     const date = DateTime.fromFormat(cleaned, format, {
       locale: "en-US",
@@ -46,6 +55,7 @@ export function explicitDiscordDate(value: string): string | null {
 export function validateDiscordCandidate(
   value: unknown,
   text: string,
+  context?: DiscordExtractionContext,
 ): DiscordEventCandidate | null {
   if (/\[no-ai\]/i.test(text)) return null;
   const parsed = proposal.safeParse(value);
@@ -54,10 +64,65 @@ export function validateDiscordCandidate(
   for (const evidence of Object.values(p.evidence))
     if (evidence && !text.includes(evidence)) return null;
   if (
-    explicitDiscordDate(p.evidence.date) !== p.date ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(p.date)
+    !/^\d{4}-\d{2}-\d{2}$/.test(p.date) ||
+    explicitDiscordDate(p.date) !== p.date
   )
     return null;
+  const explicit = explicitDiscordDate(p.evidence.date);
+  if (explicit) {
+    if (explicit !== p.date) return null;
+  } else {
+    if (!context || !p.dateReasoning) return null;
+    const posted = DateTime.fromISO(context.postedAt, {
+      setZone: true,
+    }).setZone(context.timezone);
+    if (!posted.isValid) return null;
+    const expression = p.evidence.date.trim().toLowerCase();
+    // Obvious arithmetic is deterministic; the model handles linguistic interpretation.
+    const offsets: Record<string, number> = {
+      today: 0,
+      tonight: 0,
+      tomorrow: 1,
+      yesterday: -1,
+      "day after tomorrow": 2,
+      "the day after tomorrow": 2,
+    };
+    const simpleRelative = /\b(today|tonight|tomorrow|yesterday)\b/.exec(
+      expression,
+    )?.[1];
+    const offset =
+      expression in offsets
+        ? offsets[expression]
+        : simpleRelative
+          ? offsets[simpleRelative]
+          : undefined;
+    if (
+      offset !== undefined &&
+      posted.plus({ days: offset }).toISODate() !== p.date
+    )
+      return null;
+    const weekday =
+      /^(?:(?:this|next|coming|last)\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/.exec(
+        expression,
+      )?.[1];
+    if (
+      weekday &&
+      DateTime.fromISO(p.date, { zone: context.timezone })
+        .setLocale("en-US")
+        .toFormat("cccc")
+        .toLowerCase() !== weekday
+    )
+      return null;
+    // Require actual temporal evidence; an arbitrary title cannot justify an invented date.
+    if (
+      !/\b(today|tonight|tomorrow|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun|week|weekend|month|year|days?|weeks?|months?|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\b|\b\d{1,2}[/-]\d{1,2}\b|\b\d{1,2}(st|nd|rd|th)\b/i.test(
+        expression,
+      )
+    )
+      return null;
+    // Impossible explicit dates must not be rescued by treating them as relative.
+    if (/\b\d{4}\b/.test(expression)) return null;
+  }
   if (!text.includes(p.title) || !p.evidence.title.includes(p.title))
     return null;
   // Descriptions remain exact source extracts too: no unsupported model-written claims.

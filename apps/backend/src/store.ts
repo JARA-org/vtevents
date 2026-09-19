@@ -17,7 +17,47 @@ export async function connectDB() {
   });
   await mongoClient.connect();
   db = mongoClient.db(config.db);
+  // One-time migration: existing watches start at their original activation time,
+  // never at the beginning of channel history. Missing timestamps start now.
+  const legacyWatches = db
+    .collection("discord_bot_channels")
+    .find({ watchFrom: { $exists: false } });
+  for await (const channel of legacyWatches) {
+    const timestamp =
+      channel.updatedAt instanceof Date
+        ? channel.updatedAt.getTime()
+        : Date.now();
+    const watchFrom = (
+      (BigInt(Math.max(1420070400000, timestamp)) - 1420070400000n) <<
+      22n
+    ).toString();
+    await db
+      .collection("discord_bot_channels")
+      .updateOne(
+        { _id: channel._id, watchFrom: { $exists: false } },
+        { $set: { watchFrom, scan: { cursor: watchFrom } } },
+      );
+  }
   await Promise.all([
+    db
+      .collection("discord_message_jobs")
+      .createIndex({ dueAt: 1, leaseUntil: 1 }),
+    db
+      .collection("discord_listener_state")
+      .createIndex({ key: 1 }, { unique: true }),
+    db
+      .collection("managed_clubs")
+      .createIndex({ ownerId: 1, requestId: 1 }, { unique: true }),
+    db.collection("managed_clubs").createIndex(
+      { discordGuildId: 1 },
+      {
+        unique: true,
+        partialFilterExpression: { discordGuildId: { $type: "string" } },
+      },
+    ),
+    db
+      .collection("club_discord_tickets")
+      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db
       .collection("discord_collection_refs")
       .createIndex({ key: 1 }, { unique: true }),

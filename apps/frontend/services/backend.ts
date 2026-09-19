@@ -33,6 +33,14 @@ async function request<K extends keyof HttpApi>(
 }
 const id = encodeURIComponent;
 export const backend: BackendClient = {
+  editClubEvent: ({ eventId, ...input }) =>
+    request<"editClubEvent">(`/clubs/events/${id(eventId)}`, "PATCH", input),
+  myClubs: () => request<"myClubs">("/clubs/mine"),
+  createClub: (input) => request<"createClub">("/clubs", "POST", input),
+  linkClubDiscord: (input) =>
+    request<"linkClubDiscord">("/clubs/discord", "POST", input),
+  clubWorkspace: (input) =>
+    request<"clubWorkspace">(`/clubs/${id(input.clubId)}/workspace`),
   narrate: (input) => request<"narrate">("/narration", "POST", input),
   listOwnedDiscordServers: () =>
     request<"listOwnedDiscordServers">("/discord/owned-servers"),

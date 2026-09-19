@@ -4,6 +4,8 @@ import {
   handleDiscordInteraction,
 } from "./discord-bot.js";
 import { discordBotRepository } from "./discord-bot-store.js";
+import { discordInspection } from "./discord-collection-store.js";
+import { discordClubSetup } from "./club-accounts.js";
 
 /** Discord-signed transport. Mount before the browser JSON/Origin middleware; no cookie/session authorization. */
 export function registerDiscordBotRoutes(app: Express) {
@@ -40,6 +42,8 @@ export function registerDiscordBotRoutes(app: Express) {
             input,
             applicationId,
             discordBotRepository,
+            discordInspection,
+            discordClubSetup,
           ),
         );
       } catch {

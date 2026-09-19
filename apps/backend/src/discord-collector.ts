@@ -5,6 +5,7 @@ import type {
   DiscordTextExtractor,
   DiscordCollectedMessage,
   DiscordReadTarget,
+  DiscordExtractionLimits,
 } from "../../../packages/shared/src/contracts.js";
 import { eligibleDiscordMessage } from "./discord-bot.js";
 import { validateDiscordCandidate } from "./discord-event-rules.js";
@@ -18,6 +19,10 @@ export async function collectDiscordMessages(deps: {
   reader: DiscordMessageReader;
   extractor?: DiscordTextExtractor;
   dailyLimit: number;
+  limits?: DiscordExtractionLimits;
+  /** Event-driven mode: read only these exact message IDs; never scan channel history. */
+  targets?: DiscordReadTarget[];
+  settleMs?: number;
 }) {
   const { policy, store, reader, extractor } = deps;
   const summary = {
@@ -27,8 +32,9 @@ export async function collectDiscordMessages(deps: {
     pending: 0,
     removed: 0,
     errors: 0,
+    skipped: false,
   };
-  if (!(await store.acquire())) return summary;
+  if (!(await store.acquire())) return { ...summary, skipped: true };
   const deadline = Date.now() + 120000;
   async function processMessage(message: DiscordCollectedMessage) {
     summary.read++;
@@ -44,7 +50,12 @@ export async function collectDiscordMessages(deps: {
       return;
     }
     const fingerprint = createHash("sha256")
-      .update("discord-extraction-v1\n" + message.text)
+      .update(
+        "discord-extraction-v2\nAmerica/New_York\n" +
+          message.createdAt +
+          "\n" +
+          message.text,
+      )
       .digest("hex");
     if (await store.unchanged(message, fingerprint)) {
       await store.checked(message);
@@ -52,7 +63,14 @@ export async function collectDiscordMessages(deps: {
     }
     // Save the new revision as pending before any inference, invalidating an older proposal immediately.
     await store.save(message, fingerprint, null, "pending");
-    if (!extractor || !(await store.reserveAI(deps.dailyLimit))) {
+    const changedAt = Date.parse(message.editedAt || message.createdAt);
+    // Wait for edits to settle and bound input size. Spending is capped per server.
+    if (
+      !extractor ||
+      !Number.isFinite(changedAt) ||
+      Date.now() - changedAt < (deps.settleMs ?? 90000) ||
+      message.text.length > 6000
+    ) {
       summary.pending++;
       return;
     }
@@ -61,9 +79,33 @@ export async function collectDiscordMessages(deps: {
       await store.remove(message);
       return;
     }
+    if (
+      !(await store.reserveExtraction({
+        ...message,
+        fingerprint,
+        limits: deps.limits || {
+          serverOnly: true,
+          globalDaily: deps.dailyLimit,
+          guildDaily: 5,
+          guildHourly: 2,
+          messageDaily: 2,
+        },
+      }))
+    ) {
+      summary.pending++;
+      return;
+    }
     try {
-      const proposed = await extractor.propose(message.text);
-      const candidate = validateDiscordCandidate(proposed, message.text);
+      const context = {
+        postedAt: message.createdAt,
+        timezone: "America/New_York",
+      };
+      const proposed = await extractor.propose(message.text, context);
+      const candidate = validateDiscordCandidate(
+        proposed,
+        message.text,
+        context,
+      );
       await store.save(
         message,
         fingerprint,
@@ -96,7 +138,7 @@ export async function collectDiscordMessages(deps: {
     }
   }
   try {
-    for (const target of await store.messages(20)) {
+    for (const target of deps.targets ?? (await store.messages(20))) {
       if (Date.now() > deadline) break;
       try {
         await readOne(target);
@@ -106,7 +148,7 @@ export async function collectDiscordMessages(deps: {
           return summary;
       }
     }
-    for (const target of await store.channels(10)) {
+    for (const target of deps.targets ? [] : await store.channels(10)) {
       if (Date.now() > deadline) break;
       try {
         const batch = await reader.list(target, target.scan.before);
