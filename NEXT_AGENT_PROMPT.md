@@ -56,3 +56,7 @@ Browser last session ID2; rediscover if stale. Tabs:2Atlas,3AIStudio,4DiscordBot
 ## Local runtime and secret locations
 
 Node22.22.3/npm10.9.8. Atlas-backed dev process on localhost3001 (prior session53638), localMongo app may be3000. .env and work/{atlas-uri,atlas-password,gemini-key,vultr-key,elevenlabs-key,vultr-root-password,local-secrets.json} contain secrets; never print. work/scan-safe-source.mjs compares known secrets with tracked source/bundle but extend to new production secrets/recovery password before pushing. work/ is ignored and excluded from Docker context. Existing root password and new deployment private key have Windows owner-only ACLs. No successful remote login or key installation has happened yet. Avoid npmci while local Mongo binary is running on Windows.
+
+## Clipboard-free key recovery
+
+Console clipboard failed for the owner. Created an unlisted GitHub gist under0utsights containing ONLY the deployment public key: https://gist.github.com/0utsights/9fee0267b454e485aa8ca35677dafcb9 . Anonymous raw download https://gist.githubusercontent.com/0utsights/9fee0267b454e485aa8ca35677dafcb9/raw was fetched and verified byte-for-byte against work/my-little-gobbler-deploy.pub. Private key remains ignored/owner-readable. Manual server download/append is the next handoff; key-based SSH still rejected at the last test. No successful installation claimed. An is.gd shortening request failed with a database-insert error; do not give an unverified short link.
