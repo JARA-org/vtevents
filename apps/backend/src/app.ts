@@ -381,12 +381,10 @@ export function createApp() {
     ],
     protect,
     (_q, r) =>
-      r
-        .status(410)
-        .json({
-          message:
-            "Discord is now a server bot. Configure channels inside Discord.",
-        }),
+      r.status(410).json({
+        message:
+          "Discord is now a server bot. Configure channels inside Discord.",
+      }),
   );
   app.get("/api/private-context", protect, async (_q, r) => {
     const rows = await database()
@@ -471,7 +469,18 @@ export function createApp() {
   });
   const publicDir = resolve(process.cwd(), "apps/frontend/dist");
   if (existsSync(publicDir)) {
-    app.use(express.static(publicDir, { maxAge: "1h" }));
+    app.use(
+      express.static(publicDir, {
+        maxAge: "1h",
+        // Public asset response hook: only HTML cache headers change. No auth,
+        // persistence, retry or transaction. Revalidate the entry document so a
+        // deployment cannot leave browsers running a retired frontend for an hour.
+        setHeaders(res, filePath) {
+          if (filePath.endsWith(".html"))
+            res.setHeader("Cache-Control", "no-cache");
+        },
+      }),
+    );
     app.get("/{*path}", (req, res, next) =>
       req.path.startsWith("/api/")
         ? next()

@@ -1,6 +1,8 @@
 # Vultr deployment
 
-Hosting is intentionally pending: the owner requires **$0 beyond promotional credits and a hard cap**, and chose to wait for Vultr rather than deploy to Render. The $100 MLH credit expires after 30 days. A free-compute application was submitted on 2026-09-19 and awaits approval. The account's $1,000/month maximum instance-cost setting does not stop ongoing charges at credit exhaustion. **Do not provision a paid server until this constraint is resolved.** Powering a Vultr instance off does not stop billing; it must be destroyed. No Vultr instance has been created.
+The owner requires **$0 beyond promotional credits and a hard cap**, and chose Vultr rather than Render. The $100 MLH credit expires after 30 days; the account's resource limit is not a stop-at-credit-zero cap. Do not create additional paid resources. On 2026-09-19 the signed-in console showed an existing `vtevents-production` Ubuntu 24.04 server at `45.77.222.255` (2 GB, 1 vCPU, New Jersey, $0.03 accrued). Its creation occurred outside this checkout's deployment session. A hard spending cap/free-compute approval has not been verified. Powering off does not stop Vultr billing.
+
+The owner selected `vtevents.us`. Porkbun DNS now has root A `45.77.222.255` and `www` CNAME `vtevents.us` (TTL 600). This is DNS preparation, not evidence of a running HTTPS application. Server access, Atlas host allowlisting, production credential rotation, deployment and public verification are still in progress; consult `NEXT_AGENT_PROMPT.md` for the latest checkpoint.
 
 This deployment serves the Expo export and Node API on one origin behind Caddy HTTPS. Atlas remains the database. Startup/hourly source and private-connection refreshes and minute analytics retries run inside the continuously running Node process. No paid cron or extra services are required.
 

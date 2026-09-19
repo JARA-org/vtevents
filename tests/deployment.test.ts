@@ -133,3 +133,50 @@ test("smoke rejects disconnected services, anonymous access, redirects and malfo
       smokeDeployment(origin, () => assert.fail("must not fetch")),
     );
 });
+
+test("deployment requires signed Discord bot configuration and explicit collection/AI flags", () => {
+  const base = {
+    ...production(),
+    DISCORD_CLIENT_ID: "1550880609491222639",
+    DISCORD_PUBLIC_KEY: "a".repeat(64),
+    DISCORD_BOT_TOKEN: "synthetic-test-token",
+  };
+  assert.deepEqual(
+    checkProductionConfig(text(base), "gobbler.example.org").errors,
+    [],
+  );
+  assert.deepEqual(
+    checkProductionConfig(
+      text({
+        ...base,
+        DISCORD_COLLECTION_ENABLED: "true",
+        DISCORD_AI_ENABLED: "true",
+        DISCORD_AI_DAILY_LIMIT: "20",
+        GEMINI_API_KEY: "synthetic-test-key",
+      }),
+      "gobbler.example.org",
+    ).errors,
+    [],
+  );
+  for (const patch of [
+    { DISCORD_PUBLIC_KEY: "" },
+    { DISCORD_PUBLIC_KEY: "invalid" },
+    { DISCORD_BOT_TOKEN: "" },
+    { DISCORD_CLIENT_SECRET: "retired-secret" },
+    { DISCORD_CLIENT_ID: "not-an-id" },
+    { DISCORD_COLLECTION_ENABLED: "yes" },
+    { DISCORD_AI_ENABLED: "true" },
+    { DISCORD_AI_DAILY_LIMIT: "101" },
+    { DISCORD_AI_DAILY_LIMIT: "-1" },
+  ])
+    assert.ok(
+      checkProductionConfig(text({ ...base, ...patch }), "gobbler.example.org")
+        .errors.length,
+    );
+  assert.ok(
+    checkProductionConfig(
+      text({ ...production(), DISCORD_COLLECTION_ENABLED: "true" }),
+      "gobbler.example.org",
+    ).errors.length,
+  );
+});

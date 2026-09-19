@@ -60,3 +60,13 @@ Implement shared scheduling/event model, integration modules and security, front
 The local Atlas-backed UI completed signup, saved interests, live discovery, grounded Friday-after-five recommendations and ElevenLabs generation. It displayed “Your audio is ready” and the native audio player. Clicking Play crashed the Codex in-app browser tab; the cause is not yet established, so audible playback is NOT claimed verified. The app recovered in a fresh tab, and its disposable browser QA account was deleted through Settings. A standard browser playback check is still required.
 
 Source checkpoint ace873f was pushed to JARA-org/vtevents/main; local and remote SHAs matched. Known credential values were absent from all 56 tracked/untracked source candidates and the built frontend (99 files total). Secrets remain ignored.
+
+## Current production continuation — 2026-09-19
+
+Pulled f6a4cfd and preserved v2/Discord changes. Fixed Discord production preflight/template mismatch; regression tests pass. Full prior suite 43/43, typechecks and build pass. Fresh Atlas/Gemini authenticated flow passed with 1,520 live events and disposable-account cleanup.
+
+Owner selected vtevents.us and signed into Porkbun. Root A now 45.77.222.255; www CNAME vtevents.us; both externally verified. Existing Vultr vtevents-production VM found (Ubuntu 24.04, 2GB, New Jersey), created outside this checkout. No new paid resources. $0-over-credit/hard-cap constraint persists and no cap is verified.
+
+SSH times out because the cloud firewall permits previous workstation 45.3.88.247/32; current workstation is 73.171.46.27. Prepared narrow SSH rule and Atlas VM /32 entry; browser policy requires at-action confirmations. Existing root credential privately recovered; no replacement key or server reinstall performed. Production env is ignored and owner-readable, with Atlas, ElevenLabs and fresh app secrets; Gemini replacement pending personal Create key action. Public deployment remains incomplete.
+
+Deployment QA also found and fixed one-hour stale HTML caching. Current v2 mobile/desktop landing inspected; API/deployment regression tests5/5, typecheck and production build pass after fix. Full suite44/44 passed before the final cache fix. Source/frontend scan includes production/recovery secrets and reports zero matches. Pending security grants/key rotation remain owner actions.

@@ -102,7 +102,7 @@ export function checkProductionConfig(text, domain) {
   for (const pair of [
     ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
     ["CANVAS_CLIENT_ID", "CANVAS_CLIENT_SECRET"],
-    ["DISCORD_CLIENT_ID", "DISCORD_CLIENT_SECRET", "DISCORD_BOT_TOKEN"],
+    ["DISCORD_CLIENT_ID", "DISCORD_PUBLIC_KEY", "DISCORD_BOT_TOKEN"],
     ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"],
     ["DATABRICKS_HOST", "DATABRICKS_TOKEN", "DATABRICKS_WAREHOUSE_ID"],
   ]) {
@@ -111,5 +111,42 @@ export function checkProductionConfig(text, domain) {
         `${pair.join(" / ")}: configure the complete integration or leave it empty.`,
       );
   }
+  if (values.DISCORD_CLIENT_SECRET)
+    errors.push(
+      "DISCORD_CLIENT_SECRET: retired user OAuth is unsupported; remove this credential.",
+    );
+  if (values.DISCORD_CLIENT_ID && !/^\d{1,20}$/.test(values.DISCORD_CLIENT_ID))
+    errors.push("DISCORD_CLIENT_ID: must be the Discord application ID.");
+  if (
+    values.DISCORD_PUBLIC_KEY &&
+    !/^[a-f0-9]{64}$/i.test(values.DISCORD_PUBLIC_KEY)
+  )
+    errors.push(
+      "DISCORD_PUBLIC_KEY: must contain exactly 64 hexadecimal characters.",
+    );
+  for (const flag of ["DISCORD_COLLECTION_ENABLED", "DISCORD_AI_ENABLED"]) {
+    if (values[flag] && !["true", "false"].includes(values[flag]))
+      errors.push(`${flag}: must be true or false.`);
+    if (
+      values[flag] === "true" &&
+      !["DISCORD_CLIENT_ID", "DISCORD_PUBLIC_KEY", "DISCORD_BOT_TOKEN"].every(
+        (key) => values[key],
+      )
+    )
+      errors.push(`${flag}: requires complete bot configuration.`);
+  }
+  if (
+    values.DISCORD_AI_ENABLED === "true" &&
+    (values.DISCORD_COLLECTION_ENABLED !== "true" || !values.GEMINI_API_KEY)
+  )
+    errors.push(
+      "DISCORD_AI_ENABLED: requires enabled collection and backend Gemini credentials.",
+    );
+  if (
+    values.DISCORD_AI_DAILY_LIMIT &&
+    (!/^\d+$/.test(values.DISCORD_AI_DAILY_LIMIT) ||
+      Number(values.DISCORD_AI_DAILY_LIMIT) > 100)
+  )
+    errors.push("DISCORD_AI_DAILY_LIMIT: must be an integer from 0 to 100.");
   return { values, errors };
 }
