@@ -39,7 +39,7 @@ See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE
 
 ## Deploy the full Node application
 
-**Selected host: Vultr.** See [Vultr deployment](deploy/README.md) for the live release, Docker/Caddy operations, cost constraint and launch checks. Source revision `3b003bb` is deployed at `/opt/vtevents/releases/3b003bb`, with `/opt/vtevents/current` pointing there. Linux preflight, production image build and all seven public HTTPS smoke checks passed. The Render path below remains an unused fallback; changing hosting requires the owner's direction.
+**Selected host: Vultr.** See [Vultr deployment](deploy/README.md) for the live release, Docker/Caddy operations, cost constraint and launch checks. Source revision `55e3420` is deployed at `/opt/vtevents/releases/55e3420`, with `/opt/vtevents/current` pointing there. Linux preflight, production image build and all seven public HTTPS smoke checks passed. The Render path below remains an unused fallback; changing hosting requires the owner's direction.
 
 ### Unused Render fallback (requires owner to change hosting choice)
 

@@ -1,6 +1,12 @@
 # Verification and hackathon walkthrough
 
-## Current production checkpoint — 2026-09-19
+## Final release update — 2026-09-19
+
+Deployed **55e3420** after integrating upstream Discord Gateway/club/publication changes. **50/50 tests**, architecture/contracts and typechecks passed; actual-host production Docker build passed. API fixture now explicitly blanks optional credentials to avoid inheriting real local Google configuration. Production dependency audit: zero vulnerabilities. HTTPS smoke7/7, synthetic Atlas/core/Gemini/deletion and Google OAuth-initiation checks passed after updating. Production frontend59files had zero configured-secret matches; local source/export170files had zero known-secret matches. Earlier3b003bb release/image retained. HTTP->HTTPS and HTTPSwww->root redirects and Gobbler favicon200 verified.
+
+No Google personal connection is yet present. Owner clarified they needed directions; site sign-in page was opened. All synthetic accounts deleted. Real Google sync/write needs that separate personal consent. New Discord code is deployed but disabled/unconfigured.
+
+## Earlier production checkpoint — 2026-09-19
 
 This checkpoint supersedes older local/deployment-pending entries below; those are retained as history.
 

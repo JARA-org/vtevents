@@ -9,10 +9,10 @@
 | Gemini          | **Live and tested:** `gemini-3.5-flash-lite`, real grounded responses from stored event IDs                               | Production replacement key tested; old exposed setup key deleted                                                                 |
 | Google Calendar | **Production configured:** OAuth+PKCE initiation verified; free/busy/write/revoke implemented; duplicate writes tested with mocks                         | Owner personal consent and live sync/write test; external/testing restricted to sole owner test user; public verification/publishing pending                        |
 | Canvas          | Scoped OAuth, paginated courses/calendar/announcements, refresh/revoke and guarded writes implemented                     | Virginia Tech must issue/enable an OAuth developer key with permitted scopes; user consent; write permission for writes  |
-| Discord         | Read-only signed commands, bounded channel collector and optional Gemini extraction implemented; validated candidates are staged, not published | Endpoint is online; bot token/public key, message-content intent, server installation and command registration remain pending |
+| Discord         | Read-only signed commands, Gateway-triggered durable queue, server budgets, club linking and automatic qualified-event publication implemented; disabled in production | Endpoint is online; bot token/public key, message-content intent, server installation and command registration remain pending |
 | Databricks      | Free Edition workspace exists; Node ingestion/outbox and dashboard SQL implemented                                        | Genie One MCP authentication/preview setup and live SQL/dashboard verification; console blocks automated control         |
 | ElevenLabs      | **Live and tested:** Free plan, TTS-only key capped8,000credits/refresh; realMP3, cache and authenticated endpoint passed | Secret deployed; final audible browser playback QA                                                                             |
-| Vultr           | **Live and tested:** https://vtevents.us on existing VM `45.77.222.255`, Docker/Caddy, source revision `3b003bb` | Hard spending cap still unverified; no additional paid resources. Exposed Vultr API key requires rotation |
+| Vultr           | **Live and tested:** https://vtevents.us on existing VM `45.77.222.255`, Docker/Caddy, source revision `55e3420` | Hard spending cap still unverified; no additional paid resources. Exposed Vultr API key requires rotation |
 | Tiger Data      | Feasibility researched; no resource or adapter claimed                                                                    | Optional public campus-activity metrics extension; verify sponsor free resources before provisioning                     |
 | Render          | Free Node deployment Blueprint implemented, unused                                                                        | Owner explicitly chose to leave hosting pending for Vultr                                                                |
 | Sites preview   | Separate static-preview deployment path                                                                                   | See resource inventory for final deployment status                                                                       |
@@ -51,7 +51,7 @@ Personal calendar writes use `user_<authenticated Canvas ID>`. The connected use
 The current design is a read-only server-installed bot, with no app-user account
 linking. Signed commands select channels for automatic reading,
 submit individual messages independently, and exclude messages. No Discord
-channel settings or permissions are changed. A bounded collector and optional budgeted AI extraction now stage validated candidates. Canonical event publication remains pending. See [bot setup and boundaries](DISCORD_BOT.md).
+channel settings or permissions are changed. The latest team implementation uses Gateway-triggered durable work, per-server AI budgets, verified server-to-club linking and automatic publication of qualified events with audited owner corrections. Live bot configuration and server installation remain pending. See [bot setup and boundaries](DISCORD_BOT.md).
 
 ## Databricks
 

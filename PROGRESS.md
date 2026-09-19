@@ -1,3 +1,11 @@
+# Final live release — 2026-09-19
+
+Live source **55e3420** at https://vtevents.us, integrating team main7bbfbf9. 50/50tests, typechecks/contracts, actual-host production build and production dependency audit pass (0 vulnerabilities). Fixed API test fixture isolation from local Google credentials. Core live HTTP flow/Gemini/OAuth initiation and HTTPS smoke pass after update; 1,519 current events. Previous3b003bb release retained. All synthetic QA accounts deleted.
+
+Google app/client/API/scopes/test user are configured and secret deployed. Personal calendar connection is NOT complete: zero connections observed, and owner clarified they needed the site sign-in page, now opened. Next: owner signs in to vtevents.us -> Settings -> Google Calendar -> Connect. Canvas, Discord live installation, Databricks and auth recovery remain pending. New upstream Gateway/club/publication code is present but Discord stays disabled. Vultr hard spending protection is still unverified; no additional resources created. See NEXT_AGENT_PROMPT.md.
+
+---
+
 # Latest production checkpoint — 2026-09-19
 
 **Online: https://vtevents.us**, deployed source `3b003bb`. SSH recovered with the new deployment key, root recovery password rotated, Atlas server `/32` activated, replacement Gemini key tested/deployed, Docker app and Caddy HTTPS healthy. No VM was created/reinstalled; existing host reused. `/opt/vtevents/current` points to `/opt/vtevents/releases/3b003bb`.
