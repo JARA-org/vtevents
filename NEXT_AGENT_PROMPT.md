@@ -1,5 +1,31 @@
 # Resume My Gobbler production work
 
+## Latest hardening checkpoint (supersedes deployment paths below)
+
+Fetched and fast-forwarded team main through 2694d4f. User explicitly wants the
+teammate's Discord work left alone. No Discord modules/settings changed here.
+Calendar hardening adds transactional disconnect/sync/OAuth-callback fencing,
+provider response validation, refresh compare-and-set, and invalid-token status.
+Health now probes MongoDB with a two-second bound and returns redacted HTTP503
+when unavailable. Regression coverage includes disconnect during an in-flight
+read/exchange, preservation of prior context on malformed responses, isolation,
+and protection of replacement credentials from failed old refreshes.
+
+Deployment coordination is REQUIRED: read-only SSH inspection found the app still
+running image my-little-gobbler-app:55e3420, but /opt/vtevents/current and the entire
+/opt/vtevents/releases directory are now absent. /opt/vtevents exists and was
+modified by other work. Do not assume the older runbook paths/env backups exist.
+User was asked whether teammate is actively deploying; no answer at this checkpoint.
+Do not replace teammate production setup blindly. New fixes are not deployed yet.
+
+Still unfinished: auth email verification/recovery (no mail delivery provider
+configured), live Google consent/sync/write, Canvas institutional key, Databricks
+authorization/dashboard, club-owned account deletion review (coordinate with
+teammate), Vultr exposed API-key rotation and credit protection. Google Cloud trial
+billing page reports prepayment required; $0 limit still applies. No trial payment
+or Gemini backend migration performed. Do not confuse Google Cloud trial credits
+with the excluded AI Studio Gemini API.
+
 Continue the existing private **https://github.com/JARA-org/vtevents**, branch main. Do not create another repository or discard team work. Read AGENTS.md, Master.md, MAKEOVER_HANDOFF.md and packages/shared/src/contracts.ts before interface work. Latest upstream makeover uses **My Gobbler**, supplied turkey assets and a Gobbler favicon. Keep cloud/database identifiers unchanged. Current v2 requires authentication; anonymous demo retirement is intentional. Frontend is UI/transport only; all domain logic stays in the Node backend. Discord is strictly read-only toward server resources.
 
 ## Deployed and verified

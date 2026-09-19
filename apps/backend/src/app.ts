@@ -208,17 +208,30 @@ export function createApp() {
       ),
     );
   });
-  app.get("/api/health", (_req, res) =>
-    res.json({
-      ok: true,
-      name: "My Gobbler",
-      database: !!db,
-      accounts: !!auth,
-      gemini: !!process.env.GEMINI_API_KEY,
-      voice: voiceReady(),
-      sources: sourceStatus,
-    }),
-  );
+  // Anonymous read-only readiness probe. No provider calls, writes or retries;
+  // bounded Mongo ping fails closed with redacted 503 when storage is unavailable.
+  app.get("/api/health", async (_req, res) => {
+    let databaseReady = false;
+    try {
+      databaseReady =
+        !!db && (await db.command({ ping: 1 }, { timeoutMS: 2000 })).ok === 1;
+    } catch {
+      /* Never expose connection details in a public health response. */
+    }
+    const ready = databaseReady && !!auth;
+    res
+      .set("Cache-Control", "no-store")
+      .status(ready ? 200 : 503)
+      .json({
+        ok: ready,
+        name: "My Gobbler",
+        database: databaseReady,
+        accounts: !!auth,
+        gemini: !!process.env.GEMINI_API_KEY,
+        voice: voiceReady(),
+        sources: sourceStatus,
+      });
+  });
   app.get("/api/events", protect, async (req, res) => {
     if (req.query.mode && req.query.mode !== "live")
       throw new HttpError(400, "Unsupported event mode.");

@@ -96,3 +96,12 @@ Source checkpoint ace873f was pushed to JARA-org/vtevents/main; local and remote
 - Existing Vultr VM was found in the owner console; no new VM was created. Server access and Atlas allowlist entries are prepared, awaiting browser-required confirmations. Its hard spending cap remains unverified. Docker Desktop's engine is unavailable on this Windows checkout; the prior container validation above was performed elsewhere.
 
 Follow-up verification: the complete 44-test suite passed. Browser inspection found stale one-hour-cached landing HTML from the retired frontend; HTML now revalidates while static assets retain their existing cache duration. A build-independent HTTP fixture verifies this header. Updated API/deployment tests (5/5), architecture/contracts/typechecks and production build passed after that fix. Current landing was visually inspected at390x844 and1280x800 with no horizontal overflow; Gobbler branding/favicon remain present. No production HTTPS claim.
+# Calendar and readiness hardening (2026-09-19, not yet deployed)
+
+Regression tests use isolated Mongo replica sets and synthetic provider responses.
+They verify malformed/missing availability does not erase prior busy data, valid
+empty availability succeeds, disconnect wins over in-flight calendar sync and
+OAuth exchange, other users remain connected, missing refreshed access tokens fail
+closed, and stale refresh failures cannot expire replacement credentials. Public
+health tests verify live database probes, no-store, redacted outage response and
+HTTP503. Production live-provider sync/write still needs owner consent.

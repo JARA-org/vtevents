@@ -1,7 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { DateTime } from "luxon";
+import { z } from "zod";
 import { CampusEvent, Profile } from "./domain.js";
-import { database } from "./store.js";
+import { database, mongoClient } from "./store.js";
 import { config, HttpError, remote } from "./config.js";
 import { seal, unseal, hash } from "./security.js";
 import { track } from "./analytics.js";
@@ -88,14 +89,21 @@ export async function finishOAuth(
   state: string,
   code: string,
 ) {
+  // Claim once before exchanging the code. Keep the claim until the transaction
+  // commits so disconnect can cancel an exchange already in flight. Token POST
+  // is not retried; failed claims expire and require a fresh connection request.
   const row = await database()
     .collection("oauth_states")
-    .findOneAndDelete({
-      stateHash: hash(state),
-      userId,
-      provider: p,
-      expiresAt: { $gt: new Date() },
-    });
+    .findOneAndUpdate(
+      {
+        stateHash: hash(state),
+        userId,
+        provider: p,
+        expiresAt: { $gt: new Date() },
+        claimedAt: { $exists: false },
+      },
+      { $set: { claimedAt: new Date() } },
+    );
   if (!row)
     throw new HttpError(
       400,
@@ -117,25 +125,47 @@ export async function finishOAuth(
       { method: "POST", body },
     )
   ).json();
-  if (!t.access_token)
+  if (typeof t.access_token !== "string" || !t.access_token.trim())
     throw new HttpError(502, "The connection did not return an access token.");
-  await database()
-    .collection("connections")
-    .updateOne(
-      { userId, provider: p },
-      {
-        $set: {
-          encrypted: seal({
-            ...t,
-            expiresAt: Date.now() + (t.expires_in || 3600) * 1000,
-          }),
-          status: "connected",
-          connectedAt: new Date(),
-          lastSync: null,
-        },
-      },
-      { upsert: true },
-    );
+  if (!mongoClient) throw new HttpError(503, "Database unavailable.");
+  const session = mongoClient.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const claim = await database()
+        .collection("oauth_states")
+        .deleteOne(
+          { _id: row._id, expiresAt: { $gt: new Date() } },
+          { session },
+        );
+      if (!claim.deletedCount)
+        throw new HttpError(
+          409,
+          "Connection request was cancelled or expired. Start again from Settings.",
+        );
+      await database()
+        .collection("connections")
+        .updateOne(
+          { userId, provider: p },
+          {
+            $set: {
+              encrypted: seal({
+                ...t,
+                expiresAt: Date.now() + (t.expires_in || 3600) * 1000,
+              }),
+              status: "connected",
+              connectedAt: new Date(),
+              lastSync: null,
+            },
+          },
+          { upsert: true, session },
+        );
+      await database()
+        .collection("private_context")
+        .deleteOne({ userId, provider: p }, { session });
+    });
+  } finally {
+    await session.endSession();
+  }
 }
 export async function tokenFor(userId: string, p: Provider) {
   const row = await database()
@@ -145,8 +175,15 @@ export async function tokenFor(userId: string, p: Provider) {
     throw new HttpError(409, "Connect this calendar in Settings first.");
   const t = unseal(row.encrypted);
   if (t.expiresAt > Date.now() + 60000) return t.access_token as string;
-  if (!t.refresh_token)
+  if (!t.refresh_token) {
+    await database()
+      .collection("connections")
+      .updateOne(
+        { _id: row._id, encrypted: row.encrypted },
+        { $set: { status: "expired" } },
+      );
     throw new HttpError(409, "Connection expired. Reconnect from Settings.");
+  }
   try {
     const body = new URLSearchParams({
       grant_type: "refresh_token",
@@ -163,10 +200,15 @@ export async function tokenFor(userId: string, p: Provider) {
         { method: "POST", body },
       )
     ).json();
-    await database()
+    if (typeof fresh.access_token !== "string" || !fresh.access_token.trim())
+      throw new HttpError(
+        502,
+        "The provider returned an invalid token response.",
+      );
+    const updated = await database()
       .collection("connections")
       .updateOne(
-        { _id: row._id },
+        { _id: row._id, encrypted: row.encrypted },
         {
           $set: {
             encrypted: seal({
@@ -178,11 +220,16 @@ export async function tokenFor(userId: string, p: Provider) {
           },
         },
       );
+    if (!updated.matchedCount)
+      throw new HttpError(409, "The connection changed. Please try again.");
     return fresh.access_token as string;
   } catch {
     await database()
       .collection("connections")
-      .updateOne({ _id: row._id }, { $set: { status: "expired" } });
+      .updateOne(
+        { _id: row._id, encrypted: row.encrypted },
+        { $set: { status: "expired" } },
+      );
     throw new HttpError(409, "Connection expired. Reconnect from Settings.");
   }
 }
@@ -211,10 +258,22 @@ async function canvasPages(url: string, headers: Record<string, string>) {
   );
 }
 export async function syncCalendar(userId: string, p: Provider) {
+  // Caller supplies the authenticated owner. Provider reads happen outside the
+  // transaction; the connection revision fences the atomic context/status write.
+  // A disconnect/reconnect or refresh during the read rejects stale results.
+  // Mongo may retry only the local transaction, never the provider request.
+  const connection = await database()
+    .collection("connections")
+    .findOne({ userId, provider: p });
   const token = await tokenFor(userId, p),
     headers = { Authorization: `Bearer ${token}` },
     start = new Date().toISOString(),
     end = DateTime.now().plus({ days: 60 }).toISO();
+  const revision = await database()
+    .collection("connections")
+    .findOne({ _id: connection?._id });
+  if (!revision || unseal(revision.encrypted).access_token !== token)
+    throw new HttpError(409, "The connection changed. Please try again.");
   let busy: Profile["busy"] = [],
     extra: any = {};
   if (p === "google") {
@@ -234,7 +293,22 @@ export async function syncCalendar(userId: string, p: Provider) {
         409,
         "Google Calendar availability could not be read. Check permissions.",
       );
-    busy = (data.calendars?.primary?.busy || []).map((b: any) => ({
+    const intervals = z
+      .array(
+        z
+          .object({
+            start: z.string().datetime({ offset: true }),
+            end: z.string().datetime({ offset: true }),
+          })
+          .refine((b) => Date.parse(b.start) < Date.parse(b.end)),
+      )
+      .safeParse(data.calendars?.primary?.busy);
+    if (!intervals.success)
+      throw new HttpError(
+        502,
+        "Google Calendar returned incomplete availability. Please retry sync.",
+      );
+    busy = intervals.data.map((b) => ({
       id: hash(b.start + b.end),
       start: b.start,
       end: b.end,
@@ -293,26 +367,37 @@ export async function syncCalendar(userId: string, p: Provider) {
       bounded: true,
     };
   }
-  await database()
-    .collection("private_context")
-    .updateOne(
-      { userId, provider: p },
-      {
-        $set: {
-          encrypted: seal({ busy, ...extra }),
-          syncedAt: new Date(),
-          coverageStart: start,
-          coverageEnd: end,
-        },
-      },
-      { upsert: true },
-    );
-  await database()
-    .collection("connections")
-    .updateOne(
-      { userId, provider: p },
-      { $set: { lastSync: new Date(), status: "connected" } },
-    );
+  if (!mongoClient) throw new HttpError(503, "Database unavailable.");
+  const session = mongoClient.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const current = await database()
+        .collection("connections")
+        .updateOne(
+          { _id: revision._id, encrypted: revision.encrypted },
+          { $set: { lastSync: new Date(), status: "connected" } },
+          { session },
+        );
+      if (!current.matchedCount)
+        throw new HttpError(409, "The connection changed. Please try again.");
+      await database()
+        .collection("private_context")
+        .updateOne(
+          { userId, provider: p },
+          {
+            $set: {
+              encrypted: seal({ busy, ...extra }),
+              syncedAt: new Date(),
+              coverageStart: start,
+              coverageEnd: end,
+            },
+          },
+          { upsert: true, session },
+        );
+    });
+  } finally {
+    await session.endSession();
+  }
   return {
     busyCount: busy.length,
     ...(p === "canvas"
@@ -449,13 +534,32 @@ export async function addCalendar(userId: string, p: Provider, e: CampusEvent) {
   }
 }
 export async function disconnect(userId: string, p: Provider) {
-  const row = await database()
-    .collection("connections")
-    .findOne({ userId, provider: p });
+  // Authenticated owner only. Atomically remove local access/context and pending
+  // OAuth requests before best-effort remote revocation. Retrying is safe; a
+  // provider outage does not retain private data. No network calls in the txn.
+  if (!mongoClient) throw new HttpError(503, "Database unavailable.");
+  const session = mongoClient.startSession();
+  let row;
+  try {
+    row = await session.withTransaction(async () => {
+      const removed = await database()
+        .collection("connections")
+        .findOneAndDelete({ userId, provider: p }, { session });
+      await database()
+        .collection("private_context")
+        .deleteOne({ userId, provider: p }, { session });
+      await database()
+        .collection("oauth_states")
+        .deleteMany({ userId, provider: p }, { session });
+      return removed;
+    });
+  } finally {
+    await session.endSession();
+  }
   let revoked = false;
   if (row) {
-    const t = unseal(row.encrypted);
     try {
+      const t = unseal(row.encrypted);
       if (p === "google")
         await remote("https://oauth2.googleapis.com/revoke", {
           method: "POST",
@@ -471,9 +575,5 @@ export async function disconnect(userId: string, p: Provider) {
       revoked = true;
     } catch {}
   }
-  await database().collection("connections").deleteOne({ userId, provider: p });
-  await database()
-    .collection("private_context")
-    .deleteOne({ userId, provider: p });
   return { disconnected: true, revoked };
 }

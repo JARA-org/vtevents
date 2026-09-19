@@ -1,4 +1,18 @@
-# Final live release — 2026-09-19
+# Production hardening — 2026-09-19 (awaiting coordinated deployment)
+
+Integrated team main through 2694d4f without changing Discord. Calendar sync and
+OAuth callbacks now cannot restore disconnected context/connections after their
+remote reads complete. Invalid Google availability preserves prior context;
+empty valid busy arrays still work. Refresh writes use credential revision checks
+and reject missing access tokens. Disconnect clears pending OAuth claims and
+private context atomically, even when remote revocation fails. Health checks now
+probe MongoDB, fail with a redacted 503 and prohibit caching.
+
+Read-only server inspection found old image55e3420 healthy but previous release
+directories and current symlink absent. Teammate deployment coordination pending;
+do not overwrite current server files. See NEXT_AGENT_PROMPT.md.
+
+# Previous live release — 2026-09-19
 
 Live source **55e3420** at https://vtevents.us, integrating team main7bbfbf9. 50/50tests, typechecks/contracts, actual-host production build and production dependency audit pass (0 vulnerabilities). Fixed API test fixture isolation from local Google credentials. Core live HTTP flow/Gemini/OAuth initiation and HTTPS smoke pass after update; 1,519 current events. Previous3b003bb release retained. All synthetic QA accounts deleted.
 
