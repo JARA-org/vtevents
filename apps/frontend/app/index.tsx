@@ -34,6 +34,8 @@ import { Button, Chip, Field, Gobbler, Pressable } from "../components/ui";
 import { useError } from "../components/ErrorModal";
 import { SignInCard } from "../components/SignInCard";
 import { Landing } from "../components/Landing";
+import { EventCover } from "../components/EventCover";
+import { deadlineText } from "../components/event-presentation";
 // Blank UI form state only; domain defaults are returned by bootstrap.
 const blankProfile: Profile = {
   name: "",
@@ -426,9 +428,6 @@ export default function Home() {
     compact?: boolean;
   }) {
     const { event: e, fit, reason } = item;
-    const football = /football/i.test(e.sports?.sport || "");
-    const vtLogo = e.media?.find(media => media.alt === "Virginia Tech football logo");
-    const cover = e.media?.find(media => media.kind === "image");
     const accent = e.categories.includes("Outdoors")
       ? "#E4EEE5"
       : e.categories.includes("Arts & music")
@@ -448,18 +447,13 @@ export default function Home() {
           style={{ gap: 16 }}
         >
           <View style={[s.eventTop, { backgroundColor: accent }]}>
-            {!football && cover && <Image source={{ uri: cover.url }} accessibilityLabel={cover.alt || e.title} resizeMode="cover" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />}
+            <EventCover event={e} />
             <View style={[s.dateStamp, { position: "absolute", top: 12, left: 12, zIndex: 1 }]}>
               <Text style={s.dateMonth}>
                 {date(e.start, "LLL").toUpperCase()}
               </Text>
               <Text style={s.dateDay}>{date(e.start, "d")}</Text>
             </View>
-            {football ? <View style={{ flex: 1, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 18 }}>
-              {vtLogo && <Image source={{ uri: vtLogo.url }} accessibilityLabel="Virginia Tech" resizeMode="contain" style={{ width: 80, height: 80 }} />}
-              <Text style={{ fontFamily: font, fontSize: 22, fontWeight: "800", color: C.maroon }}>VS</Text>
-              {e.sports?.opponentLogoUrl ? <Image source={{ uri: e.sports.opponentLogoUrl }} accessibilityLabel={e.sports.opponent || "Opponent"} resizeMode="contain" style={{ width: 80, height: 80 }} /> : <Text style={{ color: C.maroon, flexShrink: 1 }}>{e.sports?.opponent || "Opponent TBD"}</Text>}
-            </View> : !cover ? <Text style={{ fontFamily: font, color: C.maroon }}>My Gobbler</Text> : null}
             <View style={[s.categoryTag, { position: "absolute", bottom: 12, right: 12, backgroundColor: "white" }]}>
               <Text style={s.small}>{e.categories[0] || "Campus life"}</Text>
             </View>
@@ -1038,13 +1032,13 @@ export default function Home() {
                 {!!deadlineStatus && <Text accessibilityLiveRegion="polite" style={s.body}>{deadlineStatus}</Text>}
                 {deadlines.map(deadline => (
                   <View key={deadline.id} style={{ gap: 8, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.muted }}>
-                    <Text style={s.eventTitle}>{deadline.title}</Text>
+                    <Text style={s.eventTitle}>{deadlineText(deadline.title)}</Text>
                     <Text style={s.body}>
                       Due {DateTime.fromISO(deadline.dueDate, { zone: deadline.timezone }).toFormat("ccc, LLL d, yyyy")}
                       {deadline.dueAt ? ` · ${DateTime.fromISO(deadline.dueAt).setZone(deadline.timezone).toFormat("h:mm a ZZZZ")}` : " · Time not specified"}
                     </Text>
                     {!!deadline.term && <Text style={s.meta}>{deadline.term}</Text>}
-                    {!!deadline.description && <Text style={s.body}>{deadline.description}</Text>}
+                    {!!deadline.description && <Text style={s.body}>{deadlineText(deadline.description)}</Text>}
                     {!!deadline.audience?.length && <Text style={s.meta}>For {deadline.audience.join(" · ")}</Text>}
                     <View style={s.wrap}>
                       {deadline.submissionUrl && <Button secondary label="Submission details ↗" onPress={() => Linking.openURL(deadline.submissionUrl!)} />}

@@ -241,7 +241,8 @@ export function parsePublicPage(
       year: string | undefined;
     main.find("h2,h3,h4,tr,li,p").each((_, el) => {
       const node = $(el),
-        line = text(node.text());
+        legacyLine = text(node.text()),
+        line = text(node.clone().find("td,th,br,p,div,li").before(" ").end().text());
       if (/^h[234]$/.test(el.tagName)) {
         if (node.closest("table").length) return;
         term = line;
@@ -263,7 +264,8 @@ export function parsePublicPage(
           source.id === "bursar" ? "Payment deadline: " + line : line
         ).slice(0, 300),
         native = hash(
-          `${url}|${term}|${line.replace(new RegExp(`${month}\\.?\\s+\\d{1,2}(?:,?\\s+20\\d{2})?`, "gi"), "")}`,
+          // Retain existing IDs while correcting table-cell spacing in displayed text.
+          `${url}|${term}|${legacyLine.replace(new RegExp(`${month}\\.?\\s+\\d{1,2}(?:,?\\s+20\\d{2})?`, "gi"), "")}`,
         );
       const dueAtMatch = line.match(
         /\b(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b/i,

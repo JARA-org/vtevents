@@ -144,6 +144,12 @@ test("deadlines use explicit years, reject invalid dates and exclude term-only d
   assert.equal(result.deadlines[0].dueDate, "2026-11-20");
   assert.equal(result.deadlines[0].term, "Spring 2027");
   assert.equal(result.deadlines[0].dueAt, undefined);
+  assert.equal(result.deadlines[0].title, "November 20, 2026 Last day to register");
+  assert.equal(result.deadlines[0].description, "November 20, 2026 Last day to register");
+  const legacy = parsePublicPage(html.replaceAll("</td><td>", ""), detail, definition);
+  assert.equal(result.deadlines[0].id, legacy.deadlines[0].id, "spacing fixes preserve stored deadline identity");
+  const october = parsePublicPage('<main><h2>Fall 2026</h2><table><tr><td>October 6</td><td>Last day to change grade option from A-F to P/F.<br>Last day to drop individual courses.</td></tr></table></main>', detail, definition);
+  assert.equal(october.deadlines[0].title, "October 6 Last day to change grade option from A-F to P/F. Last day to drop individual courses.");
   assert.equal(
     parsePublicPage(
       "<main><p>Application deadline January 22</p></main>",

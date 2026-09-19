@@ -11,7 +11,7 @@ import { parsePublicPage } from "./public-page-parser.js";
 import { normalizeICS } from "./sources.js";
 import { parseHokieSports, discoverSportsSchedules } from "./sports-source.js";
 import { eventSchema, deadlineSchema } from "./domain.js";
-const PARSER_VERSION = "public-events-2026-09-19-v2";
+const PARSER_VERSION = "public-events-2026-09-19-v3";
 
 /** Content-only revisions: fetching/checking/generated ICS timestamps never create event revisions. */
 export function semanticHash(value: unknown): string {
