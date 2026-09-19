@@ -15,7 +15,12 @@
     "typecheck": "npm run check:architecture && npm run check:contracts && tsc --noEmit -p apps/backend/tsconfig.json && tsc --noEmit -p apps/frontend/tsconfig.json",
     "local": "tsx scripts/local.ts",
     "check:architecture": "node scripts/check-architecture.mjs",
-    "check:contracts": "node scripts/check-contracts.mjs"
+    "check:contracts": "node scripts/check-contracts.mjs",
+    "deploy:check": "node deploy/preflight.mjs",
+    "deploy": "npm run deploy:check && docker compose -f deploy/compose.yaml up -d --build",
+    "deploy:status": "docker compose -f deploy/compose.yaml ps",
+    "deploy:logs": "docker compose -f deploy/compose.yaml logs -f --tail=100",
+    "deploy:smoke": "node deploy/smoke.mjs https://vtevents.us"
   },
   "engines": {
     "node": ">=22"
