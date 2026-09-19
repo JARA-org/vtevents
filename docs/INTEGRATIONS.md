@@ -2,17 +2,17 @@
 
 | Integration     | Status in this workspace                                                                                                  | Remaining dependency                                                                                                     |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| GobblerConnect  | **Live and tested:** 2,219 validated records on 2026-09-19                                                                | None for public feed; some locations intentionally require source sign-in                                                |
+| GobblerConnect  | **Live and tested:** 2,242 validated records on 2026-09-19                                                                | None for public feed; some locations intentionally require source sign-in                                                |
 | VT Sports       | **Live and tested:** 349 structured records across official sport schedules on 2026-09-19                                 | None for public metadata; unannounced starts and missing ends remain unknown                                             |
-| Better Auth     | **Live Atlas tested:** synthetic account creation, profile persistence, saves and deletion                                | Public HTTPS deployment; email verification/recovery                                                                     |
-| MongoDB Atlas   | **Live and tested:** M0 cluster `my-little-gobbler`, narrow user/database permissions and workstation `/32`               | Add selected host's outbound IP when hosting is available                                                                |
-| Gemini          | **Live and tested:** `gemini-3.5-flash-lite`, real grounded responses from stored event IDs                               | Rotate setup key before public deployment; deploy secret                                                                 |
+| Better Auth     | **Live HTTPS tested:** accounts, preferences, saves, deletion and restart persistence                                | Email verification/recovery                                                                     |
+| MongoDB Atlas   | **Live and tested:** M0 cluster `my-little-gobbler`, narrow user/database permissions and workstation/server `/32` entries               | None for production connectivity; retain narrow network entries                                                                |
+| Gemini          | **Live and tested:** `gemini-3.5-flash-lite`, real grounded responses from stored event IDs                               | Production replacement key tested; old exposed setup key deleted                                                                 |
 | Google Calendar | OAuth+PKCE, free/busy, write and revoke implemented; duplicate writes tested with mocked provider                         | Owner Google Cloud project, Calendar API enabled, consent screen, OAuth client, test-user consent                        |
 | Canvas          | Scoped OAuth, paginated courses/calendar/announcements, refresh/revoke and guarded writes implemented                     | Virginia Tech must issue/enable an OAuth developer key with permitted scopes; user consent; write permission for writes  |
-| Discord         | Read-only signed commands, bounded channel collector and optional Gemini extraction implemented; validated candidates are staged, not published | HTTPS endpoint, bot token/public key, message-content intent, server installation and command registration |
+| Discord         | Read-only signed commands, bounded channel collector and optional Gemini extraction implemented; validated candidates are staged, not published | Endpoint is online; bot token/public key, message-content intent, server installation and command registration remain pending |
 | Databricks      | Free Edition workspace exists; Node ingestion/outbox and dashboard SQL implemented                                        | Genie One MCP authentication/preview setup and live SQL/dashboard verification; console blocks automated control         |
-| ElevenLabs      | **Live and tested:** Free plan, TTS-only key capped8,000credits/refresh; realMP3, cache and authenticated endpoint passed | Deployment secret; final browser playback QA                                                                             |
-| Vultr           | Existing VM `45.77.222.255` found; root/www DNS for `vtevents.us` configured; Docker/Caddy package prepared | SSH and Atlas allowlist confirmations, credential rotation, deployment and HTTPS verification. Hard spending cap still unverified; no additional paid resources |
+| ElevenLabs      | **Live and tested:** Free plan, TTS-only key capped8,000credits/refresh; realMP3, cache and authenticated endpoint passed | Secret deployed; final audible browser playback QA                                                                             |
+| Vultr           | **Live and tested:** https://vtevents.us on existing VM `45.77.222.255`, Docker/Caddy, source revision `3b003bb` | Hard spending cap still unverified; no additional paid resources. Exposed Vultr API key requires rotation |
 | Tiger Data      | Feasibility researched; no resource or adapter claimed                                                                    | Optional public campus-activity metrics extension; verify sponsor free resources before provisioning                     |
 | Render          | Free Node deployment Blueprint implemented, unused                                                                        | Owner explicitly chose to leave hosting pending for Vultr                                                                |
 | Sites preview   | Separate static-preview deployment path                                                                                   | See resource inventory for final deployment status                                                                       |
@@ -34,13 +34,13 @@ The official all-sports page links to sport schedules such as https://hokiesport
 
 Dashboard: https://console.cloud.google.com/apis/credentials
 
-Redirect: `https://YOUR_ORIGIN/api/connections/google/callback`
+Redirect: `https://vtevents.us/api/connections/google/callback`
 
 Scopes: `https://www.googleapis.com/auth/calendar.freebusy` and `https://www.googleapis.com/auth/calendar.events.owned`. Reads primary-calendar busy intervals for 60 days; creates only explicitly confirmed events in the primary calendar. Consent testing/verification requirements may limit who can connect; test-mode refresh tokens may expire. Reconnect states are handled in Settings.
 
 ## Canvas
 
-Host is restricted to `https://canvas.vt.edu`; user-supplied arbitrary hosts are rejected. Redirect: `https://YOUR_ORIGIN/api/connections/canvas/callback`.
+Host is restricted to `https://canvas.vt.edu`; user-supplied arbitrary hosts are rejected. Redirect: `https://vtevents.us/api/connections/canvas/callback`.
 
 Developer key scopes: GET user profile, courses, calendar_events, announcements; optional POST calendar_events only when `CANVAS_WRITES_ENABLED=true`. Scope paths follow Canvas's official API scope format. University administrators must approve the key. Do not ask students to bypass university restrictions or paste private access tokens into the public demo.
 

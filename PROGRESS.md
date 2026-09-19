@@ -1,3 +1,13 @@
+# Latest production checkpoint — 2026-09-19
+
+**Online: https://vtevents.us**, deployed source `3b003bb`. SSH recovered with the new deployment key, root recovery password rotated, Atlas server `/32` activated, replacement Gemini key tested/deployed, Docker app and Caddy HTTPS healthy. No VM was created/reinstalled; existing host reused. `/opt/vtevents/current` points to `/opt/vtevents/releases/3b003bb`.
+
+45 tests/typechecks/contracts pass; production image built on Vultr. Public HTTPS smoke and real account/preferences/live discovery/save/ICS/Gemini/deletion flow pass. Browser desktop/mobile onboarding/details/calendar export and schedule conflict pass. App restart retained session/profile/save and refreshed both official feeds. Production web bundle has zero known-secret matches.
+
+Remaining: Google OAuth setup, VT Canvas developer key, Discord bot credentials/install/collection publication, Databricks authorized ingestion/dashboard, auth email verification/recovery, audible voice QA. Vultr hard spending cap remains unverified under owner's $0-over-credit limit. Old Gemini key was deleted after owner approval; Vultr API key rotation remains a security follow-up. See NEXT_AGENT_PROMPT.md and docs/RESOURCES.md for exact state. Earlier entries below are historical and superseded.
+
+---
+
 # My Gobbler — progress
 
 ## 2026-09-19

@@ -1,5 +1,20 @@
 # Verification and hackathon walkthrough
 
+## Current production checkpoint — 2026-09-19
+
+This checkpoint supersedes older local/deployment-pending entries below; those are retained as history.
+
+- **Live URL:** https://vtevents.us. Source revision `3b003bb`, on the existing Vultr VM behind Caddy HTTPS with Atlas M0 and replacement Gemini key.
+- Latest complete suite **45/45 passed**. Backend/frontend typechecks, architecture rules and historical/current contract checks passed. Full Expo/backend production Docker build passed on the actual host. Linux env preflight and Compose configuration validation passed.
+- All seven anonymous HTTPS smoke probes passed before and after an app restart. Secure, HttpOnly, SameSite=Lax session-cookie flags verified.
+- Synthetic HTTPS flow passed signup, profile/interests/Friday availability persistence, 1,520 live events, saving, ICS export, real Gemini response with stored IDs, retired-demo 404 and account deletion. No personal calendar or Discord content was used.
+- Production browser flow passed sign-in, onboarding, live search, Isidore String Quartet details/location/organizer/source, save, calendar destination review and ICS download feedback. Availability initially fit Friday 17:00–22:00; adding an overlapping September 25 busy block correctly changed the saved event to **Schedule conflict**. Other events showed **Availability unknown**.
+- Desktop landing inspected at 1280×800; mobile event/calendar flow at 390×844, document width 390. Gobbler favicon link and My Gobbler page title verified. Settings correctly shows Google/Canvas unavailable and Discord collection disabled.
+- App container restart preserved the synthetic account session, onboarded profile and saved event in Atlas. Startup refresh completed again: 2,242 GobblerConnect and 349 VT Sports records (counts include historical events).
+- Runtime is non-root with read-only filesystem, dropped capabilities, rotated logs and internal-only Node port. App log inspection showed only normal startup. Production frontend bundle scanned against configured secrets: 59 files, zero matches.
+- Not claimed: whole-host reboot, long-term scheduled execution, real Google/Canvas writes, Discord installation/canonical publication, Databricks live dashboard, or audible browser playback. Email verification/password recovery and Vultr hard spending protection remain unresolved.
+
+
 ## Verified locally on 2026-09-19
 
 - TypeScript checks for backend and frontend. Latest suite: **22/22 tests passed**.
@@ -14,7 +29,7 @@
 - Local database now reuses its persisted port. A stop/start cycle succeeded with existing data, and both real source adapters refreshed again (2,219 GobblerConnect / 349 Sports, 1,503 currently discoverable records at this check).
 - Fresh `npm ci --include=dev` and full audit returned **0 vulnerabilities** after lockfile override resolution. Production-dependency audit also returned zero.
 
-## Not yet verified / remaining work
+## Historical remaining-work checkpoint (superseded by current status)
 
 - Public Node/HTTPS deployment, real OAuth calendar writes, Discord server installation, ElevenLabs live audio, and Databricks ingestion/dashboard remain unverified. Atlas M0 and real Gemini calls are verified locally against their cloud services.
 - Sites preview is not published. The existing project returns NOT_FOUND to the currently connected Sites account; recover that account/project access instead of creating a duplicate.

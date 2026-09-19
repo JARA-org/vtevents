@@ -2,7 +2,30 @@
 
 The owner requires **$0 beyond promotional credits and a hard cap**, and chose Vultr rather than Render. The $100 MLH credit expires after 30 days; the account's resource limit is not a stop-at-credit-zero cap. Do not create additional paid resources. On 2026-09-19 the signed-in console showed an existing `vtevents-production` Ubuntu 24.04 server at `45.77.222.255` (2 GB, 1 vCPU, New Jersey, $0.03 accrued). Its creation occurred outside this checkout's deployment session. A hard spending cap/free-compute approval has not been verified. Powering off does not stop Vultr billing.
 
-The owner selected `vtevents.us`. Porkbun DNS now has root A `45.77.222.255` and `www` CNAME `vtevents.us` (TTL 600). This is DNS preparation, not evidence of a running HTTPS application. Server access, Atlas host allowlisting, production credential rotation, deployment and public verification are still in progress; consult `NEXT_AGENT_PROMPT.md` for the latest checkpoint.
+**Live at https://vtevents.us as of 2026-09-19.** Porkbun root A is `45.77.222.255`, with `www` CNAME `vtevents.us` (TTL 600). Atlas permits the server's `/32`. The replacement Gemini production key is deployed and tested. Public HTTPS, authenticated core flow and persistence across app restart passed; consult `NEXT_AGENT_PROMPT.md` for remaining service dependencies. Deployment does not establish a hard spending cap.
+
+## Current release and operations
+
+- Source: `JARA-org/vtevents`, revision `3b003bb` (team makeover and latest Discord implementation preserved).
+- Release directory: `/opt/vtevents/releases/3b003bb`; `/opt/vtevents/current` is a symlink to it.
+- Image: `my-little-gobbler-app:3b003bb` (also tagged `latest`); app and Caddy use the `my-little-gobbler` Compose project.
+- Production env: release-root `.env.production`, mode `0600`. Keep auth/encryption/analytics secrets across updates. No secrets in the image or source archive.
+- Key-based SSH is working. The deployment private key and pinned known-hosts file remain in this workstation's ignored `work/`. The root recovery password was rotated after recovery and is stored privately; the original console password is obsolete.
+- Hourly source/calendar refresh and minute analytics retries run in Node. Both public feeds refreshed after restart. Discord collection remains disabled pending configuration.
+
+From an authorized SSH session:
+
+```sh
+cd /opt/vtevents/current
+export GOBBLER_DOMAIN=vtevents.us
+docker compose -f deploy/compose.yaml ps
+# For an intentional app-only restart:
+docker compose -f deploy/compose.yaml restart app
+```
+
+Run `node deploy/smoke.mjs https://vtevents.us` from the local checkout with Node installed; the host uses Node inside Docker only.
+
+Docker restarts existing containers after host startup (`unless-stopped`). Container restart was tested; a whole-host reboot was not. Inspect redacted app logs and `/api/health` source freshness after changes. Do not use `down --volumes`, delete releases containing the only env copy, or rebuild over the only retained release image. The Vultr API allowlist expansion prepared during SSH recovery is unnecessary for normal deployment and has not been applied.
 
 This deployment serves the Expo export and Node API on one origin behind Caddy HTTPS. Atlas remains the database. Startup/hourly source and private-connection refreshes and minute analytics retries run inside the continuously running Node process. No paid cron or extra services are required.
 
