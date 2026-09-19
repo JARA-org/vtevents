@@ -189,15 +189,12 @@ test("signed bot HTTP commands persist isolated policy with atomic replay protec
     .database()
     .collection("user")
     .insertOne({ id: "test-club-owner" });
-  await store
-    .database()
-    .collection("managed_clubs")
-    .insertOne({
-      name: "Test club",
-      ownerId: "test-club-owner",
-      requestId: "test-link",
-      discordGuildId: "300",
-    });
+  await store.database().collection("managed_clubs").insertOne({
+    name: "Test club",
+    ownerId: "test-club-owner",
+    requestId: "test-link",
+    discordGuildId: "300",
+  });
   const { registerDiscordBotRoutes } =
     await import("../apps/backend/src/discord-bot-http.js");
   const { discordBotRepository: repo } =
@@ -361,6 +358,26 @@ test("signed bot HTTP commands persist isolated policy with atomic replay protec
     assert.equal(await collection.acquire(), true);
     assert.equal(await collection.acquire(), false);
     await collection.release();
+    const lockA = { guildId: "300", channelId: "400", messageId: "801" };
+    const lockB = { ...lockA, messageId: "802" };
+    assert.deepEqual(
+      await Promise.all([collection.acquire(lockA), collection.acquire(lockB)]),
+      [true, true],
+    );
+    assert.equal(
+      await collection.acquire(lockA),
+      false,
+      "same message stays serialized",
+    );
+    await collection.release(lockB);
+    assert.equal(
+      await collection.acquire(lockA),
+      false,
+      "another message cannot release its lock",
+    );
+    await collection.release(lockA);
+    assert.equal(await collection.acquire(lockA), true);
+    await collection.release(lockA);
     assert.equal(await collection.reserveAI(1), true);
     assert.equal(await collection.reserveAI(1), false);
     await store

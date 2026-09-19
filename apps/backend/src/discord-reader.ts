@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { downloadDiscordImages } from "./discord-images.js";
 import type {
   DiscordMessageReader,
   DiscordReadTarget,
@@ -12,6 +13,16 @@ const message = z.object({
   timestamp: z.string().datetime({ offset: true }),
   edited_timestamp: z.string().datetime({ offset: true }).nullable(),
   type: z.number(),
+  attachments: z
+    .array(
+      z.object({
+        id,
+        url: z.string().url(),
+        content_type: z.string().optional(),
+        size: z.number().int().nonnegative(),
+      }),
+    )
+    .default([]),
 });
 export class DiscordReadError extends Error {
   constructor(public status: number) {
@@ -71,9 +82,24 @@ export function createDiscordReader(
       createdAt: value.timestamp,
       editedAt: value.edited_timestamp,
       sourceUrl: `https://discord.com/channels/${target.guildId}/${target.channelId}/${value.id}`,
+      images: value.attachments
+        .filter((a) =>
+          ["image/png", "image/jpeg", "image/webp"].includes(
+            a.content_type || "",
+          ),
+        )
+        .map((a) => ({
+          id: a.id,
+          messageId: value.id,
+          channelId: target.channelId,
+          url: a.url,
+          size: a.size,
+          mimeType: a.content_type as "image/png" | "image/jpeg" | "image/webp",
+        })),
     };
   }
   return {
+    images: (attachments) => downloadDiscordImages(attachments, transport),
     async list(target, before) {
       await channel(target);
       if (before) id.parse(before);

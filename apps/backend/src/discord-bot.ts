@@ -48,7 +48,7 @@ const schema = z.object({
                 z.object({
                   name: z.string(),
                   type: z.number(),
-                  value: z.boolean(),
+                  value: z.union([z.boolean(), z.string().max(300)]),
                 }),
               )
               .optional(),
@@ -223,6 +223,38 @@ export async function handleDiscordInteraction(
   )
     return reply("Unknown Gobbler command.");
   const option = input.data.options[0];
+  if (option.type === 1 && option.name === "append") {
+    const canRead = (p: bigint) => !!(p & 8n) || (p & 66560n) === 66560n;
+    if (!canRead(permissions) || !canRead(BigInt(input.app_permissions || "0")))
+      return reply(
+        "You and the bot need View Channel and Read Message History here.",
+      );
+    const parseLink = (name: string) => {
+      const value = option.options?.find(
+        (o) => o.name === name && o.type === 3,
+      )?.value;
+      if (typeof value !== "string") return undefined;
+      const match =
+        /^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com\/channels\/(\d{1,20})\/(\d{1,20})\/(\d{1,20})$/.exec(
+          value,
+        );
+      return match &&
+        match[1] === input.guild_id &&
+        match[2] === input.channel_id
+        ? match[3]
+        : undefined;
+    };
+    const announcementId = parseLink("announcement"),
+      messageId = parseLink("message");
+    if (!announcementId || !messageId || announcementId === messageId)
+      return reply(
+        "Supply two different message links from this channel: announcement (original) and message (additional public input).",
+      );
+    if (!repository.append) return reply("Appending is unavailable.");
+    return reply(
+      (await repository.append({ ...base, announcementId, messageId })).content,
+    );
+  }
   if (option.type === 1 && ["recent", "status"].includes(option.name)) {
     const canRead = (p: bigint) => !!(p & 8n) || (p & 66560n) === 66560n;
     if (!canRead(permissions) || !canRead(BigInt(input.app_permissions || "0")))
@@ -306,6 +338,26 @@ export const discordBotCommands = [
     contexts: [0],
     integration_types: [0],
     options: [
+      {
+        name: "append",
+        type: 1,
+        description:
+          "Combine two messages in this channel as one public announcement",
+        options: [
+          {
+            name: "announcement",
+            type: 3,
+            description: "Original announcement message link",
+            required: true,
+          },
+          {
+            name: "message",
+            type: 3,
+            description: "Additional public message link (may include flyers)",
+            required: true,
+          },
+        ],
+      },
       {
         name: "setup",
         description:

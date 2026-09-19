@@ -167,3 +167,15 @@ Restart the backend after code/environment changes. The listener needs a continu
 ## Relative dates now supported
 
 The full-date requirement above is superseded. Today/tomorrow and reasonably resolvable weekday or partial-date references can qualify. The model receives the original Discord posting timestamp and campus timezone, not the time the worker runs. Edited messages retain their original date anchor. Ambiguous announcements remain unpublished. Re-submit an earlier rejected announcement to process it under the updated rules; the normal server budget still applies. Event time remains Time TBD until time extraction is implemented.
+
+## Current worker behavior (supersedes earlier polling and budget descriptions)
+
+Gateway message creation/edits and explicit submissions queue eligible messages. Three backend worker lanes process distinct messages concurrently; leases and message locks serialize each message. Defaults: 20 AI attempts per server per UTC day and 5 per UTC hour, including edits and failures. Configure DISCORD_AI_GUILD_DAILY_LIMIT and DISCORD_AI_GUILD_HOURLY_LIMIT, then restart. No app-wide or per-message spending caps apply. Atomic quota reservations and revision deduplication remain enforced across workers.
+
+## Append messages and read flyers
+
+Use `/gobbler append announcement:<original message link> message:<additional message link>` in the channel containing both messages. Obtain each link using Discord's Copy Message Link action. Both messages become explicitly selected public input. Append to any member to extend the same group, up to eight messages. Requires Manage Server and channel read permissions. The bot never edits Discord messages. If a member is missing, deleted or opted out, the combined announcement is withheld.
+
+Attach PNG, JPEG or WebP flyers directly to an eligible message. Image-only messages are supported. Up to three images (4 MiB each) are interpreted with the announcement text in one server-budgeted AI request. Embedded previews, arbitrary image URLs and QR-code links are not fetched. Text extracted from images is model interpretation and can be mistaken; owners can correct published event fields.
+
+Deployment: deploy the changed backend, configure its Discord credentials/flags, restart/recreate its app process, and register commands with `npx tsx scripts/register-discord-commands.ts --apply`. Local `.env` changes do not configure the hosted server. `npm run local` must be restarted after environment changes. A Compose env-file change requires recreating the app container, not merely restarting it. Discord's Interactions Endpoint URL must point at the configured backend's `/api/discord/interactions` route; an unsigned test POST should return 401, not 503. Never expose credentials in chat or logs.

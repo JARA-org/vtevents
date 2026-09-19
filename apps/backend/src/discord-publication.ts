@@ -15,6 +15,7 @@ import {
   explicitDiscordDate,
 } from "./discord-event-rules.js";
 import { discordBotRepository } from "./discord-bot-store.js";
+import { discordAnnouncements } from "./discord-announcements.js";
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const eventId = (key: string) => "discord-" + hash(key).slice(0, 32);
 const valuesSchema = z
@@ -65,11 +66,25 @@ export const discordPublication: DiscordPublicationService = {
       .collection<Row>("discord_collected_messages")
       .find({ status: "qualified" });
     for await (const row of rows) {
+      if (!(await discordAnnouncements.current(row))) continue;
       if (!(await discordBotRepository.eligible(row))) continue;
-      const candidate = validateDiscordCandidate(row.candidate, row.text, {
-        postedAt: row.createdAt,
-        timezone: CAMPUS_TZ,
-      });
+      const candidate = validateDiscordCandidate(
+        row.candidate,
+        row.text + (row.imageTexts || []).map((t) => "\n" + t.text).join(""),
+        {
+          postedAt: row.createdAt,
+          timezone: CAMPUS_TZ,
+          messages: row.parts?.map((p) => ({
+            ...p,
+            text:
+              p.text +
+              (row.imageTexts || [])
+                .filter((t) => t.messageId === p.messageId)
+                .map((t) => "\n" + t.text)
+                .join(""),
+          })),
+        },
+      );
       if (!candidate) continue;
       const club = await database()
         .collection<{ _id: string; name: string; discordGuildId: string }>(

@@ -31,6 +31,83 @@ const proposal: DiscordEventCandidate = {
     online: "Join online at https://example.org/join",
   },
 };
+test("image-only announcements qualify from bounded transcription and captions opt out before image/AI access", async () => {
+  const message: DiscordCollectedMessage = {
+    guildId: "1",
+    channelId: "2",
+    messageId: "3",
+    text: "",
+    createdAt: "2026-09-19T12:00:00Z",
+    editedAt: null,
+    sourceUrl: "https://discord.com/channels/1/2/3",
+    images: [
+      {
+        id: "4",
+        messageId: "3",
+        channelId: "2",
+        url: "https://cdn.discordapp.com/attachments/2/4/a.png",
+        mimeType: "image/png",
+        size: 8,
+      },
+    ],
+  };
+  let calls = 0,
+    downloads = 0,
+    saved: DiscordCollectedMessage | undefined;
+  const store: DiscordCollectionRepository = {
+    channels: async () => [],
+    messages: async () => [message],
+    unchanged: async () => false,
+    save: async (m) => {
+      saved = m;
+    },
+    remove: async () => {},
+    checked: async () => {},
+    checkpoint: async () => {},
+    acquire: async () => true,
+    release: async () => {},
+    reserveAI: async () => true,
+    reserveExtraction: async () => true,
+  };
+  const deps = {
+    store,
+    policy: {
+      apply: async () => ({ content: "" }),
+      eligible: async () => true,
+    },
+    reader: {
+      list: async () => [],
+      get: async () => message,
+      images: async () => {
+        downloads++;
+        return [
+          {
+            attachmentId: "4",
+            messageId: "3",
+            mimeType: "image/png",
+            data: "synthetic",
+          },
+        ];
+      },
+    },
+    extractor: {
+      propose: async () => {
+        calls++;
+        return {
+          candidate: proposal,
+          imageTexts: [{ attachmentId: "4", messageId: "3", text }],
+        };
+      },
+    },
+    dailyLimit: 20,
+  };
+  assert.equal((await collectDiscordMessages(deps)).qualified, 1);
+  assert.equal(saved?.imageTexts?.[0].attachmentId, "4");
+  message.text = "[no-ai]";
+  await collectDiscordMessages(deps);
+  assert.equal(calls, 1);
+  assert.equal(downloads, 1);
+});
 test("Discord qualification requires an explicit valid full date, event text, and physical or online venue", () => {
   assert.ok(validateDiscordCandidate(proposal, text));
   assert.equal(explicitDiscordDate("September 25"), null);

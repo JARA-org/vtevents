@@ -20,6 +20,7 @@ function files(dir) {
 const edges = {
   "club-accounts.ts": ["store", "config"],
   "discord-publication.ts": [
+    "discord-announcements",
     "store",
     "config",
     "domain",
@@ -56,6 +57,8 @@ const edges = {
   "discord-gateway.ts": [],
   "discord-trigger-store.ts": ["store", "discord-bot-store"],
   "discord-jobs.ts": [
+    "discord-announcements",
+    "discord-announcement-reader",
     "discord-gateway",
     "discord-trigger-store",
     "discord-limits",
@@ -71,17 +74,21 @@ const edges = {
     "discord-event-rules",
     "discord-reader",
   ],
-  "discord-reader.ts": [],
+  "discord-reader.ts": ["discord-images"],
+  "discord-images.ts": [],
+  "discord-announcements.ts": ["store", "club-accounts"],
+  "discord-announcement-reader.ts": [],
   "discord-event-rules.ts": [],
   "discord-extractor.ts": [],
   "discord-collection-store.ts": [
+    "discord-announcements",
     "club-accounts",
     "store",
     "discord-limits",
     "discord-bot-store",
   ],
   "discord-bot.ts": [],
-  "discord-bot-store.ts": ["store", "club-accounts"],
+  "discord-bot-store.ts": ["store", "club-accounts", "discord-announcements"],
   "discord-bot-http.ts": [
     "club-accounts",
     "discord-bot",

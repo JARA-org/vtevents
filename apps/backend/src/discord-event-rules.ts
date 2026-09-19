@@ -9,6 +9,10 @@ const proposal = z
   .object({
     date: z.string(),
     dateReasoning: z.string().trim().min(1).max(1000).optional(),
+    dateMessageId: z
+      .string()
+      .regex(/^\d{1,20}$/)
+      .optional(),
     title: quote.max(300),
     description: z.string().max(12000),
     location: quote.nullable(),
@@ -61,6 +65,13 @@ export function validateDiscordCandidate(
   const parsed = proposal.safeParse(value);
   if (!parsed.success) return null;
   const p = parsed.data;
+  if (context?.messages) {
+    const source = context.messages.find(
+      (m) => m.messageId === p.dateMessageId,
+    );
+    if (!source || !source.text.includes(p.evidence.date)) return null;
+    context = { ...context, postedAt: source.createdAt };
+  }
   for (const evidence of Object.values(p.evidence))
     if (evidence && !text.includes(evidence)) return null;
   if (

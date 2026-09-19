@@ -15,6 +15,9 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
   process.env.BETTER_AUTH_SECRET = randomBytes(32).toString("hex");
   process.env.TOKEN_ENCRYPTION_KEY = randomBytes(32).toString("hex");
   process.env.APP_ORIGIN = "http://localhost:3000";
+  // This test exercises unavailable connector configuration, independent of local .env.
+  process.env.GOOGLE_CLIENT_ID = "";
+  process.env.GOOGLE_CLIENT_SECRET = "";
   const store = await import("../apps/backend/src/store.js");
   await store.connectDB();
   const { createApp } = await import("../apps/backend/src/app.js");

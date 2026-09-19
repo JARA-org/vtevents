@@ -930,6 +930,8 @@ export interface DiscordBotReceipt {
   content: string;
 }
 export interface DiscordBotRepository {
+  /** Signed server admin only; links explicitly selected same-channel messages and queues the root. Atomic/idempotent, no provider or AI calls. */
+  append?(input: DiscordAppendInput): Promise<DiscordBotReceipt>;
   /** Trusted, signature/permission-validated command only. Atomically updates public channel policy or exclusion and stores an interaction receipt. Replays return the receipt without repeating effects. No provider or model calls. Database failure commits nothing. */
   apply(command: DiscordBotCommand): Promise<DiscordBotReceipt>;
   /** Reads policy and exclusions; watched channels or explicitly submitted messages qualify; exclusions always win. No writes or AI. Text exclusion must also be checked by the caller before any model/storage operation. */
@@ -942,6 +944,14 @@ export interface DiscordBotRepository {
 
 /** Public Discord text after transport normalization; contains no author profile, token, attachments or reply history. */
 export interface DiscordCollectedMessage {
+  /** Optional provider-validated image attachment descriptors, never arbitrary embedded URLs. */
+  images?: DiscordImageAttachment[];
+  /** Explicitly linked source messages. Absent means this message alone. */
+  parts?: DiscordAnnouncementPart[];
+  /** Membership version used to reject stale grouped extraction. */
+  groupRevision?: string;
+  /** Untrusted model transcription with attachment provenance, not independently verified text. */
+  imageTexts?: DiscordImageTranscript[];
   guildId: Id;
   channelId: Id;
   messageId: Id;
@@ -952,6 +962,8 @@ export interface DiscordCollectedMessage {
 }
 /** A qualified proposal, not a canonical event or permission to write calendars. Date-only until time interpretation is implemented. */
 export interface DiscordEventCandidate {
+  /** Source of date evidence in a grouped/image announcement; required for grouped inferred dates. */
+  dateMessageId?: Id;
   /** Explanation for a date inferred from the message's original posting time. Absent for explicit full dates. */
   dateReasoning?: string;
   date: LocalDate;
@@ -999,10 +1011,10 @@ export interface DiscordCollectionRepository {
   checkpoint(target: DiscordReadTarget, scan: DiscordScanState): Promise<void>;
   /** Marks reference checked, for fair edit/delete revalidation. No provider/model call. */
   checked(target: DiscordReadTarget): Promise<void>;
-  /** Atomic lease; prevents overlapping collectors across processes. */
-  acquire(): Promise<boolean>;
-  /** Releases the lease owned by this worker. */
-  release(): Promise<void>;
+  /** Atomic lease across processes. Exact-message targets lock that message only; omitted target locks legacy scans. Trusted worker only; false if busy, throws on storage failure. No AI/provider effects. */
+  acquire(target?: DiscordReadTarget): Promise<boolean>;
+  /** Releases this worker's matching message/legacy lease; idempotent. No transaction spans extraction. */
+  release(target?: DiscordReadTarget): Promise<void>;
   /** Atomic daily reservation before extraction; fails closed on unavailable storage. No refund/retry after uncertain spending. */
   reserveAI(limit: number): Promise<boolean>;
   /** Atomic global/server/hour/message/revision reservation before inference. Denial increments nothing. Failed calls retain reservations; no automatic refund. */
@@ -1050,6 +1062,8 @@ export interface DiscordInspectionService {
   }): Promise<DiscordCollectionInspection>;
 }
 export interface DiscordMessageReader {
+  /** Downloads validated Discord image attachments only, with byte/type/time limits and no auth headers or redirects. Worker-only; throws on invalid/unavailable images. */
+  images?(attachments: DiscordImageAttachment[]): Promise<DiscordImageData[]>;
   /** Bot-authenticated GET only. Validates channel/guild identity; returns newest-first page. 404/403 become unavailable, 429 pauses work. */
   list(
     target: DiscordReadTarget,
@@ -1060,12 +1074,65 @@ export interface DiscordMessageReader {
 }
 export interface DiscordTextExtractor {
   /** Public text only; bounded model inference without tools. Output is untrusted and must pass deterministic evidence/date/location validation. May spend reserved budget. */
-  propose(text: string, context?: DiscordExtractionContext): Promise<unknown>;
+  propose(
+    text: string,
+    context?: DiscordExtractionContext,
+    images?: DiscordImageData[],
+  ): Promise<unknown>;
 }
 /** Trusted provider metadata, never taken from announcement instructions. */
 export interface DiscordExtractionContext {
+  messages?: DiscordAnnouncementPart[];
   postedAt: Instant;
   timezone: string;
+}
+
+export interface DiscordImageAttachment {
+  id: Id;
+  messageId: Id;
+  channelId: Id;
+  url: string;
+  mimeType: "image/png" | "image/jpeg" | "image/webp";
+  size: number;
+}
+export interface DiscordImageData {
+  attachmentId: Id;
+  messageId: Id;
+  mimeType: string;
+  data: string;
+}
+export interface DiscordImageTranscript {
+  attachmentId: Id;
+  messageId: Id;
+  text: string;
+}
+export interface DiscordAnnouncementPart {
+  messageId: Id;
+  text: string;
+  createdAt: Instant;
+  sourceUrl: string;
+}
+export interface DiscordAppendInput {
+  interactionId: Id;
+  guildId: Id;
+  channelId: Id;
+  actorId: Id;
+  announcementId: Id;
+  messageId: Id;
+}
+export interface DiscordAnnouncementRepository {
+  /** Trusted admin command; atomically links at most eight same-channel IDs, selects public input, invalidates old projections and queues root. Receipts replay; cycles/conflicting membership/opt-outs reject. */
+  append(input: DiscordAppendInput): Promise<DiscordBotReceipt>;
+  /** ID-only read resolving a member to its stable root. No effects. */
+  root(target: DiscordReadTarget): Promise<DiscordReadTarget>;
+  /** ID-only membership snapshot. No effects. */
+  members(
+    target: DiscordReadTarget,
+  ): Promise<{ revision?: string; messageIds: Id[] }>;
+  /** Invalidates grouped output and advances membership version on a source change. No provider/AI calls; safe to repeat. Returns root for queueing. */
+  invalidate(target: DiscordReadTarget): Promise<DiscordReadTarget>;
+  /** Rechecks membership version, member consent, and root identity for publication/commit. No model/provider calls. */
+  current(message: DiscordCollectedMessage): Promise<boolean>;
 }
 
 /** Authenticated club administration workspace; creation does not claim imported identities. */

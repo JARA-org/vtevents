@@ -19,6 +19,7 @@ const packet = z.object({
     ids: z.array(snowflake).max(100).optional(),
     content: z.string().optional(),
     edited_timestamp: z.string().nullable().optional(),
+    attachments: z.array(z.unknown()).optional(),
   }),
 });
 /** Gateway data is untrusted transport. Return IDs only; never retain message text/embeds/attachments. */
@@ -29,7 +30,12 @@ export function discordMessageTriggers(
   if (!parsed.success) return [];
   const { t, d } = parsed.data;
   // Embed-only/link-preview updates do not trigger extraction.
-  if (t === "MESSAGE_UPDATE" && d.content === undefined && !d.edited_timestamp)
+  if (
+    t === "MESSAGE_UPDATE" &&
+    d.content === undefined &&
+    !d.edited_timestamp &&
+    d.attachments === undefined
+  )
     return [];
   return (t === "MESSAGE_DELETE_BULK" ? d.ids || [] : d.id ? [d.id] : []).map(
     (messageId) => ({

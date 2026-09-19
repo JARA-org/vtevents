@@ -6,11 +6,13 @@ import type {
   DiscordCollectedMessage,
   DiscordReadTarget,
   DiscordExtractionLimits,
+  DiscordExtractionContext,
 } from "../../../packages/shared/src/contracts.js";
 import { eligibleDiscordMessage } from "./discord-bot.js";
 import { validateDiscordCandidate } from "./discord-event-rules.js";
 import { createHash } from "node:crypto";
 import { DiscordReadError } from "./discord-reader.js";
+import { z } from "zod";
 
 /** Bounded read-only poll. Stages evidence-backed proposals; never publishes canonical events or writes user calendars. */
 export async function collectDiscordMessages(deps: {
@@ -34,12 +36,14 @@ export async function collectDiscordMessages(deps: {
     errors: 0,
     skipped: false,
   };
-  if (!(await store.acquire())) return { ...summary, skipped: true };
+  // Exact-message workers serialize only that message; legacy scans retain their global lock.
+  const lockTarget = deps.targets?.length === 1 ? deps.targets[0] : undefined;
+  if (!(await store.acquire(lockTarget))) return { ...summary, skipped: true };
   const deadline = Date.now() + 120000;
   async function processMessage(message: DiscordCollectedMessage) {
     summary.read++;
     if (
-      !message.text.trim() ||
+      (!message.text.trim() && !message.images?.length) ||
       !(await eligibleDiscordMessage(policy, {
         ...message,
         text: message.text,
@@ -51,10 +55,21 @@ export async function collectDiscordMessages(deps: {
     }
     const fingerprint = createHash("sha256")
       .update(
-        "discord-extraction-v2\nAmerica/New_York\n" +
+        "discord-extraction-v3\nAmerica/New_York\n" +
           message.createdAt +
           "\n" +
-          message.text,
+          message.text +
+          JSON.stringify({
+            parts: message.parts,
+            images: message.images?.map(
+              ({ id, messageId, size, mimeType }) => ({
+                id,
+                messageId,
+                size,
+                mimeType,
+              }),
+            ),
+          }),
       )
       .digest("hex");
     if (await store.unchanged(message, fingerprint)) {
@@ -69,7 +84,8 @@ export async function collectDiscordMessages(deps: {
       !extractor ||
       !Number.isFinite(changedAt) ||
       Date.now() - changedAt < (deps.settleMs ?? 90000) ||
-      message.text.length > 6000
+      message.text.length > 6000 ||
+      (message.images?.length || 0) > 3
     ) {
       summary.pending++;
       return;
@@ -86,8 +102,8 @@ export async function collectDiscordMessages(deps: {
         limits: deps.limits || {
           serverOnly: true,
           globalDaily: deps.dailyLimit,
-          guildDaily: 5,
-          guildHourly: 2,
+          guildDaily: 20,
+          guildHourly: 5,
           messageDaily: 2,
         },
       }))
@@ -96,14 +112,63 @@ export async function collectDiscordMessages(deps: {
       return;
     }
     try {
-      const context = {
+      const images = message.images?.length
+        ? await reader.images?.(message.images)
+        : [];
+      if (message.images?.length && !images)
+        throw new Error("Image reader unavailable");
+      const context: DiscordExtractionContext = {
         postedAt: message.createdAt,
         timezone: "America/New_York",
+        ...(message.parts ? { messages: message.parts } : {}),
       };
-      const proposed = await extractor.propose(message.text, context);
+      let proposed = await extractor.propose(message.text, context, images);
+      if (images?.length) {
+        const result = z
+          .object({
+            candidate: z.unknown(),
+            imageTexts: z
+              .array(
+                z
+                  .object({
+                    attachmentId: z.string(),
+                    messageId: z.string(),
+                    text: z.string().max(4000),
+                  })
+                  .strict(),
+              )
+              .max(3),
+          })
+          .strict()
+          .parse(proposed);
+        if (
+          result.imageTexts.reduce((n, t) => n + t.text.length, 0) > 4000 ||
+          result.imageTexts.some(
+            (t) =>
+              !images.some(
+                (i) =>
+                  i.attachmentId === t.attachmentId &&
+                  i.messageId === t.messageId,
+              ),
+          )
+        )
+          throw new Error("Invalid image evidence");
+        message = { ...message, imageTexts: result.imageTexts };
+        proposed = result.candidate;
+        context.messages = message.parts?.map((p) => ({
+          ...p,
+          text:
+            p.text +
+            result.imageTexts
+              .filter((t) => t.messageId === p.messageId)
+              .map((t) => "\n" + t.text)
+              .join(""),
+        }));
+      }
       const candidate = validateDiscordCandidate(
         proposed,
-        message.text,
+        message.text +
+          (message.imageTexts || []).map((t) => "\n" + t.text).join(""),
         context,
       );
       await store.save(
@@ -187,7 +252,7 @@ export async function collectDiscordMessages(deps: {
       }
     }
   } finally {
-    await store.release();
+    await store.release(lockTarget);
   }
   return summary;
 }

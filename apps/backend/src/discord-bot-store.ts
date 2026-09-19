@@ -6,10 +6,15 @@ import type {
 import { database, mongoClient } from "./store.js";
 import { discordClubSetup } from "./club-accounts.js";
 import { randomUUID } from "node:crypto";
+import { discordAnnouncements } from "./discord-announcements.js";
 
 /** Only this repository owns bot policy, exclusions, and command receipts. No OAuth/private records are read. */
 export const discordBotRepository: DiscordBotRepository = {
+  append: (input) => discordAnnouncements.append(input),
   async apply(command: DiscordBotCommand): Promise<DiscordBotReceipt> {
+    const root = command.messageId
+      ? await discordAnnouncements.root(command)
+      : command;
     if (
       ["watch", "submit"].includes(command.action) &&
       !(await discordClubSetup.linked(command.guildId))
@@ -70,7 +75,17 @@ export const discordBotRepository: DiscordBotRepository = {
               );
             await db
               .collection("discord_collected_messages")
-              .deleteOne({ key: `${key}:${command.messageId}` }, { session });
+              .deleteMany(
+                {
+                  key: {
+                    $in: [
+                      `${key}:${command.messageId}`,
+                      `${key}:${root.messageId}`,
+                    ],
+                  },
+                },
+                { session },
+              );
             content =
               "This message is excluded from collection and AI processing. Its staged event proposal has been removed.";
           } else if (command.action === "submit") {
@@ -102,21 +117,19 @@ export const discordBotRepository: DiscordBotRepository = {
                   },
                   { upsert: true, session },
                 );
-              await db
-                .collection("discord_message_jobs")
-                .updateOne(
-                  { _id: messageKey as never },
-                  {
-                    $set: {
-                      guildId: command.guildId,
-                      channelId: command.channelId,
-                      messageId: command.messageId,
-                      revision: randomUUID(),
-                      dueAt: new Date(),
-                    },
+              await db.collection("discord_message_jobs").updateOne(
+                { _id: `${key}:${root.messageId}` as never },
+                {
+                  $set: {
+                    guildId: command.guildId,
+                    channelId: command.channelId,
+                    messageId: root.messageId,
+                    revision: randomUUID(),
+                    dueAt: new Date(),
                   },
-                  { upsert: true, session },
-                );
+                },
+                { upsert: true, session },
+              );
               content =
                 process.env.DISCORD_COLLECTION_ENABLED === "true"
                   ? "This message is queued for collection. Extraction requires AI configuration and available server budget. No other messages in this channel are selected."

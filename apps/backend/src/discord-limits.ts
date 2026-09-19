@@ -13,8 +13,8 @@ export function discordExtractionLimits(): DiscordExtractionLimits {
     serverOnly: true,
     // Legacy DTO fields; not enforced under serverOnly. No app or message spending cap.
     globalDaily: 20,
-    guildDaily: bounded(process.env.DISCORD_AI_GUILD_DAILY_LIMIT, 5, 20),
-    guildHourly: bounded(process.env.DISCORD_AI_GUILD_HOURLY_LIMIT, 2, 5),
+    guildDaily: bounded(process.env.DISCORD_AI_GUILD_DAILY_LIMIT, 20, 20),
+    guildHourly: bounded(process.env.DISCORD_AI_GUILD_HOURLY_LIMIT, 5, 5),
     messageDaily: 2,
   };
 }

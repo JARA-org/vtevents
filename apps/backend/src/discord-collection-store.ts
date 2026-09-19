@@ -3,6 +3,7 @@ import { database, mongoClient } from "./store.js";
 import { discordExtractionLimits } from "./discord-limits.js";
 import { discordBotRepository } from "./discord-bot-store.js";
 import { discordClubSetup } from "./club-accounts.js";
+import { discordAnnouncements } from "./discord-announcements.js";
 import type {
   DiscordCollectionRepository,
   DiscordReadTarget,
@@ -89,6 +90,7 @@ export const discordCollectionRepository: DiscordCollectionRepository = {
             { $inc: { revision: 1 } },
             { upsert: true, session },
           );
+        if (!(await discordAnnouncements.current(message))) return;
         const watched = await db
           .collection("discord_bot_channels")
           .findOne({ _id: id as never, enabled: true }, { session });
@@ -126,6 +128,7 @@ export const discordCollectionRepository: DiscordCollectionRepository = {
           {
             $set: {
               ...message,
+              imageTexts: message.imageTexts || [],
               fingerprint,
               candidate,
               status,
@@ -183,11 +186,14 @@ export const discordCollectionRepository: DiscordCollectionRepository = {
         { $set: { collectionCheckedAt: new Date() } },
       );
   },
-  async acquire() {
+  async acquire(target) {
     const locks = database().collection("discord_collection_locks");
     try {
       const row = await locks.findOneAndUpdate(
-        { key: "collector", until: { $lt: new Date() } },
+        {
+          key: target ? `message:${key(target)}` : "collector",
+          until: { $lt: new Date() },
+        },
         { $set: { owner, until: new Date(Date.now() + 300000) } },
         { upsert: true, returnDocument: "after" },
       );
@@ -197,10 +203,13 @@ export const discordCollectionRepository: DiscordCollectionRepository = {
       throw e;
     }
   },
-  async release() {
+  async release(target) {
     await database()
       .collection("discord_collection_locks")
-      .deleteOne({ key: "collector", owner });
+      .deleteOne({
+        key: target ? `message:${key(target)}` : "collector",
+        owner,
+      });
   },
   async reserveAI(limit) {
     const day = new Date().toISOString().slice(0, 10);
