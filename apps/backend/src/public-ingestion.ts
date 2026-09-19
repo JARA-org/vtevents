@@ -1,3 +1,4 @@
+import { load } from "cheerio";
 import { createHash } from "node:crypto";
 import type {
   PublicSourceDefinition,
@@ -10,7 +11,7 @@ import { parsePublicPage } from "./public-page-parser.js";
 import { normalizeICS } from "./sources.js";
 import { parseHokieSports, discoverSportsSchedules } from "./sports-source.js";
 import { eventSchema, deadlineSchema } from "./domain.js";
-const PARSER_VERSION = "public-events-2026-09-19-v1";
+const PARSER_VERSION = "public-events-2026-09-19-v2";
 
 /** Content-only revisions: fetching/checking/generated ICS timestamps never create event revisions. */
 export function semanticHash(value: unknown): string {
@@ -51,14 +52,15 @@ export async function collectPublicSource(
     pages = new Map(prior.map((p) => [p.url, p]));
   const before = semanticHash(
     prior
-      .flatMap((p) => [...p.events, ...p.deadlines])
+      .filter(p => source.id !== "gobblerconnect" || source.seeds.includes(p.url))
+      .flatMap((p) => [...p.events.map(e => source.id === "gobblerconnect" && pages.get(e.sources[0]?.url)?.events[0]?.media?.length ? {...e, media: pages.get(e.sources[0].url)!.events[0].media} : e), ...p.deadlines])
       .sort((a, b) => a.id.localeCompare(b.id)),
   );
   const discovered = [...new Set(prior.flatMap((p) => p.links))].filter(
     (url) => !pages.has(url),
   );
   const known = prior
-    .filter((p) => !source.seeds.includes(p.url))
+    .filter((p) => source.id !== "gobblerconnect" && !source.seeds.includes(p.url))
     .sort((a, b) => a.checkedAt.localeCompare(b.checkedAt))
     .map((p) => p.url);
   // Balance discovery and revisits so a long listing cannot starve existing details indefinitely.
@@ -173,9 +175,42 @@ export async function collectPublicSource(
   }
   const events = [
     ...new Map(
-      [...pages.values()].flatMap((p) => p.events).map((e) => [e.id, e]),
+      [...pages.values()].filter(p => source.id !== "gobblerconnect" || source.seeds.includes(p.url)).flatMap((p) => p.events).map((e) => [e.id, e]),
     ).values(),
   ];
+  // Public event covers are absent from the ICS feed. Cache bounded detail reads;
+  // failures retain the previous cover and never erase event records.
+  if (source.id === "gobblerconnect") {
+    let reads = 0;
+    const upcoming = events.filter(e => Date.parse(e.end || e.start) >= Date.now()).sort((a,b) => a.start.localeCompare(b.start));
+    for (const event of upcoming) {
+      const url = event.sources[0]?.url;
+      if (!url) continue;
+      const u = new URL(url);
+      if (u.origin !== "https://gobblerconnect.vt.edu" || u.pathname !== "/rsvp" || !/^\d+$/.test(u.searchParams.get("id") || "")) continue;
+      let cached = pages.get(url);
+      if (reads < 20 && (!cached || Date.now() - Date.parse(cached.checkedAt) > 86400000)) {
+        reads++;
+        try {
+          const response = await fetcher.read(url, source.allowedHosts, cached);
+          let media = cached?.events[0]?.media || [];
+          if (response.changed && response.body) {
+            const $ = load(response.body);
+            const raw = $('meta[property="og:image"]').attr("content");
+            if (raw) {
+              const image = new URL(raw, url);
+              if (image.protocol === "https:" && !image.username && !image.password)
+                media = [{ kind: "image", url: image.href, alt: event.title, sourceUrl: url }];
+            }
+          }
+          cached = { url, hash: response.hash, etag: response.etag, lastModified: response.lastModified, checkedAt: response.checkedAt, parserVersion: PARSER_VERSION, events: [{...event, media}], deadlines: [], links: [] };
+          await repository.savePage(source.id, cached);
+          pages.set(url, cached);
+        } catch { /* A missing photo never makes an otherwise valid event unavailable. */ }
+      }
+      if (cached?.events[0]?.media?.length) event.media = cached.events[0].media;
+    }
+  }
   const deadlines = [
     ...new Map(
       [...pages.values()].flatMap((p) => p.deadlines).map((d) => [d.id, d]),

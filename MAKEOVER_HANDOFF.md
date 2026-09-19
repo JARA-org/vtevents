@@ -60,3 +60,14 @@ Previous database backup: `work/backup-before-update-20260919-153404`.
 Do not rename existing database names, cloud resources or calendar event UIDs
 as a cosmetic rebrand: that would lose data or duplicate calendar entries.
 Do not enable paid integrations, deploy or push without appropriate task scope.
+## September 19 frontend follow-up
+
+Based on upstream main 4a90ad8. Local changes, not committed or pushed.
+- New landing slogan; retired the remaining "little" UI copy.
+- Clubs entry moved into Campus Events; workspace buttons reuse the shared animated Button.
+- Event headers render source images without category icons; football uses VT/opponent logos from the official schedule.
+- GobblerConnect covers are fetched from public event-page Open Graph metadata, cached daily, and limited to 20 detail requests per source refresh. Coverage fills progressively; events without a retrieved photo keep a plain branded header.
+- Official football logo fallback references were observed September 19, 2026; refresh them when teams or provider assets change. Structured provider logos take precedence.
+- Image CSP allows the named source/CDN hosts. Cached date formatting prevents excessive Intl allocations during event reconciliation.
+- Build, architecture, contracts and typecheck passed. Relevant tests: 19 passed. Full suite: 93/94 passed; pre-existing ANS fixture fails with CERT_NOT_YET_VALID on the local clock.
+- Local runtime keeps database and account data in work/. Start with Start-Gobbler.cmd.

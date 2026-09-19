@@ -3,12 +3,13 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
 } from "react-native";
-import { Link } from "expo-router";
+import { router } from "expo-router";
+import { Button } from "../components/ui";
+import { C, font } from "../components/theme";
 import type {
   ManagedClub,
   ClubWorkspace,
@@ -70,19 +71,12 @@ export default function ClubsPage() {
     }
   }
   const button = (label: string, action: () => void) => (
-    <Pressable
-      accessibilityRole="button"
-      disabled={busy}
-      onPress={action}
-      style={[styles.button, busy && { opacity: 0.5 }]}
-    >
-      <Text style={styles.buttonText}>{label}</Text>
-    </Pressable>
+    <Button label={label} disabled={busy} onPress={action} />
   );
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <View style={styles.card}>
-        <Link href="/">← Back to My Little Gobbler</Link>
+        <Button secondary label="Back to Campus Events" onPress={() => router.push("/?page=discover")} />
         <Text style={styles.heading}>Your club workspace</Text>
         <Text>
           Sign in with your website account to create a club and access its
@@ -370,10 +364,10 @@ export default function ClubsPage() {
   );
 }
 const styles = StyleSheet.create({
-  page: { padding: 24, backgroundColor: "#FFF8EC", flexGrow: 1 },
+  page: { padding: 24, backgroundColor: C.cream, flexGrow: 1 },
   card: { width: "100%", maxWidth: 720, alignSelf: "center", gap: 18 },
-  heading: { fontSize: 30, fontWeight: "700", color: "#6B183B" },
-  title: { fontSize: 20, fontWeight: "600" },
+  heading: { fontFamily: font, fontSize: 30, fontWeight: "700", color: "#6B183B" },
+  title: { fontFamily: font, color: C.maroon, fontSize: 20, fontWeight: "600" },
   group: { gap: 12, marginVertical: 10 },
   input: {
     borderWidth: 1,

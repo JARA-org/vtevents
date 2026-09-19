@@ -60,7 +60,7 @@ export function createApp() {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:"],
+          imgSrc: ["'self'", "data:", "https://gobblerconnect.vt.edu", "https://static-prod-us-east-1.campusgroups.com", "https://hokiesports.com", "https://storage.googleapis.com"],
           fontSrc: ["'self'", "data:"],
           connectSrc: ["'self'"],
           mediaSrc: ["'self'", "blob:"],

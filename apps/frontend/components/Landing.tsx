@@ -36,8 +36,8 @@ export function Landing({
               mobile && { fontSize: 44, lineHeight: 49, letterSpacing: -1.5 },
             ]}
           >
-            Less scrolling.{"\n"}More{" "}
-            <Text style={{ color: C.orange }}>belonging.</Text>
+            Don't be left out.{" "}
+            <Text style={{ color: C.orange }}>Let your gobbler help you out.</Text>
           </Text>
           <Text style={l.description}>
             The club you haven’t found. The game you don’t want to miss. The
@@ -134,7 +134,7 @@ export function Landing({
 
       <View style={{ gap: 32 }}>
         <View style={{ gap: 8, alignItems: "center" }}>
-          <Text style={l.eyebrowText}>A LITTLE NUDGE. A LOT TO DISCOVER.</Text>
+          <Text style={l.eyebrowText}>YOUR GOBBLER. YOUR NEXT DISCOVERY.</Text>
           <Text
             accessibilityRole="header"
             aria-level={2}

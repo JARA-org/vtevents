@@ -171,3 +171,22 @@ test("semantic changes ignore observation timestamps but preserve event facts", 
     semanticHash({ ...event, location: "Another room" }),
   );
 });
+
+test("GobblerConnect covers use cached public detail metadata without duplicating events", async () => {
+  const {repo} = store();
+  const feed = "https://gobblerconnect.vt.edu/calendar.ics";
+  const eventUrl = "https://gobblerconnect.vt.edu/rsvp?id=123";
+  const definition: PublicSourceDefinition = {...source, id:"gobblerconnect", source:"gobblerconnect", kind:"ics", seeds:[feed], allowedHosts:["gobblerconnect.vt.edu"], maxPages:1};
+  let detailReads=0;
+  const fetcher = {read: async (url:string) => {
+    if(url===eventUrl) detailReads++;
+    return {changed:true, checkedAt:new Date().toISOString(), hash:"test", body:url===feed ? `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:cover-test\r\nDTSTART:20990920T180000Z\r\nSUMMARY:Photo event\r\nURL:${eventUrl}\r\nEND:VEVENT\r\nEND:VCALENDAR` : '<meta property="og:image" content="/upload/event.png">'};
+  }};
+  const first=await collectPublicSource(definition,repo,fetcher);
+  assert.equal(first.events.length,1);
+  assert.equal(first.events[0].media?.[0].url,"https://gobblerconnect.vt.edu/upload/event.png");
+  const second=await collectPublicSource(definition,repo,fetcher);
+  assert.equal(second.events.length,1);
+  assert.equal(second.changed,false);
+  assert.equal(detailReads,1);
+});

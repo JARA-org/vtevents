@@ -7,6 +7,21 @@ import type {
   SportsDetails,
 } from "../../../packages/shared/src/contracts.js";
 
+// Logo references observed on the official football schedule, September 19, 2026.
+const footballLogos: Record<string, string> = {
+  "Miami": "https://hokiesports.com/imgproxy/H3D8BdEiqRt4EimCdiwZuYjBcDWJh6Ls4ZqpeBXqFbY/rs:fit:1980:0:0:0/g:ce:0:0/q:90/aHR0cHM6Ly9zdG9yYWdlLmdvb2dsZWFwaXMuY29tL3ZpcmdpbmlhdGVjaC1wcm9kLzIwMjQvMDUvMDgvZXBEUkFaNkJxd1Z4cVJFUkRqVEN2R1B3cmo0Y1JLa2N4Q3E0SnViZS5wbmc.png",
+  "Old Dominion": "https://storage.googleapis.com/virginiatech-prod/school_logos/pYMnmvBqUrcrqxaFklzs3EyKPeZcARiDV6O74wkj.svg",
+  "Maryland": "https://storage.googleapis.com/virginiatech-prod/school_logos/f8o61tEmiA04lnY2gaNWqr1w092afU3rjesl4OIv.svg",
+  "Boston College": "https://storage.googleapis.com/virginiatech-prod/school_logos/tlSjYziGFTtEtcBfDjXQU5d5JuLZXuO5F7mArvEK.svg",
+  "Pitt": "https://storage.googleapis.com/virginiatech-prod/school_logos/VpGQvwBwg8gJE8BO6jCl8mMC1iUUwsYlfADmSF8w.svg",
+  "Cal": "https://storage.googleapis.com/virginiatech-prod/school_logos/APeYosuqoV2NKbNaQ0lugPj1cuiVHMCGIpzBGN4a.svg",
+  "Georgia Tech": "https://storage.googleapis.com/virginiatech-prod/school_logos/Mf5OJROzoNgXFq8IN25amdYXoIuad81jvdz9eESZ.svg",
+  "Clemson": "https://storage.googleapis.com/virginiatech-prod/school_logos/2W4u8QzWTdGRitz46i2R8PL2zXba0NLY8Z395RqW.svg",
+  "SMU": "https://storage.googleapis.com/virginiatech-prod/school_logos/6VHqhjHXQKOCHBeez6zi14DCsfy9b41JQzz8sL3r.svg",
+  "Stanford": "https://storage.googleapis.com/virginiatech-prod/school_logos/rkU7iU4mHQWoJ43rZfcz2UiK0ZtlfGql1dtivMzv.svg",
+  "Virginia": "https://storage.googleapis.com/virginiatech-prod/school_logos/P6ZR1uoJNOPlS15vcffvGecDqYHbajsr9ZmqUB63.svg"
+};
+const vtFootballLogo = "https://hokiesports.com/imgproxy/FNEpBtpXKou1WseMU5HcoTNNJvWe5iTuBEEd8W-gmXU/rs:fit:1980:0:0:0/g:ce:0:0/q:90/aHR0cHM6Ly9zdG9yYWdlLmdvb2dsZWFwaXMuY29tL3ZpcmdpbmlhdGVjaC1wcm9kLzIwMjQvMDMvMTkvS1EzUnNZS2RoMEZUdEp4R1dnR3ROcG5SamgwRDlkMVJuNklOMGY5Qy5wbmc.png";
 const ZONE = "America/New_York";
 const record = (x: unknown): Record<string, unknown> =>
   x && typeof x === "object" && !Array.isArray(x)
@@ -203,6 +218,7 @@ export function parseHokieSports(
     const opponentTeam = teams.find(
       (t) => clean(t.name) && !/^Virginia Tech\b/i.test(clean(t.name)),
     );
+    const football = /football/i.test(clean(x.sport) || sportFromPage);
     const opponentLogoUrl =
       link(opponentTeam?.logo, url) ||
       link(
@@ -210,14 +226,16 @@ export function parseHokieSports(
           row.find(".schedule-default-team__image").attr("src"),
         url,
       );
-    if (opponentLogoUrl) addImage(opponentLogoUrl, opponent);
+    const teamLogo = opponentLogoUrl || (football ? footballLogos[opponent] : undefined);
+    if (teamLogo) addImage(teamLogo, opponent);
+    if (football) addImage(vtFootballLogo, "Virginia Tech football logo");
     const sports: SportsDetails = {
       sport: clean(x.sport) || sportFromPage,
       opponent: opponent || null,
       venueType,
       state,
       checkedAt: now.toISOString(),
-      ...(opponentLogoUrl ? { opponentLogoUrl } : {}),
+      ...(teamLogo ? { opponentLogoUrl: teamLogo } : {}),
     };
     const scores = result.match(/\b(\d+)\s*-\s*(\d+)\b/);
     if (scores && (venueType === "home" || venueType === "away")) {

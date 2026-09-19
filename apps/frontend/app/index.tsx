@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import {
   View,
   Text,
@@ -428,6 +428,8 @@ export default function Home() {
     compact?: boolean;
   }) {
     const { event: e, fit, reason } = item;
+    const football = /football/i.test(e.sports?.sport || "");
+    const vtLogo = e.media?.find(media => media.alt === "Virginia Tech football logo");
     const cover = e.media?.find(media => media.kind === "image");
     const accent = e.categories.includes("Outdoors")
       ? "#E4EEE5"
@@ -448,27 +450,19 @@ export default function Home() {
           style={{ gap: 16 }}
         >
           <View style={[s.eventTop, { backgroundColor: accent }]}>
-            {cover && <Image source={{ uri: cover.url }} accessibilityLabel={cover.alt || e.title} resizeMode="cover" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />}
-            <View style={s.dateStamp}>
+            {!football && cover && <Image source={{ uri: cover.url }} accessibilityLabel={cover.alt || e.title} resizeMode="cover" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />}
+            <View style={[s.dateStamp, { position: "absolute", top: 12, left: 12, zIndex: 1 }]}>
               <Text style={s.dateMonth}>
                 {date(e.start, "LLL").toUpperCase()}
               </Text>
               <Text style={s.dateDay}>{date(e.start, "d")}</Text>
             </View>
-            <Ionicons
-              name={
-                e.categories.includes("Outdoors")
-                  ? "leaf-outline"
-                  : e.categories.includes("Sports")
-                    ? "trophy-outline"
-                    : e.categories.includes("Arts & music")
-                      ? "musical-notes-outline"
-                      : "sparkles-outline"
-              }
-              size={50}
-              color={C.maroon}
-            />
-            <View style={s.categoryTag}>
+            {football ? <View style={{ flex: 1, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 18 }}>
+              {vtLogo && <Image source={{ uri: vtLogo.url }} accessibilityLabel="Virginia Tech" resizeMode="contain" style={{ width: 80, height: 80 }} />}
+              <Text style={{ fontFamily: font, fontSize: 22, fontWeight: "800", color: C.maroon }}>VS</Text>
+              {e.sports?.opponentLogoUrl ? <Image source={{ uri: e.sports.opponentLogoUrl }} accessibilityLabel={e.sports.opponent || "Opponent"} resizeMode="contain" style={{ width: 80, height: 80 }} /> : <Text style={{ color: C.maroon, flexShrink: 1 }}>{e.sports?.opponent || "Opponent TBD"}</Text>}
+            </View> : !cover ? <Text style={{ fontFamily: font, color: C.maroon }}>My Gobbler</Text> : null}
+            <View style={[s.categoryTag, { position: "absolute", bottom: 12, right: 12, backgroundColor: "white" }]}>
               <Text style={s.small}>{e.categories[0] || "Campus life"}</Text>
             </View>
           </View>
@@ -697,9 +691,6 @@ export default function Home() {
               My Gobbler
             </Text>
           </Pressable>
-          <Link href="/clubs" style={{ color: C.maroon, padding: 10 }}>
-            Clubs
-          </Link>
           {!mobile && page !== "landing" && page !== "auth" && (
             <View style={s.row}>
               {(["discover", "saved", "schedule", "gobbler"] as Page[]).map(
@@ -943,7 +934,8 @@ export default function Home() {
                 ]}
               >
                 <View>
-                  <Text style={s.sectionTitle}>Good things on campus</Text>
+                  <Text style={s.sectionTitle}>Campus Events</Text>
+                  <View style={{ marginTop: 16 }}><Button secondary label="Clubs" icon="people-outline" onPress={() => router.push("/clubs")} /></View>
                   <Text style={[s.meta, { marginTop: 7 }]}>
                     {"Real campus listings, with room to explore."}
                   </Text>
@@ -1279,7 +1271,7 @@ export default function Home() {
             <>
               <Text style={s.eyebrowText}>KEEP THE GOOD ONES CLOSE</Text>
               <Text accessibilityRole="header" style={s.pageTitle}>
-                Your little list
+                Your saved events
               </Text>
               <Text style={s.body}>
                 Things you’re looking forward to, all in one place.
@@ -1287,7 +1279,7 @@ export default function Home() {
               {!saved.length && (
                 <View style={s.panel}>
                   <Gobbler size={110} />
-                  <Text style={s.sectionTitle}>A little empty, for now.</Text>
+                  <Text style={s.sectionTitle}>No saved events yet.</Text>
                   <Text style={s.body}>
                     Tap Save on an event and it’ll be waiting here.
                   </Text>
@@ -1313,7 +1305,7 @@ export default function Home() {
           {user && page === "schedule" && !selected && (
             <>
               <Text style={s.eyebrowText}>
-                A LITTLE ROOM FOR SOMETHING GOOD
+                MAKE ROOM FOR SOMETHING GOOD
               </Text>
               <Text accessibilityRole="header" style={s.pageTitle}>
                 Your week, with possibilities
@@ -1352,7 +1344,7 @@ export default function Home() {
               >
                 <Gobbler size={125} />
                 <Text accessibilityRole="header" style={s.pageTitle}>
-                  A little help from Gobbler.
+                  Help from My Gobbler.
                 </Text>
                 <Text style={[s.body, { textAlign: "center", maxWidth: 580 }]}>
                   Tell me what you have in mind. I’ll look through current
@@ -1379,7 +1371,7 @@ export default function Home() {
                   )}
                 </View>
                 <Button
-                  label="Find my next little adventure"
+                  label="Find my next event"
                   disabled={loading || !query.trim()}
                   onPress={() =>
                     run(async () => {
@@ -1463,7 +1455,7 @@ export default function Home() {
               <View style={[s.columns, mobile && { flexDirection: "column" }]}>
                 <View style={{ flex: 1, gap: 24 }}>
                   <View style={s.panel}>
-                    <Text style={s.sectionTitle}>A little about you</Text>
+                    <Text style={s.sectionTitle}>About you</Text>
                     <Field
                       label="Preferred name"
                       value={profile.name}
@@ -1925,7 +1917,7 @@ const s = StyleSheet.create({
     boxShadow: "0 4px 0 #E7D8CD",
   },
   eventTop: {
-    height: 143,
+    height: 200,
     padding: 18,
     flexDirection: "row",
     alignItems: "center",

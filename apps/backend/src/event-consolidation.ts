@@ -19,15 +19,27 @@ const nativeMatch = (a: CampusEvent, b: CampusEvent) =>
   sourceKeys(a).some((key) => sourceKeys(b).includes(key));
 const discord = (event: CampusEvent) =>
   event.sources.some((s) => s.source === "discord");
+const dateFormatters = new Map<string, Intl.DateTimeFormat>();
+const localDates = new WeakMap<CampusEvent, { key: string; value: string }>();
 function localDate(event: CampusEvent): string {
   if (event.timeDetails?.startDate) return event.timeDetails.startDate;
+  const key = `${event.timezone}|${event.start}`;
+  const cached = localDates.get(event);
+  if (cached?.key === key) return cached.value;
   try {
-    return new Intl.DateTimeFormat("en-CA", {
+    let formatter = dateFormatters.get(event.timezone);
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat("en-CA", {
       timeZone: event.timezone,
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
-    }).format(new Date(event.start));
+      });
+      dateFormatters.set(event.timezone, formatter);
+    }
+    const value = formatter.format(new Date(event.start));
+    localDates.set(event, { key, value });
+    return value;
   } catch {
     return event.start.slice(0, 10);
   }
