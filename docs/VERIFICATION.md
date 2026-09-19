@@ -12,6 +12,8 @@ This checkpoint supersedes older local/deployment-pending entries below; those a
 - Desktop landing inspected at 1280×800; mobile event/calendar flow at 390×844, document width 390. Gobbler favicon link and My Gobbler page title verified. Settings correctly shows Google/Canvas unavailable and Discord collection disabled.
 - App container restart preserved the synthetic account session, onboarded profile and saved event in Atlas. Startup refresh completed again: 2,242 GobblerConnect and 349 VT Sports records (counts include historical events).
 - Runtime is non-root with read-only filesystem, dropped capabilities, rotated logs and internal-only Node port. App log inspection showed only normal startup. Production frontend bundle scanned against configured secrets: 59 files, zero matches.
+- Google configuration follow-up: Calendar API enabled, sole owner test user saved, two scopes declared and exact production callback configured. Env preflight and HTTPS smoke passed after app recreation. Synthetic OAuth-initiation test verified configured status, redirect, PKCE/state and scope set; account deleted. The owner must consent from their own application account before live sync/write testing.
+- Disposable browser account deletion correctly required a fresh login after five minutes; reauthentication and deletion passed. New Gemini still answered successfully after the old key was deleted.
 - Not claimed: whole-host reboot, long-term scheduled execution, real Google/Canvas writes, Discord installation/canonical publication, Databricks live dashboard, or audible browser playback. Email verification/password recovery and Vultr hard spending protection remain unresolved.
 
 
