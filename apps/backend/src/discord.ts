@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { database } from "./store.js";
 import { config, remote, HttpError } from "./config.js";
 import { seal, unseal, hash } from "./security.js";
+import { configuredChannels } from "./discord-policy.js";
 const api = "https://discord.com/api/v10";
 const redirect = () => config.origin + "/api/connections/discord/callback";
 export function discordReady() {
@@ -79,39 +80,7 @@ export async function discordFinish(
       { upsert: true },
     );
 }
-async function authorizedChannels(userId: string) {
-  const row = await database()
-    .collection("connections")
-    .findOne({ userId, provider: "discord" });
-  if (!row) throw new HttpError(409, "Connect Discord first.");
-  const t = unseal(row.encrypted);
-  const guilds = await (
-    await remote(api + "/users/@me/guilds", {
-      headers: { Authorization: `Bearer ${t.access_token}` },
-    })
-  ).json();
-  const allow = (process.env.DISCORD_ALLOWED_CHANNELS || "")
-      .split(",")
-      .filter(Boolean),
-    channels = [];
-  for (const id of allow) {
-    const channel = await (
-      await remote(api + "/channels/" + id, {
-        headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` },
-      })
-    ).json();
-    if (
-      channel.type === 5 &&
-      guilds.some((g: any) => g.id === channel.guild_id)
-    )
-      channels.push({
-        id: channel.id,
-        name: channel.name,
-        guildId: channel.guild_id,
-      });
-  }
-  return channels;
-}
+const authorizedChannels = configuredChannels;
 export async function discordChannels(userId: string) {
   return authorizedChannels(userId);
 }

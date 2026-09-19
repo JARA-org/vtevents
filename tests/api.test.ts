@@ -21,6 +21,15 @@ test("authenticated API isolation, CSRF, persistence, connection failure and dem
   try {
     const unauth = await request(app).get("/api/me");
     assert.equal(unauth.status, 401);
+    assert.equal(
+      (
+        await request(app)
+          .post("/api/narration")
+          .set("Origin", origin)
+          .send({ eventIds: ["demo-1"] })
+      ).status,
+      401,
+    );
     for (const [agent, name] of [
       [a, "Student A"],
       [b, "Student B"],
@@ -84,6 +93,24 @@ test("authenticated API isolation, CSRF, persistence, connection failure and dem
       400,
     );
     const me = (await a.get("/api/me")).body;
+    assert.equal(
+      (
+        await a
+          .post("/api/narration")
+          .set("Origin", origin)
+          .send({ eventIds: ["demo-1"] })
+      ).status,
+      404,
+    );
+    assert.equal(
+      (
+        await a
+          .post("/api/narration")
+          .set("Origin", origin)
+          .send({ eventIds: ["demo-1"], text: "arbitrary private text" })
+      ).status,
+      400,
+    );
     const db = store.database();
     const coordinator = await import("../apps/backend/src/coordinator.js");
     await coordinator.restoreSources();

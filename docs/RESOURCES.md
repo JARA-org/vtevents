@@ -2,21 +2,26 @@
 
 Updated 2026-09-19. No secrets belong in this inventory.
 
-| Resource | Owner | Purpose / dashboard | Cost constraint / state |
+| Resource | Owner | Dashboard / purpose | Cost and current state |
 |---|---|---|---|
-| Existing private GitHub repository | JARA-org; authenticated collaborator `0utsights` (John Surles) | https://github.com/JARA-org/vtevents | Existing repository preserved. No new repository created. |
-| Local application | User's Windows workspace | `outputs/my-little-gobbler`; http://localhost:3000 when running | Local only. No cloud charges. |
-| Local MongoDB replica set | User's workstation | Started by `npm run local`; data in ignored `work/local-mongo` | Development database only; not Atlas. |
-| Sites project | Original registration account currently inaccessible; connected account is `surlezrulez@gmail.com` | `appgprj_6aae24e2bd588191a3b403b7ff3b54ba`; manifest `.openai/hosting.json` | **NOT_FOUND** to current account; not deployed. Recover access, do not create another Site. |
-| Render | GitHub identity `0utsights`, personal OAuth consent pending | https://dashboard.render.com | No service created. Use Free plan only, verify absence of billable overages. |
-| MongoDB Atlas | Awaiting intended owner email/sign-in | https://cloud.mongodb.com | No cluster created. M0 Free only. Restrict network access and database permissions. |
-| Gemini / Google Cloud | Observed Google session `surlezrulez@gmail.com`; intended-owner confirmation/first-use consent pending | https://aistudio.google.com and https://console.cloud.google.com | No key/client created. Free project with billing disabled; no uncapped billable use. |
-| Canvas | University-controlled access | https://canvas.vt.edu | Requires VT-enabled OAuth developer key and scopes. No credentials available. |
-| Discord | Awaiting intended owner and server admin | https://discord.com/developers/applications | No bot created. Free bot; only explicitly authorized announcement channels. |
-| Databricks | Awaiting intended owner sign-in/terms | https://docs.databricks.com/aws/en/getting-started/free-edition | Free Edition signup reached. No workspace or dashboard created. Free Edition only for this student prototype. |
+| Private GitHub repository | JARA-org; collaborator `0utsights` (John Surles) | https://github.com/JARA-org/vtevents | Existing repository preserved; no new repository. |
+| Atlas M0 `my-little-gobbler` | Signed-in owner, John's Org - 2026-09-19 | https://cloud.mongodb.com/v2/6aae924eebb5b272725466a4#/overview | Created and live-tested. AWS N. Virginia, 512 MB Free. No Atlas payment method. |
+| Atlas application user | Same owner | Atlas Database & Network Access | `my-little-gobbler-app`, readWrite only on `my_little_gobbler`, restricted to the Gobbler cluster. Workstation `/32` only; add selected host's IP later. |
+| Gemini project | `surlezrulez@gmail.com` | https://aistudio.google.com/api-keys?project=gen-lang-client-0163130285 | Free tier without billing. Real `gemini-3.5-flash-lite` calls passed. Setup credential must be rotated before public deployment. |
+| Vultr | John Surles, `outsightszs@Outlook.com` | https://console.vultr.com | API verified; $100 MLH promotional credit, 30-day expiry; $0 accrued at check. User personally linked a card. **No instance created.** Owner insists $0 beyond credit and hard cap; dashboard only shows resource limits. Free-compute application submitted, pending approval. |
+| ElevenLabs | Signed-in Google account; onboarding name Johnny | https://elevenlabs.io/app/api/api-keys | Free plan confirmed10,000credits; TTS-only key with8,000credit refresh-period cap, leak auto-disable on. Real270,881byteMP3 and cache/authenticated endpoint verified. No subscription or credit purchase. |
+| Databricks Free Edition | `surlezrulez@gmail.com` | https://dbc-4490568c-354b.cloud.databricks.com | Workspace exists. Console rejects automated control. Owner requested Genie One MCP; authentication/setup blocked as detailed in GENIE_SETUP.md. No live analytics table/dashboard yet. |
+| Discord | Existing signed-in developer account (personal ownership) | https://discord.com/developers/applications | Application1550880609491222639 created after personal CAPTCHA; branding saved. Guild-only installation requests View Channels and Read Message History. Bot/client secrets, intent and owner-selected server installation still pending. No unrelated bot modified. |
+| Google Calendar OAuth | Intended existing Google project owner | https://console.cloud.google.com/apis/credentials | No OAuth client provisioned yet; production origin pending hosting. |
+| Canvas | University-controlled access | https://canvas.vt.edu | Requires VT-enabled OAuth developer key. No credentials or approval available. |
+| Tiger Data | Not provisioned | https://www.tigerdata.com/pricing | Optional public event activity/time-series extension researched. Managed pricing showed trial/paid plans; no verified sponsor free resource configured. |
+| Render | Not used | https://dashboard.render.com | Blueprint retained as fallback. Owner chose to keep hosting pending for Vultr. |
+| Local app with cloud services | User's workstation | http://localhost:3001 | Real Atlas and Gemini; source refresh and disposable-account core flow passed. Not public deployment. |
+| Local development app/database | User's workstation | http://localhost:3000; ignored work/local-mongo | Separate prior local Mongo replica set. No personal provider content. |
+| Sites preview | Original registration account inaccessible to current connection | `.openai/hosting.json`: appgprj_6aae24e2bd588191a3b403b7ff3b54ba | NOT_FOUND; not deployed. Do not create a duplicate or substitute an unrelated site. |
 
-Owner email was requested once. Existing Google session is now known, but its first-use consent remains pending. Render is at GitHub consent, Atlas at login, AI Studio at first-use terms, Discord at developer login and Databricks at Free Edition signup. User takeover was requested for the three core services. Do not request passwords/MFA codes in chat.
+Secrets are in ignored `.env` / `work` files and are not part of source control. Rotate the Vultr key shared in chat and the default Gemini key that appeared in a redaction failure before public deployment. Do not repeat their values.
 
-Stripe Projects provisioning was investigated with official CLI/plugin. Catalog offers Render Free but not Atlas or Gemini; preflight requires Stripe browser authentication. No Stripe project/provider resources were created. The Railway MongoDB offering was not substituted for Atlas.
+Stripe Projects catalog/preflight was investigated; direct account setup was used where available. Latest ElevenLabs/Tiger/Vultr catalog lookups returned HTTP429, so no resources were provisioned through it.
 
-GitHub Actions checks are `workflow_dispatch` only. The six-hour scheduled job is guarded by `GOBBLER_JOBS_ENABLED=true`; this is unset. Verify included Actions minutes and hard spending constraints before enabling automatic usage.
+GitHub Actions checks remain workflow_dispatch only. Scheduled refresh is guarded by GOBBLER_JOBS_ENABLED, currently unset; do not enable potentially billable organization Actions without verifying its free allowance/hard cap. Vultr's continuously running Node process needs no paid cron service.

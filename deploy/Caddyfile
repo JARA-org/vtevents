@@ -1,0 +1,8 @@
+{$GOBBLER_DOMAIN} {
+  encode zstd gzip
+  reverse_proxy app:3000 {
+    # The app trusts exactly this proxy hop. Overwrite client-supplied IPs.
+    header_up X-Forwarded-For {remote_host}
+    header_up X-Real-IP {remote_host}
+  }
+}

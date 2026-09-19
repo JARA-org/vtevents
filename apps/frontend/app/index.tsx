@@ -58,6 +58,195 @@ const eventTime = (e: CampusEvent) =>
 const date = (s: string, fmt = "ccc, LLL d · h:mm a") =>
   DateTime.fromISO(s).setZone(CAMPUS_TZ).toFormat(fmt);
 const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW_ONLY === "true";
+function DiscordOwnerSettings() {
+  const [guilds, setGuilds] = useState<any[] | null>(null),
+    [guild, setGuild] = useState<any>(null),
+    [channels, setChannels] = useState<any[]>([]),
+    [selected, setSelected] = useState<string[]>([]),
+    [busy, setBusy] = useState(false),
+    [notice, setNotice] = useState("");
+  async function action(task: () => Promise<void>) {
+    setBusy(true);
+    setNotice("");
+    try {
+      await task();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Discord is unavailable.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <View style={{ gap: 10 }}>
+      <Text style={s.label}>For server owners</Text>
+      <Text style={s.meta}>
+        Install Gobbler in your server, then choose its announcement channels.
+        Only channels visible to every server member are supported in V1.
+        Students choose which approved channels to follow.
+      </Text>
+      <Button
+        secondary
+        disabled={busy}
+        label={busy ? "Loading…" : "Manage my servers"}
+        onPress={() =>
+          action(async () => {
+            setGuilds((await api("/discord/owned-servers")).guilds);
+            setGuild(null);
+          })
+        }
+      />
+      {guilds?.length === 0 && (
+        <Text style={s.meta}>
+          No owned Discord servers found for this connection.
+        </Text>
+      )}
+      {guilds?.map((g) => (
+        <Button
+          key={g.id}
+          secondary
+          disabled={busy}
+          label={g.name}
+          onPress={() =>
+            action(async () => {
+              const result = await api("/discord/servers/" + g.id);
+              setGuild(g);
+              setChannels(result.channels);
+              setSelected(result.selected);
+            })
+          }
+        />
+      ))}
+      {guild && (
+        <View style={{ gap: 10 }}>
+          <Text style={s.label}>{guild.name} · approved channels</Text>
+          {!channels.length && (
+            <Text style={s.meta}>
+              No eligible announcement channels. Check the bot installation and
+              channel permissions.
+            </Text>
+          )}
+          {channels.map((ch) => (
+            <Chip
+              key={ch.id}
+              label={"#" + ch.name}
+              active={selected.includes(ch.id)}
+              onPress={() => {
+                if (!busy)
+                  setSelected((old) =>
+                    old.includes(ch.id)
+                      ? old.filter((id) => id !== ch.id)
+                      : [...old, ch.id],
+                  );
+              }}
+            />
+          ))}
+          <Text style={s.meta}>
+            Saving an empty selection stops announcement reads for this server.
+          </Text>
+          <Button
+            disabled={busy}
+            label="Save server channels"
+            onPress={() =>
+              action(async () => {
+                await api(
+                  "/discord/servers/" + guild.id,
+                  { channels: selected },
+                  "PUT",
+                );
+                setNotice(
+                  "Server choices saved. Students can now choose approved channels.",
+                );
+              })
+            }
+          />
+        </View>
+      )}
+      {!!notice && (
+        <Text accessibilityLiveRegion="polite" style={s.meta}>
+          {notice}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
+  const [audioUrl, setAudioUrl] = useState(""),
+    [busy, setBusy] = useState(false),
+    [notice, setNotice] = useState("");
+  const selection = ids.slice(0, 3).join("|");
+  useEffect(() => {
+    setAudioUrl("");
+    setNotice("");
+  }, [selection]);
+  useEffect(
+    () => () => {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    },
+    [audioUrl],
+  );
+  if (Platform.OS !== "web" || !ids.length) return null;
+  return (
+    <View style={{ gap: 10 }}>
+      <Button
+        label={busy ? "Preparing Gobbler’s voice…" : "Listen to Gobbler"}
+        icon="volume-high-outline"
+        secondary
+        disabled={!enabled || busy || !!audioUrl}
+        onPress={async () => {
+          setBusy(true);
+          setNotice("");
+          try {
+            const r = await fetch("/api/narration", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ eventIds: ids.slice(0, 3) }),
+            });
+            if (!r.ok) {
+              const error = await r.json();
+              throw new Error(error.message || "Voice is unavailable.");
+            }
+            setAudioUrl(URL.createObjectURL(await r.blob()));
+            setNotice("Your audio is ready. Press play to listen.");
+          } catch (e) {
+            setNotice(
+              e instanceof Error
+                ? e.message
+                : "Voice is unavailable. You can still read the events below.",
+            );
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      <Text style={s.meta}>
+        {enabled
+          ? "Reads the first three public event summaries using ElevenLabs. Your question and private schedule are not sent."
+          : "ElevenLabs narration is available for signed-in students when the voice service is connected. The demo stays separate."}
+      </Text>
+      {!!notice && (
+        <Text accessibilityLiveRegion="polite" style={s.meta}>
+          {notice}
+        </Text>
+      )}
+      {!!audioUrl &&
+        React.createElement("audio", {
+          controls: true,
+          src: audioUrl,
+          "aria-label": "Gobbler event narration",
+          style: { maxWidth: "100%", width: 360 },
+        })}
+      <Text
+        accessibilityRole="link"
+        style={[s.meta, { textDecorationLine: "underline" }]}
+        onPress={() => Linking.openURL("https://elevenlabs.io")}
+      >
+        Voice powered by ElevenLabs
+      </Text>
+    </View>
+  );
+}
 async function api(path: string, body?: any, method?: string) {
   if (PREVIEW) {
     if (path === "/health") return { accounts: false, gemini: false };
@@ -1539,6 +1728,13 @@ export default function Home() {
                   <View style={s.panel}>
                     <Text style={s.sectionTitle}>{answer.answer}</Text>
                     <Text style={s.meta}>{answer.notice}</Text>
+                    <GobblerVoice
+                      key={mode + query}
+                      ids={answer.recommendations.map(
+                        (item: any) => item.event.id,
+                      )}
+                      enabled={mode === "live" && !!user && !!health.voice}
+                    />
                   </View>
                   <View style={s.eventGrid}>
                     {answer.recommendations.map((item: any) => (
@@ -1737,6 +1933,7 @@ export default function Home() {
                                   )
                                 }
                               />
+                              <DiscordOwnerSettings />
                               {discordChannels.map((ch) => (
                                 <Chip
                                   key={ch.id}

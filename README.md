@@ -4,7 +4,7 @@
 
 ## Current delivery status
 
-The working application is implemented and runs locally with persistent development accounts. Official GobblerConnect and VT Sports adapters have been live-tested. **Production V1 is not complete:** Atlas, Gemini, Render, Google OAuth, Canvas, Discord, and Databricks still require owner account access or third-party authorization. Do not mistake the separately labeled Sites preview for the full production service.
+The application now runs against a real **MongoDB Atlas M0** cluster and **Gemini free-tier API**. Account/profile persistence, live discovery, saves, ICS and grounded Gemini responses were verified end to end on 2026-09-19. **Production V1 is not complete:** the owner chose to keep hosting pending for Vultr under a $0-beyond-credits hard-cap requirement. Vultr free-compute approval, connected-provider setup and deployed HTTPS verification remain outstanding. There is no public deployment URL yet.
 
 Existing private source repository: https://github.com/JARA-org/vtevents. The repository name is preserved; application and service slugs use `my-little-gobbler`.
 
@@ -31,10 +31,15 @@ For Atlas, copy `.env.example` to ignored `.env`, fill real backend values secur
 - Schedule conflicts and explicit unknown availability. America/New_York campus display; UTC timestamps and retained source timezone.
 - Working ICS download with stable UIDs, escaping and line folding. Connected-calendar confirmation and duplicate prevention.
 - OAuth connection paths, encrypted credentials/private context, sync/disconnect, account deletion, analytics outbox and refresh job endpoint.
+- Gobbler favicon and optional ElevenLabs narration of up to three stored public event summaries. Authenticated requests, shared audio cache, strict character allowance and explicit playback; no private schedule sent. Live audio and authenticated endpoint verified on the Free plan; TTS-only key capped at 8,000 credits per refresh period.
 
 See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE.md), [resource inventory](docs/RESOURCES.md), and [verification/demo walkthrough](docs/VERIFICATION.md).
 
 ## Deploy the full Node application
+
+**Selected host: Vultr.** See [Vultr deployment](deploy/README.md) for the Docker/Caddy HTTPS package, cost constraint, free-tier application status and launch verification steps. The Docker engine was unavailable for container execution in this session; the application production build passed. The Render path below remains an unused fallback; the owner explicitly chose to wait for Vultr.
+
+### Unused Render fallback (requires owner to change hosting choice)
 
 1. Sign in to the intended owner’s Render and Atlas accounts. Select Atlas **M0 Free**, never Flex or a paid cluster. Create a database user restricted to `my_little_gobbler`; permit only the selected Render service's documented outbound IP ranges and required development IPs. Do not use `0.0.0.0/0`.
 2. Create a Render Blueprint from this private JARA repository using `render.yaml`. It defines one **Free** Node web service serving the Expo export and backend on the same origin. Verify there is **no payment method / billable overage**, or a real hard spending cap, before enabling usage. No paid background worker or cron resource is needed. Render free services sleep after inactivity and can take about a minute to wake.
@@ -72,4 +77,4 @@ Tests use an isolated disposable MongoDB replica set, synthetic accounts and moc
 - The demo stores only sample preferences/saves in browser local storage. Public source links always lead to the original listing.
 - Account deletion removes account data and credentials and queues remote analytics erasure. A pseudonymous suppression marker is retained to prevent delayed analytics writes from restoring erased activity; erasure retries during outages. Calendar events already written to external services remain in those services. Disconnect attempts token revocation and reports if manual provider revocation is still needed.
 
-Production launch remains gated on owner provisioning, real provider testing, campus/server approvals where needed, and final deployed verification.
+Production launch remains gated on cost-safe Vultr hosting, credential rotation, remaining provider testing, campus/server approvals where needed, and final deployed verification. Email verification and password recovery are also still pending before a broad public launch.

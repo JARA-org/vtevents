@@ -40,3 +40,17 @@ Implement shared scheduling/event model, integration modules and security, front
 - Latest browser viewport remained512 despite390 request; measured no overflow at512. Earlier390/1280 checks remain separate evidence. Production/real Gemini and connected provider verification remain blocked.
 - Rewrote NEXT_AGENT_PROMPT.md and updated handoff/inventory/verification with exact current state. Production launch is not complete; email verification/recovery and final deployed QA also remain.
 - Source fixes and handoff pushed in aefc0f0 and 393d471; remote SHA verified. Follow-up concert/gallery classification test passes. Latest local runtime restarted with current code; browser confirmed saved preferences/events survived restart.
+
+## Cloud-services checkpoint — 2026-09-19
+
+- Provisioned and tested Atlas M0 Free with database-scoped application user, cluster restriction and workstation /32 network rule. Real signup/preferences/saves/ICS/deletion flow passed against Atlas.
+- Verified real Gemini recommendations from stored event IDs using the free project. Public source refresh yielded 2,219 GobblerConnect / 349 Sports records and 1,502 discoverable events. Private schedule context stays in normal application code.
+- Added Gobbler favicon and optional ElevenLabs narration with public-event-only payloads, authenticated endpoint, monthly character reservation, cache/concurrency control, size bound and explicit playback. Provider live setup is still pending.
+- Added non-root Docker build and Caddy/Compose HTTPS deployment package. Docker Desktop engine was unavailable, so container build is not yet verified.
+- User chose Vultr and explicitly requires $0 beyond credits with a hard cap. Verified $100 MLH credit but no credit-zero stop cap; submitted Free Tier application. User explicitly declined Render fallback and asked to keep hosting pending. No VM or public deployment exists.
+- Discord app creation completed after user CAPTCHA: application1550880609491222639; branding description saved. No server authorization/channel selection or bot credentials yet.
+- Databricks Free Edition exists. Genie One requested, but no callable MCP connection: catalog plugin ineligible, direct OAuth lacks dynamic registration, personal CLI consent incomplete. Exact supported path recorded in docs/GENIE_SETUP.md; do not bypass console's automation restriction.
+- 22/22 tests, typechecks and production build passed. Current live-backed landing inspected at1280x720 and390x844 with no overflow; favicon linked correctly. Disposable cloud QA account deleted through the app.
+- Updated resource inventory and takeover prompt. V1 is not fully deployed; provider setup, auth email recovery/verification and production HTTPS QA remain.
+- Follow-up: ElevenLabs Free plan verified, TTS-only capped key provisioned and real narration/cache/authenticated HTTP endpoint passed. User confirmed age and completed Discord CAPTCHA.
+- User clarified that each Discord server owner configures allowed channels. Replaced global allowlist with current-owner-authorized per-guild settings, student selection and fresh membership/visibility checks. Restricted channels fail closed. Added owner settings UI and meaningful authorization/revocation tests; latest23/23 suite passes.

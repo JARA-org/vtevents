@@ -19,6 +19,7 @@ import { config, HttpError } from "./config.js";
 import { db, database, mongoClient } from "./store.js";
 import { sourceStatus, liveEvents, refreshSources } from "./coordinator.js";
 import { askGobbler } from "./assistant.js";
+import { narrate, voiceReady } from "./narration.js";
 import { analyticsKinds, track, eraseAnalytics } from "./analytics.js";
 import {
   Provider,
@@ -38,6 +39,11 @@ import {
   selectDiscordChannels,
   syncDiscord,
 } from "./discord.js";
+import {
+  ownerGuilds,
+  ownerChannels,
+  configureGuild,
+} from "./discord-policy.js";
 import { runJobs } from "./jobs.js";
 import { unseal, pseudonym } from "./security.js";
 export function createApp() {
@@ -54,6 +60,7 @@ export function createApp() {
           imgSrc: ["'self'", "data:"],
           fontSrc: ["'self'", "data:"],
           connectSrc: ["'self'"],
+          mediaSrc: ["'self'", "blob:"],
           objectSrc: ["'none'"],
           frameAncestors: ["'none'"],
           upgradeInsecureRequests: config.production ? [] : null,
@@ -136,6 +143,7 @@ export function createApp() {
       database: !!db,
       accounts: !!auth,
       gemini: !!process.env.GEMINI_API_KEY,
+      voice: voiceReady(),
       sources: sourceStatus,
     }),
   );
@@ -283,6 +291,20 @@ export function createApp() {
     await track(res.locals.user.id, kind, eventId);
     res.json({ ok: true });
   });
+  app.post(
+    "/api/narration",
+    protect,
+    rateLimit({ windowMs: 60000, limit: 5 }),
+    async (req, res) => {
+      const { eventIds } = z
+        .object({ eventIds: z.array(z.string().max(120)).min(1).max(3) })
+        .strict()
+        .parse(req.body);
+      const audio = await narrate([...new Set(eventIds)].map(currentEvent));
+      res.setHeader("Cache-Control", "private, no-store");
+      res.type("audio/mpeg").send(audio);
+    },
+  );
   app.get("/api/connections", protect, async (_req, res) => {
     const rows = await database()
       .collection("connections")
@@ -359,6 +381,12 @@ export function createApp() {
       .parse(req.params.provider);
     if (p === "discord") {
       await database()
+        .collection("discord_guilds")
+        .deleteMany({ userId: res.locals.user.id });
+      await database()
+        .collection("private_context")
+        .deleteMany({ provider: "discord" });
+      await database()
         .collection("connections")
         .deleteOne({ userId: res.locals.user.id, provider: p });
       await database()
@@ -366,6 +394,28 @@ export function createApp() {
         .deleteOne({ userId: res.locals.user.id, provider: p });
       res.json({ disconnected: true, revoked: false });
     } else res.json(await disconnect(res.locals.user.id, p));
+  });
+  app.get("/api/discord/owned-servers", protect, async (_q, r) =>
+    r.json({ guilds: await ownerGuilds(r.locals.user.id) }),
+  );
+  app.get("/api/discord/servers/:guildId", protect, async (q, r) => {
+    const id = z
+      .string()
+      .regex(/^\d{1,20}$/)
+      .parse(q.params.guildId);
+    r.json(await ownerChannels(r.locals.user.id, id));
+  });
+  app.put("/api/discord/servers/:guildId", protect, async (q, r) => {
+    const id = z
+      .string()
+      .regex(/^\d{1,20}$/)
+      .parse(q.params.guildId);
+    const body = z
+      .object({ channels: z.array(z.string().regex(/^\d{1,20}$/)).max(20) })
+      .strict()
+      .parse(q.body);
+    await configureGuild(r.locals.user.id, id, body.channels);
+    r.json({ ok: true });
   });
   app.get("/api/discord/channels", protect, async (_q, r) =>
     r.json({ channels: await discordChannels(r.locals.user.id) }),
@@ -382,13 +432,27 @@ export function createApp() {
       .collection("private_context")
       .find({ userId: r.locals.user.id })
       .toArray();
-    r.json(
-      rows.map((row) => ({
+    const contexts = [];
+    for (const row of rows) {
+      const content = unseal(row.encrypted);
+      if (row.provider === "discord") {
+        // Revalidate membership, owner approval and current channel visibility on reads.
+        const allowed = await discordChannels(r.locals.user.id).catch(() => []);
+        content.announcements = (content.announcements || []).filter((a: any) =>
+          allowed.some((c) =>
+            a.url?.startsWith(
+              `https://discord.com/channels/${c.guildId}/${c.id}/`,
+            ),
+          ),
+        );
+      }
+      contexts.push({
         provider: row.provider,
         syncedAt: row.syncedAt,
-        ...unseal(row.encrypted),
-      })),
-    );
+        ...content,
+      });
+    }
+    r.json(contexts);
   });
   app.post("/api/calendar", protect, async (req, res) => {
     const body = z
@@ -420,6 +484,7 @@ export function createApp() {
     for (const p of ["google", "canvas"] as const) await disconnect(id, p);
     for (const name of [
       "profiles",
+      "discord_guilds",
       "saved",
       "connections",
       "private_context",

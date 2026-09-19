@@ -2,7 +2,7 @@
 
 ## Verified locally on 2026-09-19
 
-- TypeScript checks for backend and frontend. Latest suite: **21/21 tests passed**.
+- TypeScript checks for backend and frontend. Latest suite: **22/22 tests passed**.
 - Expo web export and backend production compilation.
 - Automated tests: unknown availability, exact free coverage, conflicts, touching endpoints, DST, partial coverage, event normalization, cancellations, deduplication/provenance, unsafe source URLs, ICS escaping and stable UID, recommendation grounding, missing-Gemini fallback, authenticated encryption and calendar-write key scope.
 - API tests against isolated real MongoDB: separate users/profiles/private context/saves, unauthenticated rejection, origin/CSRF rejection, demo/live separation, invalid OAuth state, unavailable Google config, expired Google sync state, ICS response, grounded demo assistant, account deletion. Mocked Google writes verify repeated calls produce one provider write. Source replacement removes absent persisted records. Gemini success, unknown-ID rejection, API failure and daily limits are mocked; they are not real Gemini service verification. Analytics erasure and future enqueue suppression are verified with mocked Databricks SQL responses.
@@ -16,7 +16,7 @@
 
 ## Not yet verified / remaining work
 
-- No production Node backend, Atlas cluster, Gemini call, real OAuth calendar write, Discord bot installation, or Databricks ingestion/dashboard has been verified.
+- Public Node/HTTPS deployment, real OAuth calendar writes, Discord server installation, ElevenLabs live audio, and Databricks ingestion/dashboard remain unverified. Atlas M0 and real Gemini calls are verified locally against their cloud services.
 - Sites preview is not published. The existing project returns NOT_FOUND to the currently connected Sites account; recover that account/project access instead of creating a duplicate.
 - Keyboard/200% zoom accessibility, final production mobile/desktop rendering and expired-provider UI need expanded deployed browser checks.
 - Better Auth tests warn that no client IP is available under Supertest. Verify trusted proxy/IP configuration for the actual deployed host.
@@ -32,3 +32,17 @@
 6. Ask Gobbler a day/time or interest question. Demo responses use only sample records.
 7. Switch to live events to show official source provenance. On static preview these are explicitly dated public snapshots, not live sync.
 8. Show Settings: real services remain unavailable until configured. Do not imply the owner’s personal accounts are part of the demo.
+
+## Live cloud verification checkpoint
+
+- Real Atlas M0 ping, schema indexes and source persistence passed. Synthetic account HTTP flow on localhost3001: signup, preferences, Friday recurring availability, live discovery, save/read, ICS, real Gemini recommendations with stored IDs, demo/live separation and account deletion all passed.
+- Latest source counts:2,219 GobblerConnect/349Sports;1,502 current or ongoing events. Counts change with time.
+- Narration tests exercise strict public event IDs, authentication, missing configuration, provider payload grounding, cache reuse, hard character limit and failed-request reservation without automatic retries. These are mock-provider checks, not a live ElevenLabs claim.
+- Production build generated the Gobbler favicon; browser verified its link. Current landing inspected at1280x720 and390x844; document width equals390 at mobile size.
+- Vultr container build remains unverified because Docker Desktop engine was unavailable. Hosting intentionally waits for cost-safe Vultr approval.
+
+## Latest voice and Discord verification
+
+- ElevenLabs Free10,000credit plan confirmed in dashboard. Created a TTS-only key with8,000credits per refresh period and leak auto-disable. Real provider narration produced270,881bytes of MP3; repeat used cached identical bytes. Authenticated HTTP narration endpoint passed; disposable QA account deleted. Final browser playback inspection remains.
+- Latest suite:23/23 tests passed. New Discord tests cover current-owner-only configuration, cross-server rejection, private/non-announcement channel rejection, non-member rejection, ownership transfer, permission revocation and empty-selection removal. These use mocked Discord provider responses; no real server has been installed/configured yet.
+- Production build and frontend/backend typechecks passed after owner configuration UI/API changes. Follow-up targeted Discord test passed after explicit current-owner identity check.

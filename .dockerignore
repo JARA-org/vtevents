@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+**/.expo
+.git
+.env
+.env.*
+work
+.projects
+.openai
+.sites-runtime
+coverage
+*.log
