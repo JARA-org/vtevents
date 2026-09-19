@@ -90,3 +90,5 @@ Read `packages/shared/src/contracts.ts` before changing any interface.
   interface work. Existing user changes must be preserved.
 
 The user-authorized demo retirement is the v2 migration documented in docs/BACKEND_CONTRACTS.md. Do not restore demo endpoints or anonymous app access. Legacy v1 definitions are historical only.
+
+Read Master.pdf in root to understand ideas and specifications before making changes. Content in the lowest levels of Master.pdf are usually the most up to date.
