@@ -1,11 +1,15 @@
 name: my-little-gobbler
 services:
   app:
+    image: ${GOBBLER_IMAGE:-my-little-gobbler-app:latest}
     build:
       context: ..
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file: ../.env.production
+    # Compose >=2.30: preserve literal $ and # in secrets without interpolation.
+    env_file:
+      - path: ../.env.production
+        format: raw
     environment:
       NODE_ENV: production
       PORT: 3000

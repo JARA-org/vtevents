@@ -6,3 +6,7 @@
     header_up X-Real-IP {remote_host}
   }
 }
+
+www.{$GOBBLER_DOMAIN} {
+  redir https://{$GOBBLER_DOMAIN}{uri} permanent
+}

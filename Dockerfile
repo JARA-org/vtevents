@@ -20,5 +20,5 @@ COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/apps/frontend/dist ./apps/frontend/dist
 USER node
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 CMD node -e "fetch('http://localhost:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 CMD node -e "fetch('http://localhost:3000/api/health',{signal:AbortSignal.timeout(4000)}).then(async r=>{const h=await r.json();if(!r.ok||h.ok!==true||h.database!==true||h.accounts!==true)process.exit(1)}).catch(()=>process.exit(1))"
 CMD ["node", "dist/apps/backend/src/server.js"]
