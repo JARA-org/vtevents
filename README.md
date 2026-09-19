@@ -4,7 +4,9 @@
 
 ## Current delivery status
 
-The application now runs against a real **MongoDB Atlas M0** cluster and **Gemini free-tier API**. Account/profile persistence, live discovery, saves, ICS and grounded Gemini responses were verified end to end on 2026-09-19. **Production V1 is not complete:** the owner chose to keep hosting pending for Vultr under a $0-beyond-credits hard-cap requirement. Vultr free-compute approval, connected-provider setup and deployed HTTPS verification remain outstanding. There is no public deployment URL yet.
+**Live: https://vtevents.us.** The Expo website and Node API run on the existing Vultr server with Caddy HTTPS, MongoDB Atlas M0 and Gemini free-tier API. Production account/profile persistence, live discovery, saves, ICS, grounded Gemini responses and account deletion passed on 2026-09-19. Browser onboarding, details, schedule conflicts and mobile calendar download passed; profiles, saves and sessions survived an app restart.
+
+**The full requested V1 remains incomplete:** Google Calendar OAuth setup, university-approved Canvas access, Discord installation/collection, Databricks ingestion/dashboard, and email verification/password recovery remain outstanding. The current team-approved v2 requires sign-in and has retired anonymous demo mode. The owner's $0-beyond-credits requirement remains in force, but a Vultr hard spending cap is still **unverified**; no additional paid resources were created. See [current handoff](NEXT_AGENT_PROMPT.md) before operating or extending the deployment.
 
 Existing private source repository: https://github.com/JARA-org/vtevents. The repository name is preserved; the application display name and app slug are `My Gobbler` / `my-gobbler`. Existing cloud resource names and calendar UIDs retain their original identifiers for compatibility. See `CHANGELOG.md` and `MAKEOVER_HANDOFF.md` for the local visual refresh.
 
@@ -37,7 +39,7 @@ See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE
 
 ## Deploy the full Node application
 
-**Selected host: Vultr.** See [Vultr deployment](deploy/README.md) for the Docker/Caddy HTTPS package, cost constraint, free-tier application status and launch verification steps. The production image now builds and passes isolated MongoDB container probes; Compose/Caddy validation and production preflight tests pass. Public Vultr HTTPS verification is still pending. The Render path below remains an unused fallback; the owner explicitly chose to wait for Vultr.
+**Selected host: Vultr.** See [Vultr deployment](deploy/README.md) for the live release, Docker/Caddy operations, cost constraint and launch checks. Source revision `3b003bb` is deployed at `/opt/vtevents/releases/3b003bb`, with `/opt/vtevents/current` pointing there. Linux preflight, production image build and all seven public HTTPS smoke checks passed. The Render path below remains an unused fallback; changing hosting requires the owner's direction.
 
 ### Unused Render fallback (requires owner to change hosting choice)
 
