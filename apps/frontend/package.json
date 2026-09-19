@@ -1,0 +1,28 @@
+{
+  "name": "@gobbler/frontend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start --web",
+    "build": "expo export --platform web"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "*",
+    "@gobbler/shared": "1.0.0",
+    "expo": "~57.0.24",
+    "expo-constants": "*",
+    "expo-linking": "*",
+    "expo-router": "*",
+    "expo-status-bar": "*",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "*"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.4"
+  }
+}

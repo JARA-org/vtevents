@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+dist/
+.expo/
+.sites-runtime/
+coverage/
+*.log
+work/

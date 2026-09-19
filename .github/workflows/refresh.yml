@@ -1,0 +1,21 @@
+name: My Little Gobbler scheduled refresh
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  refresh:
+    if: vars.GOBBLER_JOBS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Refresh campus listings and drain analytics outbox
+        env:
+          GOBBLER_URL: ${{ vars.GOBBLER_URL }}
+          JOB_SECRET: ${{ secrets.GOBBLER_JOB_SECRET }}
+        run: |
+          curl --fail --silent --show-error --retry 2 --max-time 180 \
+            -H "Authorization: Bearer $JOB_SECRET" \
+            -X POST "$GOBBLER_URL/api/jobs"

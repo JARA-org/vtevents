@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "My Little Gobbler",
+    "slug": "my-little-gobbler",
+    "scheme": "my-little-gobbler",
+    "version": "1.0.0",
+    "orientation": "default",
+    "userInterfaceStyle": "light",
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "My Little Gobbler",
+      "description": "Your little guide to campus life. A student-built Virginia Tech campus companion."
+    },
+    "plugins": ["expo-router"]
+  }
+}

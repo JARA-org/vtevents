@@ -1,0 +1,467 @@
+import express, { Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
+import { betterAuth } from "better-auth";
+import { mongodbAdapter } from "better-auth/adapters/mongodb";
+import { fromNodeHeaders, toNodeHandler } from "better-auth/node";
+import { z, ZodError } from "zod";
+import { resolve } from "node:path";
+import { existsSync } from "node:fs";
+import {
+  emptyProfile,
+  profileSchema,
+  eventICS,
+  demoEvents,
+  demoProfile,
+  recommendations,
+} from "../../../packages/shared/src/index.js";
+import { config, HttpError } from "./config.js";
+import { db, database, mongoClient } from "./store.js";
+import { sourceStatus, liveEvents, refreshSources } from "./coordinator.js";
+import { askGobbler } from "./assistant.js";
+import { analyticsKinds, track, flushAnalytics } from "./analytics.js";
+import {
+  Provider,
+  startOAuth,
+  finishOAuth,
+  syncCalendar,
+  providerReady,
+  addCalendar,
+  disconnect,
+  withPrivateContext,
+} from "./integrations.js";
+import {
+  discordReady,
+  discordStart,
+  discordFinish,
+  discordChannels,
+  selectDiscordChannels,
+  syncDiscord,
+} from "./discord.js";
+import { runJobs } from "./jobs.js";
+import { unseal, pseudonym } from "./security.js";
+export function createApp() {
+  const app = express();
+  app.set("trust proxy", 1);
+  app.disable("x-powered-by");
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:"],
+          fontSrc: ["'self'", "data:"],
+          connectSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          upgradeInsecureRequests: config.production ? [] : null,
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+  app.use(
+    "/api",
+    rateLimit({
+      windowMs: 60000,
+      limit: 120,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+    }),
+  );
+  const auth =
+    db && process.env.BETTER_AUTH_SECRET
+      ? betterAuth({
+          appName: "My Little Gobbler",
+          baseURL: config.origin,
+          secret: process.env.BETTER_AUTH_SECRET,
+          database: mongodbAdapter(db, { client: mongoClient }),
+          emailAndPassword: { enabled: true, minPasswordLength: 12 },
+          session: { expiresIn: 604800, updateAge: 86400 },
+          advanced: { useSecureCookies: config.production },
+          trustedOrigins: [config.origin],
+          rateLimit: { enabled: true },
+          user: { deleteUser: { enabled: false } },
+        })
+      : null;
+  if (auth) app.all("/api/auth/*splat", toNodeHandler(auth));
+  else
+    app.all("/api/auth/*splat", (_q, r) =>
+      r
+        .status(503)
+        .json({
+          message:
+            "Account services are awaiting MongoDB configuration. Try the demo.",
+        }),
+    );
+  app.use(express.json({ limit: "64kb" }));
+  app.use("/api", (req, res, next) => {
+    if (
+      !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+      req.path !== "/jobs" &&
+      req.headers.origin !== config.origin
+    )
+      return res
+        .status(403)
+        .json({ message: "This request must come from My Little Gobbler." });
+    next();
+  });
+  const protect = async (req: Request, res: Response, next: NextFunction) => {
+    if (!auth) throw new HttpError(503, "Account services are not configured.");
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+    if (!session) throw new HttpError(401, "Sign in to continue.");
+    res.locals.user = session.user;
+    res.locals.session = session.session;
+    next();
+  };
+  const profile = async (id: string) => {
+    const p = await database().collection("profiles").findOne({ userId: id });
+    return p ? profileSchema.parse(p) : emptyProfile;
+  };
+  const currentEvent = (id: string) => {
+    const e = liveEvents().find((e) => e.id === id);
+    if (!e)
+      throw new HttpError(
+        404,
+        "This event is no longer in the current listings.",
+      );
+    return e;
+  };
+  app.get("/api/health", (_req, res) =>
+    res.json({
+      ok: true,
+      name: "My Little Gobbler",
+      database: !!db,
+      accounts: !!auth,
+      gemini: !!process.env.GEMINI_API_KEY,
+      sources: sourceStatus,
+    }),
+  );
+  app.get("/api/events", (req, res) => {
+    const mode = req.query.mode === "demo" ? "demo" : "live";
+    res.json({
+      mode,
+      events: mode === "demo" ? demoEvents() : liveEvents(),
+      sources: mode === "demo" ? {} : sourceStatus,
+    });
+  });
+  app.get("/api/events/:id/ics", (req, res) => {
+    const mode = req.query.mode === "demo";
+    const e = (mode ? demoEvents() : liveEvents()).find(
+      (e) => e.id === req.params.id,
+    );
+    if (!e) throw new HttpError(404, "Event not found.");
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="my-little-gobbler-${e.id.replace(/[^a-zA-Z0-9-]/g, "")}.ics"`,
+    );
+    res.send(eventICS(e));
+  });
+  app.post("/api/demo/assistant", async (req, res) => {
+    const input = z
+      .object({
+        query: z.string().max(1000),
+        profile: profileSchema.optional(),
+      })
+      .parse(req.body);
+    res.json(
+      await askGobbler(
+        input.query,
+        demoEvents(),
+        { ...(input.profile || demoProfile), aiEnabled: false },
+        [],
+        {},
+      ),
+    );
+  });
+  app.get("/api/me", protect, async (_req, res) => {
+    const id = res.locals.user.id;
+    const [p, saved, feedback] = await Promise.all([
+      profile(id),
+      database().collection("saved").find({ userId: id }).toArray(),
+      database().collection("feedback").find({ userId: id }).toArray(),
+    ]);
+    res.json({
+      user: { id, name: res.locals.user.name, email: res.locals.user.email },
+      profile: p,
+      saved: saved.map((s) => s.eventId),
+      feedback: Object.fromEntries(feedback.map((f) => [f.eventId, f.value])),
+    });
+  });
+  app.put("/api/profile", protect, async (req, res) => {
+    const p = profileSchema.parse(req.body);
+    if (p.busy.some((b) => b.source !== "manual"))
+      throw new HttpError(400, "Only manual busy blocks can be edited here.");
+    await database()
+      .collection("profiles")
+      .updateOne({ userId: res.locals.user.id }, { $set: p }, { upsert: true });
+    res.json(p);
+  });
+  app.get("/api/recommendations", protect, async (_req, res) => {
+    const id = res.locals.user.id,
+      p = await withPrivateContext(id, await profile(id)),
+      saved = await database()
+        .collection("saved")
+        .find({ userId: id })
+        .toArray(),
+      feedback = await database()
+        .collection("feedback")
+        .find({ userId: id })
+        .toArray();
+    res.json({
+      recommendations: recommendations(
+        liveEvents(),
+        p,
+        saved.map((x) => x.eventId),
+        Object.fromEntries(feedback.map((f) => [f.eventId, f.value])),
+      ),
+    });
+  });
+  app.put("/api/saved/:id", protect, async (req, res) => {
+    currentEvent(String(req.params.id));
+    const { saved } = z.object({ saved: z.boolean() }).parse(req.body),
+      filter = { userId: res.locals.user.id, eventId: req.params.id };
+    if (saved) {
+      await database()
+        .collection("saved")
+        .updateOne(filter, { $set: { savedAt: new Date() } }, { upsert: true });
+      await track(res.locals.user.id, "save", String(req.params.id));
+    } else await database().collection("saved").deleteOne(filter);
+    res.json({ saved });
+  });
+  app.post("/api/feedback", protect, async (req, res) => {
+    const body = z
+      .object({
+        eventId: z.string(),
+        value: z.union([z.literal(-1), z.literal(1)]),
+      })
+      .parse(req.body);
+    currentEvent(body.eventId);
+    await database()
+      .collection("feedback")
+      .updateOne(
+        { userId: res.locals.user.id, eventId: body.eventId },
+        { $set: { value: body.value } },
+        { upsert: true },
+      );
+    await track(res.locals.user.id, "recommendation_feedback", body.eventId);
+    res.json({ ok: true });
+  });
+  app.post(
+    "/api/assistant",
+    protect,
+    rateLimit({ windowMs: 60000, limit: 10 }),
+    async (req, res) => {
+      const { query } = z
+        .object({ query: z.string().min(1).max(1000) })
+        .parse(req.body);
+      const id = res.locals.user.id,
+        p = await withPrivateContext(id, await profile(id));
+      res.json(await askGobbler(query, liveEvents(), p, [], {}));
+    },
+  );
+  app.post("/api/analytics", protect, async (req, res) => {
+    const { kind, eventId } = z
+      .object({ kind: z.enum(analyticsKinds), eventId: z.string() })
+      .parse(req.body);
+    currentEvent(eventId);
+    await track(res.locals.user.id, kind, eventId);
+    res.json({ ok: true });
+  });
+  app.get("/api/connections", protect, async (_req, res) => {
+    const rows = await database()
+      .collection("connections")
+      .find(
+        { userId: res.locals.user.id },
+        { projection: { provider: 1, status: 1, lastSync: 1, channels: 1 } },
+      )
+      .toArray();
+    res.json({
+      connections: ["google", "canvas", "discord"].map((provider) => ({
+        provider,
+        configured:
+          provider === "discord"
+            ? discordReady()
+            : providerReady(provider as Provider),
+        ...rows.find((r) => r.provider === provider),
+        blocker:
+          provider === "canvas"
+            ? "University-enabled OAuth developer key required."
+            : provider === "discord"
+              ? "Bot installation, message-content permission, and authorized announcement channels required."
+              : "Google OAuth client and consent configuration required.",
+      })),
+      sources: sourceStatus,
+      analytics: process.env.DATABRICKS_TOKEN ? "configured" : "unavailable",
+    });
+  });
+  app.post("/api/connections/:provider/connect", protect, async (req, res) => {
+    const p = z
+      .enum(["google", "canvas", "discord"])
+      .parse(req.params.provider);
+    res.json({
+      url:
+        p === "discord"
+          ? await discordStart(res.locals.user.id)
+          : await startOAuth(res.locals.user.id, p),
+    });
+  });
+  app.get("/api/connections/:provider/callback", protect, async (req, res) => {
+    const p = z
+      .enum(["google", "canvas", "discord"])
+      .parse(req.params.provider);
+    if (req.query.error)
+      return res.redirect("/?page=settings&connection=cancelled");
+    const state = z.string().parse(req.query.state),
+      code = z.string().parse(req.query.code);
+    if (p === "discord") await discordFinish(res.locals.user.id, state, code);
+    else await finishOAuth(res.locals.user.id, p, state, code);
+    res.redirect("/?page=settings&connection=connected");
+  });
+  app.post("/api/connections/:provider/sync", protect, async (req, res) => {
+    const p = z
+      .enum(["google", "canvas", "discord"])
+      .parse(req.params.provider);
+    res.json(
+      p === "discord"
+        ? await syncDiscord(res.locals.user.id)
+        : await syncCalendar(res.locals.user.id, p),
+    );
+  });
+  app.delete("/api/connections/:provider", protect, async (req, res) => {
+    const p = z
+      .enum(["google", "canvas", "discord"])
+      .parse(req.params.provider);
+    if (p === "discord") {
+      await database()
+        .collection("connections")
+        .deleteOne({ userId: res.locals.user.id, provider: p });
+      await database()
+        .collection("private_context")
+        .deleteOne({ userId: res.locals.user.id, provider: p });
+      res.json({ disconnected: true, revoked: false });
+    } else res.json(await disconnect(res.locals.user.id, p));
+  });
+  app.get("/api/discord/channels", protect, async (_q, r) =>
+    r.json({ channels: await discordChannels(r.locals.user.id) }),
+  );
+  app.put("/api/discord/channels", protect, async (q, r) => {
+    const { channels } = z
+      .object({ channels: z.array(z.string().regex(/^\d+$/)).max(20) })
+      .parse(q.body);
+    await selectDiscordChannels(r.locals.user.id, channels);
+    r.json({ ok: true });
+  });
+  app.get("/api/private-context", protect, async (_q, r) => {
+    const rows = await database()
+      .collection("private_context")
+      .find({ userId: r.locals.user.id })
+      .toArray();
+    r.json(
+      rows.map((row) => ({
+        provider: row.provider,
+        syncedAt: row.syncedAt,
+        ...unseal(row.encrypted),
+      })),
+    );
+  });
+  app.post("/api/calendar", protect, async (req, res) => {
+    const body = z
+      .object({
+        eventId: z.string(),
+        destination: z.enum(["google", "canvas"]),
+        confirmed: z.literal(true),
+      })
+      .parse(req.body);
+    res.json(
+      await addCalendar(
+        res.locals.user.id,
+        body.destination,
+        currentEvent(body.eventId),
+      ),
+    );
+  });
+  app.delete("/api/account", protect, async (req, res) => {
+    z.object({ confirmation: z.literal("DELETE") }).parse(req.body);
+    if (Date.now() - new Date(res.locals.session.createdAt).getTime() > 300000)
+      throw new HttpError(
+        403,
+        "For your security, sign out and sign in again before deleting your account.",
+      );
+    const id = res.locals.user.id;
+    const { ObjectId } = await import("mongodb");
+    const identifiers = ObjectId.isValid(id) ? [id, new ObjectId(id)] : [id];
+    for (const p of ["google", "canvas"] as const) await disconnect(id, p);
+    for (const name of [
+      "profiles",
+      "saved",
+      "connections",
+      "private_context",
+      "calendar_writes",
+      "feedback",
+      "oauth_states",
+      "session",
+      "account",
+    ])
+      await database()
+        .collection(name)
+        .deleteMany({ userId: { $in: identifiers } });
+    await database()
+      .collection("outbox")
+      .deleteMany({ pseudonym: pseudonym(id) });
+    await database().collection("user").deleteOne({ id }); // Better Auth Mongo user uses ObjectId; delete explicitly below.
+    if (ObjectId.isValid(id))
+      await database()
+        .collection("user")
+        .deleteOne({ _id: new ObjectId(id) });
+    res.json({ deleted: true });
+  });
+  app.post("/api/jobs", async (req, res) => {
+    if (
+      !process.env.JOB_SECRET ||
+      req.headers.authorization !== `Bearer ${process.env.JOB_SECRET}`
+    )
+      throw new HttpError(401, "Unauthorized job.");
+    await runJobs();
+    res.json({ ok: true });
+  });
+  const publicDir = resolve(process.cwd(), "apps/frontend/dist");
+  if (existsSync(publicDir)) {
+    app.use(express.static(publicDir, { maxAge: "1h" }));
+    app.get("/{*path}", (req, res, next) =>
+      req.path.startsWith("/api/")
+        ? next()
+        : res.sendFile(resolve(publicDir, "index.html")),
+    );
+  }
+  app.use(
+    (error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+      const status =
+        error instanceof HttpError
+          ? error.status
+          : error instanceof ZodError
+            ? 400
+            : 500;
+      if (status === 500)
+        console.error("request_failed", {
+          kind: error instanceof Error ? error.name : "unknown",
+        });
+      res
+        .status(status)
+        .json({
+          message:
+            error instanceof HttpError
+              ? error.message
+              : status === 400
+                ? "Some fields are invalid. Check your entries."
+                : "Something went wrong. Please try again.",
+        });
+    },
+  );
+  return app;
+}

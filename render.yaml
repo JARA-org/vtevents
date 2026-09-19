@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: my-little-gobbler
+    runtime: node
+    plan: free
+    region: virginia
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22.22.3
+      - key: APP_ORIGIN
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: my_little_gobbler
+      - key: BETTER_AUTH_SECRET
+        generateValue: true
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: ANALYTICS_SALT
+        generateValue: true
+      - key: JOB_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: GEMINI_DAILY_LIMIT
+        value: 100
