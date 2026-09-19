@@ -135,3 +135,31 @@ stay on the backend. Discord owner operations list owned servers, retrieve allow
 channels, and persist validated policy with cache invalidation. Their routes,
 inputs, outputs and effects are declared in `HttpApi`; internal ownership is
 specified by `NarrationService` and `DiscordPolicyService`.
+
+## Discord server-bot migration
+
+The user's revised design retires Discord account linking and its channel-owner
+HTTP operations. Those historical DTOs remain for compatibility/reference;
+channel-management routes return 410, and generic account connection routes now
+accept Google/Canvas only. New bot commands use `DiscordBotRepository`, independent
+of app-user identity. The bot only reads Discord resources: app-side watch,
+unwatch, individual submission, and exclusion policies never mutate Discord
+settings or messages. No collector/model is enabled in this first milestone.
+See `DISCORD_BOT.md` for the migration and setup.
+
+## Discord collection and online attendance
+
+`CampusEvent` adds optional `onlineUrl?: string | null` and `isOnline?: boolean`.
+Neither replaces `location`; hybrid events carry both. Missing new fields preserve
+old behavior. `onlineUrl` must be an HTTP(S) attendance link without embedded
+credentials. `isOnline` supports known-online events with an unavailable link.
+Runtime validation, event details, ICS, and confirmed provider-calendar descriptions
+preserve the link. Existing `sources[].url` remains the evidence/source URL.
+
+New backend ports separate GET-only Discord transport (`DiscordMessageReader`),
+persistence/leases/budgets (`DiscordCollectionRepository`), interpretation
+(`DiscordTextExtractor`), and deterministic qualification. `DiscordEventCandidate`
+is a staging DTO with a full local date and evidence; it is not `CampusEvent` and
+has no invented start timestamp. Pending/rejected text is never returned as an
+event. Collection stores qualified proposals for subsequent consolidation; no new
+public message-content endpoint is added.

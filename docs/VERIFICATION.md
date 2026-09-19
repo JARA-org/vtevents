@@ -24,14 +24,14 @@
 
 ## Two-minute demo
 
-1. Open the landing page and choose **Take Gobbler for a spin**. Point out the explicit demo banner.
-2. Open **Fine-tune your interests**, select interests, and add recurring free/busy blocks. Continue to discovery.
-3. Search/filter listings. Open a sample event and explain its fit/unknown/conflict note.
+1. Open the landing page and create a disposable demonstration account. The current v2 app requires sign-in; anonymous sample mode was retired.
+2. Select interests and add recurring free/busy blocks. Continue to discovery.
+3. Search/filter live listings. Open an event and explain its fit/unknown/conflict note and source provenance.
 4. Save it; open **Saved** and **Schedule** to see the same record.
 5. Choose **Add to calendar**, review the event and destination, and download ICS.
-6. Ask Gobbler a day/time or interest question. Demo responses use only sample records.
-7. Switch to live events to show official source provenance. On static preview these are explicitly dated public snapshots, not live sync.
-8. Show Settings: real services remain unavailable until configured. Do not imply the owner’s personal accounts are part of the demo.
+6. Opt in to Gemini and ask Gobbler a day/time or interest question. Recommendations reference stored live event IDs; a provider failure uses the deterministic fallback.
+7. Show Settings and distinguish configured providers from blocked connections. Do not use the owner's personal calendar or private Discord content in the demonstration.
+8. Delete the disposable account through Settings after the walkthrough.
 
 ## Live cloud verification checkpoint
 
@@ -39,7 +39,7 @@
 - Latest source counts:2,219 GobblerConnect/349Sports;1,502 current or ongoing events. Counts change with time.
 - Narration tests exercise strict public event IDs, authentication, missing configuration, provider payload grounding, cache reuse, hard character limit and failed-request reservation without automatic retries. These are mock-provider checks, not a live ElevenLabs claim.
 - Production build generated the Gobbler favicon; browser verified its link. Current landing inspected at1280x720 and390x844; document width equals390 at mobile size.
-- Vultr container build remains unverified because Docker Desktop engine was unavailable. Hosting intentionally waits for cost-safe Vultr approval.
+- The earlier Docker-engine blocker is resolved; see the Vultr preparation checkpoint below. Hosting still waits for cost-safe Vultr approval.
 
 ## Latest voice and Discord verification
 
@@ -52,3 +52,24 @@
 The local Atlas-backed UI completed signup, saved interests, live discovery, grounded Friday-after-five recommendations and ElevenLabs generation. It displayed “Your audio is ready” and the native audio player. Clicking Play crashed the Codex in-app browser tab; the cause is not yet established, so audible playback is NOT claimed verified. The app recovered in a fresh tab, and its disposable browser QA account was deleted through Settings. A standard browser playback check is still required.
 
 Source checkpoint ace873f was pushed to JARA-org/vtevents/main; local and remote SHAs matched. Known credential values were absent from all 56 tracked/untracked source candidates and the built frontend (99 files total). Secrets remain ignored.
+
+
+## Vultr preparation checkpoint (2026-09-19)
+
+- Architecture and historical v1/current v2 compatibility checks passed; frontend/backend typechecks passed. Full suite: **33/33 tests passed**, including configuration validation and deployment probe failure behavior.
+- Production Docker image built successfully with the pinned Node 22 base and production-only backend dependencies. Expo export and backend compilation passed inside the build.
+- Compose configuration validated with Compose v5.5.1; Caddy configuration validated with the selected `caddy:2-alpine` image. Production env files use raw mode (requires Compose 2.30+), preserving literal secret characters.
+- Runtime container used an isolated local MongoDB 8 instance, no cloud credentials, read-only filesystem, dropped capabilities, no-new-privileges and the 768 MB memory limit. All seven probes passed over internal HTTP: landing HTML, configured health, v2 bootstrap, anonymous account/events/recommendation rejection and retired demo listing rejection. This does not claim public HTTPS, real Atlas connectivity, or authenticated browser verification.
+- The image health command passed with initialized database/accounts. It now rejects missing account/database configuration, although existing health flags do not perform a live database ping.
+- No Vultr resources were provisioned and no public deployment was performed. Free-compute approval, hostname/DNS, production credential setup/rotation, Atlas allowlisting and deployed TLS/browser checks remain outstanding.
+
+## Latest checkout and domain checkpoint — 2026-09-19
+
+- Pulled upstream main f6a4cfd with the v2 authentication-only frontend, type-only shared contracts and read-only Discord bot/collector. Preserved the demo retirement and server-controlled domain decisions.
+- Architecture/contract checks and frontend/backend typechecks passed. All 43 existing tests passed; the new Discord production configuration regression passed with all four deployment tests. Production Expo export/backend build passed.
+- Fresh real Atlas/Gemini HTTP verification passed: synthetic signup, profile/availability persistence, 1,520 live discoverable events, save/read, ICS, Gemini recommendations referencing stored IDs, retired demo rejection and deletion of the disposable account. Source health reported 2,242 GobblerConnect and 349 Sports records. Counts include historical records and change over time.
+- Corrected the production Discord credential group to CLIENT_ID + PUBLIC_KEY + BOT_TOKEN, rejecting retired CLIENT_SECRET and invalid collection/AI flag/budget combinations. Collection/extraction remain disabled until installed and configured.
+- Saved Porkbun root A 45.77.222.255 and www CNAME vtevents.us, TTL 600. Independent DNS resolution through 1.1.1.1 verified both changes. This does not verify HTTPS deployment.
+- Existing Vultr VM was found in the owner console; no new VM was created. Server access and Atlas allowlist entries are prepared, awaiting browser-required confirmations. Its hard spending cap remains unverified. Docker Desktop's engine is unavailable on this Windows checkout; the prior container validation above was performed elsewhere.
+
+Follow-up verification: the complete 44-test suite passed. Browser inspection found stale one-hour-cached landing HTML from the retired frontend; HTML now revalidates while static assets retain their existing cache duration. A build-independent HTTP fixture verifies this header. Updated API/deployment tests (5/5), architecture/contracts/typechecks and production build passed after that fix. Current landing was visually inspected at390x844 and1280x800 with no horizontal overflow; Gobbler branding/favicon remain present. No production HTTPS claim.

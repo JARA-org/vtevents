@@ -33,6 +33,8 @@ preserved. Social image and favicon files are in `apps/frontend/public/`.
 
 - Architecture, v1/v2 contracts, TypeScript and production build passed.
 - All 31 tests passed, including the new transport-error regression check.
+- After merging the team's subsequent Discord/deployment source updates,
+  the combined build, typecheck, architecture/contracts and all 45 tests passed.
 - Lighthouse accessibility: **100/100** for Home and Sign-in (mobile audit,
   2026-09-19); reports are in ignored `work/lighthouse-*.json`.
 - Browser checks: desktop and 390px layouts, live authenticated discovery,

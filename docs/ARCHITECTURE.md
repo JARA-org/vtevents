@@ -9,7 +9,8 @@ Node.js / Express / TypeScript
         + coordinator ----- normalize / validate / deduplicate / cache
         + schedule engine - America/New_York recurring intervals + private busy blocks
         + Gobbler --------- Gemini structured filters + candidate ranking / deterministic fallback
-        + integrations ---- Google OAuth+PKCE / Canvas OAuth / Discord OAuth+bot
+        + integrations ---- Google OAuth+PKCE / Canvas OAuth
+        + Discord bot ----- signed read-selection commands / isolated repository
         + jobs ------------ refresh public/private data + retry analytics
         + outbox ---------- Databricks Statement Execution API
 ```
@@ -32,5 +33,5 @@ Optional ElevenLabs narration accepts only current stored public event IDs. Code
 
 The selected deployment is one Node container behind Caddy HTTPS on Vultr, packaged in deploy/compose.yaml. Atlas remains external. No instance is running: the owner's zero-over-credit hard-cap requirement is not met by the observed Vultr limits, and free-compute approval is pending. In-process jobs will run continuously while the selected host is up; Mongo preserves retry state across restarts.
 
-Server approval lives in discord_guilds, keyed uniquely by guild ID. Only the current Discord owner can edit it through Settings; the backend checks both OAuth owner metadata and Discord identity against the bot's guild owner ID. Reads check current membership, ownership continuity and channel visibility. V1 excludes restricted channels by requiring everyone-role View Channel and rejecting any view-denying overwrite. Each student also selects approved channels. Cached private context is filtered against fresh authorization before delivery, and changes clear cached Discord announcements.
+Discord is now a read-only server bot with independently selected channels and individual message submissions. Signed commands update only app-side policy; Discord settings never change. A separate repository owns public consent, exclusions, submissions and replay receipts. Legacy OAuth code is removed and private Discord records are not migrated to public data. Collection/extraction remains the next milestone; see `docs/DISCORD_BOT.md`.
 See `docs/BACKEND_CONTRACTS.md` for interface ownership, compatibility, and enforcement.

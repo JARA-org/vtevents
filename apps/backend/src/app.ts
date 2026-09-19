@@ -41,19 +41,7 @@ import {
   disconnect,
   withPrivateContext,
 } from "./integrations.js";
-import {
-  discordReady,
-  discordStart,
-  discordFinish,
-  discordChannels,
-  selectDiscordChannels,
-  syncDiscord,
-} from "./discord.js";
-import {
-  ownerGuilds,
-  ownerChannels,
-  configureGuild,
-} from "./discord-policy.js";
+import { registerDiscordBotRoutes } from "./discord-bot-http.js";
 import { runJobs } from "./jobs.js";
 import { unseal, pseudonym } from "./security.js";
 export function createApp() {
@@ -111,6 +99,7 @@ export function createApp() {
           "Account services are awaiting MongoDB configuration. Please try again later.",
       }),
     );
+  registerDiscordBotRoutes(app);
   app.use(express.json({ limit: "64kb" }));
   app.use("/api", (req, res, next) => {
     if (
@@ -337,57 +326,38 @@ export function createApp() {
       )
       .toArray();
     res.json({
-      connections: ["google", "canvas", "discord"].map((provider) => ({
+      connections: ["google", "canvas"].map((provider) => ({
         provider,
-        configured:
-          provider === "discord"
-            ? discordReady()
-            : providerReady(provider as Provider),
+        configured: providerReady(provider as Provider),
         ...rows.find((r) => r.provider === provider),
         blocker:
           provider === "canvas"
             ? "University-enabled OAuth developer key required."
-            : provider === "discord"
-              ? "Bot installation, message-content permission, and authorized announcement channels required."
-              : "Google OAuth client and consent configuration required.",
+            : "Google OAuth client and consent configuration required.",
       })),
       sources: sourceStatus,
       analytics: process.env.DATABRICKS_TOKEN ? "configured" : "unavailable",
     });
   });
   app.post("/api/connections/:provider/connect", protect, async (req, res) => {
-    const p = z
-      .enum(["google", "canvas", "discord"])
-      .parse(req.params.provider);
+    const p = z.enum(["google", "canvas"]).parse(req.params.provider);
     res.json({
-      url:
-        p === "discord"
-          ? await discordStart(res.locals.user.id)
-          : await startOAuth(res.locals.user.id, p),
+      url: await startOAuth(res.locals.user.id, p),
     });
   });
   app.get("/api/connections/:provider/callback", protect, async (req, res) => {
-    const p = z
-      .enum(["google", "canvas", "discord"])
-      .parse(req.params.provider);
+    const p = z.enum(["google", "canvas"]).parse(req.params.provider);
     if (req.query.error)
       return res.redirect("/?page=settings&connection=cancelled");
     const state = z.string().parse(req.query.state),
       code = z.string().parse(req.query.code);
-    if (p === "discord") await discordFinish(res.locals.user.id, state, code);
-    else await finishOAuth(res.locals.user.id, p, state, code);
+    await finishOAuth(res.locals.user.id, p, state, code);
     res.redirect("/?page=settings&connection=connected");
   });
   app.post("/api/connections/:provider/sync", protect, async (req, res) => {
-    const p = z
-      .enum(["google", "canvas", "discord"])
-      .parse(req.params.provider);
+    const p = z.enum(["google", "canvas"]).parse(req.params.provider);
     try {
-      res.json(
-        p === "discord"
-          ? await syncDiscord(res.locals.user.id)
-          : await syncCalendar(res.locals.user.id, p),
-      );
+      res.json(await syncCalendar(res.locals.user.id, p));
     } catch (error) {
       await database()
         .collection("connections")
@@ -399,76 +369,34 @@ export function createApp() {
     }
   });
   app.delete("/api/connections/:provider", protect, async (req, res) => {
-    const p = z
-      .enum(["google", "canvas", "discord"])
-      .parse(req.params.provider);
-    if (p === "discord") {
-      await database()
-        .collection("discord_guilds")
-        .deleteMany({ userId: res.locals.user.id });
-      await database()
-        .collection("private_context")
-        .deleteMany({ provider: "discord" });
-      await database()
-        .collection("connections")
-        .deleteOne({ userId: res.locals.user.id, provider: p });
-      await database()
-        .collection("private_context")
-        .deleteOne({ userId: res.locals.user.id, provider: p });
-      res.json({ disconnected: true, revoked: false });
-    } else res.json(await disconnect(res.locals.user.id, p));
+    const p = z.enum(["google", "canvas"]).parse(req.params.provider);
+    res.json(await disconnect(res.locals.user.id, p));
   });
-  app.get("/api/discord/owned-servers", protect, async (_q, r) =>
-    r.json({ guilds: await ownerGuilds(r.locals.user.id) }),
+  // Retired OAuth/channel-management routes never reinterpret old private consent as public consent.
+  app.all(
+    [
+      "/api/discord/owned-servers",
+      "/api/discord/servers/:guildId",
+      "/api/discord/channels",
+    ],
+    protect,
+    (_q, r) =>
+      r.status(410).json({
+        message:
+          "Discord is now a server bot. Configure channels inside Discord.",
+      }),
   );
-  app.get("/api/discord/servers/:guildId", protect, async (q, r) => {
-    const id = z
-      .string()
-      .regex(/^\d{1,20}$/)
-      .parse(q.params.guildId);
-    r.json(await ownerChannels(r.locals.user.id, id));
-  });
-  app.put("/api/discord/servers/:guildId", protect, async (q, r) => {
-    const id = z
-      .string()
-      .regex(/^\d{1,20}$/)
-      .parse(q.params.guildId);
-    const body = z
-      .object({ channels: z.array(z.string().regex(/^\d{1,20}$/)).max(20) })
-      .strict()
-      .parse(q.body);
-    await configureGuild(r.locals.user.id, id, body.channels);
-    r.json({ ok: true });
-  });
-  app.get("/api/discord/channels", protect, async (_q, r) =>
-    r.json({ channels: await discordChannels(r.locals.user.id) }),
-  );
-  app.put("/api/discord/channels", protect, async (q, r) => {
-    const { channels } = z
-      .object({ channels: z.array(z.string().regex(/^\d+$/)).max(20) })
-      .parse(q.body);
-    await selectDiscordChannels(r.locals.user.id, channels);
-    r.json({ ok: true });
-  });
   app.get("/api/private-context", protect, async (_q, r) => {
     const rows = await database()
       .collection("private_context")
-      .find({ userId: r.locals.user.id })
+      .find({
+        userId: r.locals.user.id,
+        provider: { $in: ["google", "canvas"] },
+      })
       .toArray();
     const contexts = [];
     for (const row of rows) {
       const content = unseal(row.encrypted);
-      if (row.provider === "discord") {
-        // Revalidate membership, owner approval and current channel visibility on reads.
-        const allowed = await discordChannels(r.locals.user.id).catch(() => []);
-        content.announcements = (content.announcements || []).filter((a: any) =>
-          allowed.some((c) =>
-            a.url?.startsWith(
-              `https://discord.com/channels/${c.guildId}/${c.id}/`,
-            ),
-          ),
-        );
-      }
       contexts.push({
         provider: row.provider,
         syncedAt: row.syncedAt,
@@ -541,7 +469,18 @@ export function createApp() {
   });
   const publicDir = resolve(process.cwd(), "apps/frontend/dist");
   if (existsSync(publicDir)) {
-    app.use(express.static(publicDir, { maxAge: "1h" }));
+    app.use(
+      express.static(publicDir, {
+        maxAge: "1h",
+        // Public asset response hook: only HTML cache headers change. No auth,
+        // persistence, retry or transaction. Revalidate the entry document so a
+        // deployment cannot leave browsers running a retired frontend for an hour.
+        setHeaders(res, filePath) {
+          if (filePath.endsWith(".html"))
+            res.setHeader("Cache-Control", "no-cache");
+        },
+      }),
+    );
     app.get("/{*path}", (req, res, next) =>
       req.path.startsWith("/api/")
         ? next()

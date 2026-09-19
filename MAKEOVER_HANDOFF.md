@@ -24,6 +24,8 @@ No generated art. Open the completed app at http://localhost:3000.
   artwork and are not vector tracings. No generated images or new runtime deps.
 - Build/typechecks/architecture/contracts passed. All **31 tests passed**,
   including the new error-copy regression test.
+- Integrated team updates through `53c34a9`, preserving the new Discord bot
+  workflow and the makeover. The combined build passes all **45 tests**.
 - Lighthouse Home and Sign-in accessibility both scored 100/100. Reports are
   `work/lighthouse-home.json` and `work/lighthouse-auth.json`.
 - Browser verified desktop and 390px mobile layouts, sign-in errors, focus trap,

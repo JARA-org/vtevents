@@ -175,6 +175,7 @@ John \- Backend:
 
 * MongoDB Atlas, implement database functions from defined interfaces  
 * Web hosting/cloud functions on vultr  
+  * Setup progress: Docker/Caddy package, production preflight and read-only smoke checks are implemented; see [deployment runbook](deploy/README.md). Image build and isolated MongoDB container checks pass. Public hosting remains pending cost-safe Vultr approval and a hostname.
 * Maybe work on agents?  
 * Databricks analytics for user preferences
 
@@ -204,7 +205,7 @@ Ansh \- Quality Testing
   * Is all code following our methodology of a black box between backend and frontend?  
 * &nbsp;
 
-# Knowledge:
+# 9/19/2026:
 
 4 agents with 4 different data sources: google calendar, canvas, gobbler connect, discord
 
@@ -213,3 +214,5 @@ Each one knows how to handle their specific platform but returns a common data s
 One agent which acts as a consolidator between all of the agents which merges the data from all sources. One agent which acts as a user-facing assistant that has memory of the user and past events.&nbsp;
 
 The data source agents (not google calendar or canvas because those are through personal access tokens) \+ consolidator run for the whole site on a recurrent schedule for base information about events. MongoDB holds data on all clubs: past events, members, (history of public interest maybe?). Agents match clubs \+ events with past club \+ events and concatenate to the memory. Canvas \+ google calendar \+ chat history are concatenated to user-specific memory.&nbsp;
+
+Data from canvas and google calendar are always encrypted on the server. All events will be public.

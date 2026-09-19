@@ -327,7 +327,11 @@ export async function syncCalendar(userId: string, p: Provider) {
 export async function withPrivateContext(userId: string, profile: Profile) {
   const rows = await database()
     .collection("private_context")
-    .find({ userId, syncedAt: { $gte: new Date(Date.now() - 24 * 3600000) } })
+    .find({
+      userId,
+      provider: { $in: ["google", "canvas"] },
+      syncedAt: { $gte: new Date(Date.now() - 24 * 3600000) },
+    })
     .toArray();
   return {
     ...profile,
@@ -389,7 +393,11 @@ export async function addCalendar(userId: string, p: Provider, e: CampusEvent) {
           body: JSON.stringify({
             id: key,
             summary: e.title,
-            description: e.description + "\n" + e.sources[0].url,
+            description:
+              e.description +
+              (e.onlineUrl ? "\nJoin online: " + e.onlineUrl : "") +
+              "\n" +
+              e.sources[0].url,
             location: e.location || "",
             start: { dateTime: e.start, timeZone: e.timezone },
             end: { dateTime: e.end, timeZone: e.timezone },
@@ -413,7 +421,11 @@ export async function addCalendar(userId: string, p: Provider, e: CampusEvent) {
               start_at: e.start,
               end_at: e.end,
               location_name: e.location || "",
-              description: e.description + "\n" + e.sources[0].url,
+              description:
+                e.description +
+                (e.onlineUrl ? "\nJoin online: " + e.onlineUrl : "") +
+                "\n" +
+                e.sources[0].url,
             },
           }),
         })

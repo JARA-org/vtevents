@@ -1,0 +1,279 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  explicitDiscordDate,
+  validateDiscordCandidate,
+} from "../apps/backend/src/discord-event-rules.js";
+import { collectDiscordMessages } from "../apps/backend/src/discord-collector.js";
+import { createDiscordReader } from "../apps/backend/src/discord-reader.js";
+import { eventSchema, eventICS } from "../apps/backend/src/domain.js";
+import { testEvents } from "./fixtures/events.js";
+import { deduplicate } from "../apps/backend/src/sources.js";
+import type {
+  DiscordCollectionRepository,
+  DiscordCollectedMessage,
+  DiscordEventCandidate,
+  DiscordScanState,
+} from "../packages/shared/src/contracts.js";
+const text =
+  "Chess night on September 25, 2026 at Squires. Join online at https://example.org/join";
+const proposal: DiscordEventCandidate = {
+  date: "2026-09-25",
+  title: "Chess night",
+  description: "",
+  location: "Squires",
+  onlineUrl: "https://example.org/join",
+  isOnline: true,
+  evidence: {
+    date: "September 25, 2026",
+    title: "Chess night",
+    location: "Squires",
+    online: "Join online at https://example.org/join",
+  },
+};
+test("Discord qualification requires an explicit valid full date, event text, and physical or online venue", () => {
+  assert.ok(validateDiscordCandidate(proposal, text));
+  assert.equal(explicitDiscordDate("September 25"), null);
+  assert.equal(explicitDiscordDate("tomorrow"), null);
+  assert.equal(explicitDiscordDate("February 30, 2026"), null);
+  assert.equal(explicitDiscordDate("25 September 2026"), "2026-09-25");
+  assert.equal(explicitDiscordDate("2026-09-25"), "2026-09-25");
+  for (const change of [
+    { date: "2027-09-25" },
+    { title: "Made up event" },
+    { description: "Invented description" },
+    { location: "Invented venue" },
+    { location: null, onlineUrl: null, isOnline: false },
+    { onlineUrl: "javascript:alert(1)" },
+    { onlineUrl: "https://evil.example" },
+  ])
+    assert.equal(
+      validateDiscordCandidate({ ...proposal, ...change }, text),
+      null,
+    );
+  assert.equal(validateDiscordCandidate(proposal, "[no-ai] " + text), null);
+  assert.ok(
+    validateDiscordCandidate({ ...proposal, location: null }, text),
+    "online-only",
+  );
+  assert.ok(
+    validateDiscordCandidate(
+      { ...proposal, onlineUrl: null, isOnline: false },
+      text,
+    ),
+    "physical-only",
+  );
+  assert.ok(
+    validateDiscordCandidate(
+      {
+        ...proposal,
+        location: null,
+        onlineUrl: null,
+        evidence: { ...proposal.evidence, online: "online" },
+      },
+      text,
+    ),
+    "online without supplied URL",
+  );
+});
+test("online attendance is additive, coexists with physical location, and survives validation/ICS", () => {
+  const event = eventSchema.parse({
+    ...testEvents()[0],
+    location: "Squires",
+    onlineUrl: "https://example.org/join",
+    isOnline: true,
+  });
+  assert.equal(event.location, "Squires");
+  assert.equal(event.onlineUrl, "https://example.org/join");
+  assert.equal(
+    deduplicate([
+      event,
+      {
+        ...testEvents()[0],
+        location: "Squires",
+        updatedAt: "2099-01-01T00:00:00Z",
+      },
+    ])[0].onlineUrl,
+    event.onlineUrl,
+  );
+  assert.match(
+    eventICS(event).replace(/\r\n /g, ""),
+    /Join online: https:\/\/example.org\/join/,
+  );
+  assert.throws(() =>
+    eventSchema.parse({ ...event, onlineUrl: "javascript:alert(1)" }),
+  );
+  assert.throws(() =>
+    eventSchema.parse({
+      ...event,
+      onlineUrl: "https://user:password@example.org",
+    }),
+  );
+  assert.ok(
+    eventSchema.parse(testEvents()[0]),
+    "old payload without new fields still valid",
+  );
+});
+test("collector excludes before AI, caches revisions, removes deleted messages and fails closed on budget", async () => {
+  const records = new Map<
+    string,
+    {
+      fingerprint: string;
+      candidate: DiscordEventCandidate | null;
+      status: string;
+    }
+  >();
+  let current: DiscordCollectedMessage | null = {
+    guildId: "1",
+    channelId: "2",
+    messageId: "3",
+    text,
+    sourceUrl: "https://discord.com/channels/1/2/3",
+    createdAt: "2026-09-19T00:00:00Z",
+    editedAt: null,
+  };
+  let ai = 0,
+    budget = true,
+    allowed = true;
+  const ref = { guildId: "1", channelId: "2", messageId: "3" };
+  const store: DiscordCollectionRepository = {
+    channels: async () => [],
+    messages: async () => [ref],
+    unchanged: async (t, f) =>
+      records.get(t.messageId!)?.fingerprint === f &&
+      records.get(t.messageId!)?.status !== "pending",
+    save: async (m, f, c, s) => {
+      records.set(m.messageId, { fingerprint: f, candidate: c, status: s });
+    },
+    remove: async (t) => {
+      records.delete(t.messageId!);
+    },
+    checked: async () => {},
+    checkpoint: async () => {},
+    acquire: async () => true,
+    release: async () => {},
+    reserveAI: async () => budget,
+  };
+  const deps = {
+    store,
+    policy: {
+      apply: async () => ({ content: "" }),
+      eligible: async () => allowed,
+    },
+    reader: { list: async () => [], get: async () => current },
+    extractor: {
+      propose: async () => {
+        ai++;
+        return proposal;
+      },
+    },
+    dailyLimit: 2,
+  };
+  await collectDiscordMessages(deps);
+  assert.equal(ai, 1);
+  assert.equal(records.get("3")?.status, "qualified");
+  await collectDiscordMessages(deps);
+  assert.equal(ai, 1, "unchanged content must not call AI again");
+  current = { ...current!, text: "[NO-AI] " + text };
+  await collectDiscordMessages(deps);
+  assert.equal(ai, 1);
+  assert.equal(records.size, 0);
+  current = { ...current!, text };
+  budget = false;
+  await collectDiscordMessages(deps);
+  assert.equal(ai, 1);
+  assert.equal(records.get("3")?.status, "pending");
+  allowed = false;
+  await collectDiscordMessages(deps);
+  assert.equal(records.size, 0);
+  allowed = true;
+  current = null;
+  await collectDiscordMessages(deps);
+  assert.equal(records.size, 0);
+});
+test("collector checkpoints multi-page catch-up without skipping backlog", async () => {
+  let scan: DiscordScanState = { cursor: "100" };
+  const pages: (string | undefined)[] = [];
+  const store: DiscordCollectionRepository = {
+    channels: async () => [{ guildId: "1", channelId: "2", scan }],
+    messages: async () => [],
+    unchanged: async () => true,
+    save: async () => {},
+    remove: async () => {},
+    checked: async () => {},
+    checkpoint: async (_t, s) => {
+      scan = s;
+    },
+    acquire: async () => true,
+    release: async () => {},
+    reserveAI: async () => false,
+  };
+  const reader = {
+    get: async () => null,
+    list: async (_t: unknown, before?: string) => {
+      pages.push(before);
+      return Array.from({ length: before ? 51 : 100 }, (_, i) => ({
+        guildId: "1",
+        channelId: "2",
+        messageId: String((before ? 150 : 250) - i),
+        text,
+        createdAt: "2026-09-19T00:00:00Z",
+        editedAt: null,
+        sourceUrl: "https://discord.com/channels/1/2/3",
+      }));
+    },
+  };
+  const deps = {
+    store,
+    reader,
+    policy: {
+      apply: async () => ({ content: "" }),
+      eligible: async () => true,
+    },
+    dailyLimit: 0,
+  };
+  await collectDiscordMessages(deps);
+  assert.deepEqual(scan, { cursor: "100", head: "250", before: "151" });
+  await collectDiscordMessages(deps);
+  assert.deepEqual(scan, { cursor: "250" });
+  assert.deepEqual(pages, [undefined, "151"]);
+});
+test("Discord adapter only GETs designated resources, validates guild, and honors rate limits", async () => {
+  const urls: string[] = [];
+  const reader = createDiscordReader("test-token", (async (url, init) => {
+    assert.equal(init?.method, "GET");
+    urls.push(String(url));
+    return new Response(
+      JSON.stringify(
+        String(url).endsWith("/channels/2")
+          ? { id: "2", guild_id: "1", type: 0 }
+          : {
+              id: "3",
+              channel_id: "2",
+              content: text,
+              timestamp: "2026-09-19T00:00:00Z",
+              edited_timestamp: null,
+              type: 0,
+            },
+      ),
+      { status: 200 },
+    );
+  }) as typeof fetch);
+  assert.equal(
+    (await reader.get({ guildId: "1", channelId: "2", messageId: "3" }))?.text,
+    text,
+  );
+  assert.equal(urls.length, 2);
+  assert.ok(urls[1].endsWith("/channels/2/messages/3"));
+  await assert.rejects(
+    reader.get({ guildId: "9", channelId: "2", messageId: "3" }),
+  );
+  let calls = 0;
+  const limited = createDiscordReader("test", (async () => {
+    calls++;
+    return new Response('{"retry_after":300}', { status: 429 });
+  }) as typeof fetch);
+  await assert.rejects(limited.list({ guildId: "1", channelId: "2" }));
+  await assert.rejects(limited.list({ guildId: "1", channelId: "2" }));
+  assert.equal(calls, 1);
+});
