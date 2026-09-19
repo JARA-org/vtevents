@@ -1,19 +1,21 @@
 {
   "expo": {
-    "name": "My Little Gobbler",
-    "slug": "my-little-gobbler",
-    "scheme": "my-little-gobbler",
+    "name": "My Gobbler",
+    "slug": "my-gobbler",
+    "scheme": "my-gobbler",
     "version": "1.0.0",
-    "icon": "./assets/gobbler-mascot.png",
+    "icon": "./assets/icon.png",
     "orientation": "default",
     "userInterfaceStyle": "light",
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/gobbler-mascot.png",
-      "name": "My Little Gobbler",
-      "description": "Your little guide to campus life. A student-built Virginia Tech campus companion."
+      "favicon": "./assets/icon.png",
+      "name": "My Gobbler",
+      "description": "Your Virginia Tech campus sidekick. Find your people. Make your plans."
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router"
+    ]
   }
 }

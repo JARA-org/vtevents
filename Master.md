@@ -126,7 +126,7 @@ Sports entries seem bare right now, VT sports API should provide sufficient info
 
 * I see on hokie sports there is a link for a live stream, maybe we could embed this somehow?  
 * Opponent, Sport type, Date, Time, etc.  
-* Time might be inaccurate right now, I don’t see a time for Virginia Tech v Chowderfest but on My Little Gobbler it says it ends at 11:59 EST  
+* Time might be inaccurate right now, I don’t see a time for Virginia Tech v Chowderfest but on My Gobbler it says it ends at 11:59 EST
 * Currently sport type is missing, which could lead users into thinking every sports event is football  
 * We also could pull up relevant news articles through a news API  
 * Some sport entries have TBD start/ending dates. We could ping periodically to fix that, or just put a disclaimer saying we might not have accurate dates.  

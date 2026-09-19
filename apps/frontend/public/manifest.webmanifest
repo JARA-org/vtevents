@@ -1,0 +1,13 @@
+{
+  "name": "My Gobbler",
+  "short_name": "My Gobbler",
+  "description": "Your Virginia Tech campus sidekick.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFF8F2",
+  "theme_color": "#5B0612",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

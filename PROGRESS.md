@@ -1,4 +1,4 @@
-# My Little Gobbler — progress
+# My Gobbler — progress
 
 ## 2026-09-19
 - Existing private repository found and cloned: JARA-org/vtevents. Only Idea.txt existed. No repository instructions or configured Actions secrets/variables found.

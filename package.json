@@ -1,5 +1,5 @@
 {
-  "name": "my-little-gobbler",
+  "name": "my-gobbler",
   "private": true,
   "version": "1.0.0",
   "workspaces": [
@@ -40,5 +40,6 @@
     "xcode": {
       "uuid": "11.1.1"
     }
-  }
+  },
+  "description": "A student-built Virginia Tech campus companion."
 }
