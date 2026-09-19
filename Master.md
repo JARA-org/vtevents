@@ -175,6 +175,7 @@ John \- Backend:
 
 * MongoDB Atlas, implement database functions from defined interfaces  
 * Web hosting/cloud functions on vultr  
+  * Setup progress: Docker/Caddy package, production preflight and read-only smoke checks are implemented; see [deployment runbook](deploy/README.md). Image build and isolated MongoDB container checks pass. Public hosting remains pending cost-safe Vultr approval and a hostname.
 * Maybe work on agents?  
 * Databricks analytics for user preferences
 

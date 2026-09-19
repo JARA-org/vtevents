@@ -37,7 +37,7 @@ See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE
 
 ## Deploy the full Node application
 
-**Selected host: Vultr.** See [Vultr deployment](deploy/README.md) for the Docker/Caddy HTTPS package, cost constraint, free-tier application status and launch verification steps. The Docker engine was unavailable for container execution in this session; the application production build passed. The Render path below remains an unused fallback; the owner explicitly chose to wait for Vultr.
+**Selected host: Vultr.** See [Vultr deployment](deploy/README.md) for the Docker/Caddy HTTPS package, cost constraint, free-tier application status and launch verification steps. The production image now builds and passes isolated MongoDB container probes; Compose/Caddy validation and production preflight tests pass. Public Vultr HTTPS verification is still pending. The Render path below remains an unused fallback; the owner explicitly chose to wait for Vultr.
 
 ### Unused Render fallback (requires owner to change hosting choice)
 
