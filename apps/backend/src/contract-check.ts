@@ -14,7 +14,6 @@ import type * as sources from "./sources.js";
 import type * as assistant from "./assistant.js";
 import type * as discovery from "./discovery.js";
 import type * as integrations from "./integrations.js";
-import type * as discord from "./discord.js";
 type Assert<T extends true> = T;
 type Extends<A, B> = [A] extends [B] ? true : false;
 type Output<K extends keyof HttpApi> = HttpApi[K]["output"];
@@ -62,12 +61,6 @@ type Checks = [
     Extends<
       Awaited<ReturnType<typeof integrations.disconnect>>,
       Output<"disconnect">
-    >
-  >,
-  Assert<
-    Extends<
-      Awaited<ReturnType<typeof discord.syncDiscord>>,
-      Output<"syncConnection">
     >
   >,
 ];

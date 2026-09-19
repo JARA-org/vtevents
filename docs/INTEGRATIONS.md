@@ -1,21 +1,21 @@
 # Integration status and exact access requirements
 
-| Integration | Status in this workspace | Remaining dependency |
-|---|---|---|
-| GobblerConnect | **Live and tested:** 2,219 validated records on 2026-09-19 | None for public feed; some locations intentionally require source sign-in |
-| VT Sports | **Live and tested:** 349 structured records across official sport schedules on 2026-09-19 | None for public metadata; unannounced starts and missing ends remain unknown |
-| Better Auth | **Live Atlas tested:** synthetic account creation, profile persistence, saves and deletion | Public HTTPS deployment; email verification/recovery |
-| MongoDB Atlas | **Live and tested:** M0 cluster `my-little-gobbler`, narrow user/database permissions and workstation `/32` | Add selected host's outbound IP when hosting is available |
-| Gemini | **Live and tested:** `gemini-3.5-flash-lite`, real grounded responses from stored event IDs | Rotate setup key before public deployment; deploy secret |
-| Google Calendar | OAuth+PKCE, free/busy, write and revoke implemented; duplicate writes tested with mocked provider | Owner Google Cloud project, Calendar API enabled, consent screen, OAuth client, test-user consent |
-| Canvas | Scoped OAuth, paginated courses/calendar/announcements, refresh/revoke and guarded writes implemented | Virginia Tech must issue/enable an OAuth developer key with permitted scopes; user consent; write permission for writes |
-| Discord | Adapter implemented; application `1550880609491222639` created, description saved | Bot credentials, server admin install, intent and explicit allowed channel IDs |
-| Databricks | Free Edition workspace exists; Node ingestion/outbox and dashboard SQL implemented | Genie One MCP authentication/preview setup and live SQL/dashboard verification; console blocks automated control |
-| ElevenLabs | **Live and tested:** Free plan, TTS-only key capped8,000credits/refresh; realMP3, cache and authenticated endpoint passed | Deployment secret; final browser playback QA |
-| Vultr | API access and $100 MLH credit verified; Docker/Caddy package prepared | Owner requires $0 beyond credits with hard cap; no such cap found; free-compute application pending. No instance created |
-| Tiger Data | Feasibility researched; no resource or adapter claimed | Optional public campus-activity metrics extension; verify sponsor free resources before provisioning |
-| Render | Free Node deployment Blueprint implemented, unused | Owner explicitly chose to leave hosting pending for Vultr |
-| Sites preview | Separate static-preview deployment path | See resource inventory for final deployment status |
+| Integration     | Status in this workspace                                                                                                  | Remaining dependency                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| GobblerConnect  | **Live and tested:** 2,219 validated records on 2026-09-19                                                                | None for public feed; some locations intentionally require source sign-in                                                |
+| VT Sports       | **Live and tested:** 349 structured records across official sport schedules on 2026-09-19                                 | None for public metadata; unannounced starts and missing ends remain unknown                                             |
+| Better Auth     | **Live Atlas tested:** synthetic account creation, profile persistence, saves and deletion                                | Public HTTPS deployment; email verification/recovery                                                                     |
+| MongoDB Atlas   | **Live and tested:** M0 cluster `my-little-gobbler`, narrow user/database permissions and workstation `/32`               | Add selected host's outbound IP when hosting is available                                                                |
+| Gemini          | **Live and tested:** `gemini-3.5-flash-lite`, real grounded responses from stored event IDs                               | Rotate setup key before public deployment; deploy secret                                                                 |
+| Google Calendar | OAuth+PKCE, free/busy, write and revoke implemented; duplicate writes tested with mocked provider                         | Owner Google Cloud project, Calendar API enabled, consent screen, OAuth client, test-user consent                        |
+| Canvas          | Scoped OAuth, paginated courses/calendar/announcements, refresh/revoke and guarded writes implemented                     | Virginia Tech must issue/enable an OAuth developer key with permitted scopes; user consent; write permission for writes  |
+| Discord         | Read-only bot command foundation implemented; no app-user OAuth                                                           | HTTPS endpoint, bot installation, command registration, then collection/extraction                                       |
+| Databricks      | Free Edition workspace exists; Node ingestion/outbox and dashboard SQL implemented                                        | Genie One MCP authentication/preview setup and live SQL/dashboard verification; console blocks automated control         |
+| ElevenLabs      | **Live and tested:** Free plan, TTS-only key capped8,000credits/refresh; realMP3, cache and authenticated endpoint passed | Deployment secret; final browser playback QA                                                                             |
+| Vultr           | API access and $100 MLH credit verified; Docker/Caddy package prepared                                                    | Owner requires $0 beyond credits with hard cap; no such cap found; free-compute application pending. No instance created |
+| Tiger Data      | Feasibility researched; no resource or adapter claimed                                                                    | Optional public campus-activity metrics extension; verify sponsor free resources before provisioning                     |
+| Render          | Free Node deployment Blueprint implemented, unused                                                                        | Owner explicitly chose to leave hosting pending for Vultr                                                                |
+| Sites preview   | Separate static-preview deployment path                                                                                   | See resource inventory for final deployment status                                                                       |
 
 Counts include past events. Discovery filters old listings. Neither adapter fabricates an undocumented campus API.
 
@@ -48,11 +48,10 @@ Personal calendar writes use `user_<authenticated Canvas ID>`. The connected use
 
 ## Discord
 
-Dashboard: https://discord.com/developers/applications
-
-Application `1550880609491222639` is named My Little Gobbler. A server administrator installs it with only View Channel and Read Message History in explicitly approved announcement channels. Enable Message Content intent if required by Discord. Do not grant Administrator or Send Messages. Each server owner connects Discord and uses Settings → Manage my servers to select channels. The backend checks current ownership, stores per-guild approval in MongoDB, and revalidates owner identity and membership before reads. Users additionally select channels to follow. V1 permits only type-5 announcements visible to every server member; any view-denying channel overwrite fails closed. Private role/member channels are unsupported. Empty owner selection revokes access; policy changes clear cached Discord context. The former global environment allowlist is no longer used. Messages stay in encrypted private context, never public discovery or Gemini. No bot messages are sent.
-
-OAuth redirect: `https://YOUR_ORIGIN/api/connections/discord/callback`; user scopes `identify guilds`. Expired Discord user authorization currently requires reconnecting. This is explicitly surfaced by failed sync status.
+The current design is a read-only server-installed bot, with no app-user account
+linking. Signed commands select channels for automatic reading,
+submit individual messages independently, and exclude messages. No Discord
+channel settings or permissions are changed. A bounded collector and optional budgeted AI extraction now stage validated candidates. Canonical event publication remains pending. See [bot setup and boundaries](DISCORD_BOT.md).
 
 ## Databricks
 

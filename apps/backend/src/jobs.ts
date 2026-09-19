@@ -1,6 +1,5 @@
 import { db } from "./store.js";
 import { syncCalendar } from "./integrations.js";
-import { syncDiscord } from "./discord.js";
 import { refreshSources } from "./coordinator.js";
 import { flushAnalytics } from "./analytics.js";
 let pending: Promise<void> | undefined;
@@ -13,6 +12,7 @@ export function runJobs() {
         .collection("connections")
         .find({
           status: "connected",
+          provider: { $in: ["google", "canvas"] },
           $or: [
             { lastSync: null },
             { lastSync: { $lt: new Date(Date.now() - 3600000) } },
@@ -23,8 +23,7 @@ export function runJobs() {
         .toArray();
       for (const row of connections) {
         try {
-          if (row.provider === "discord") await syncDiscord(row.userId);
-          else if (row.provider === "google" || row.provider === "canvas")
+          if (row.provider === "google" || row.provider === "canvas")
             await syncCalendar(row.userId, row.provider);
         } catch {
           await db

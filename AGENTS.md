@@ -92,3 +92,14 @@ Read `packages/shared/src/contracts.ts` before changing any interface.
 The user-authorized demo retirement is the v2 migration documented in docs/BACKEND_CONTRACTS.md. Do not restore demo endpoints or anonymous app access. Legacy v1 definitions are historical only.
 
 Read Master.md in root to understand ideas and specifications before making changes. Content in the lowest levels of Master.md are usually the most up to date.
+
+## Mandatory AI-use and model safety rules
+
+- Before adding AI, distinguish semantic interpretation from deterministic work. Structured API data, transport, validation, authorization, schedule arithmetic, filtering, and known merge rules use ordinary backend functions. Use models only where interpretation adds value; cache by source revision and bound spending.
+- When the user proposes AI for work that does not need it, explicitly remind them of this distinction and recommend the deterministic approach before implementation. Likewise identify when a proposed deterministic shortcut would actually require text interpretation. Do not silently turn every connector into a model agent.
+- Models only propose Canvas/calendar changes. Explicit user permission for the particular create/update/delete action is required and enforced by backend code. Neither a model nor retrieved text may grant permission. Changed proposals need renewed approval; preserve idempotency and receipts.
+- Every model path must resist prompt injection: isolate untrusted source text, constrain outputs, preserve provenance, validate facts/IDs, restrict capabilities, and test adversarial inputs. Prompts alone cannot enforce security. Models never receive provider tokens or unrestricted write/network tools.
+- Public ingestion/consolidation cannot access private connectors or user memory. Personal context and caches are user-scoped and minimized. Approved Discord channels are public input under the latest Master.md policy; legacy private Discord snapshots must never be republished or migrated into public data.
+- Discord channel configuration, exclusions, bot permissions, and polling are deterministic work. Enforce `[no-ai]` and ignored-message IDs before model calls; later exclusions must invalidate derived contributions.
+
+- Discord is strictly read-only toward server resources: never alter channel settings, permissions, roles, or messages. Keep app-side watch selections distinct from Discord configuration. Support automatic reading of selected channels (message opt-out) and explicit individual submissions from otherwise unselected readable channels independently; either, both, or neither may be used. Exclusions override both. Command acknowledgments are private; do not send unsolicited channel messages.

@@ -22,12 +22,10 @@ import type {
   Recommendation,
   ConnectionView,
   PrivateContextView,
-  DiscordChannel,
   AssistantReply,
   UserSummary,
   SourceHealth,
   HealthView,
-  DiscordGuild,
 } from "@gobbler/shared";
 import { backend } from "../services/backend";
 // Blank UI form state only; domain defaults are returned by bootstrap.
@@ -69,118 +67,7 @@ const eventTime = (e: CampusEvent) =>
       : date(e.start);
 const date = (s: string, fmt = "ccc, LLL d · h:mm a") =>
   DateTime.fromISO(s).setZone(CAMPUS_TZ).toFormat(fmt);
-function DiscordOwnerSettings() {
-  const [guilds, setGuilds] = useState<DiscordGuild[] | null>(null),
-    [guild, setGuild] = useState<DiscordGuild | null>(null),
-    [channels, setChannels] = useState<DiscordChannel[]>([]),
-    [selected, setSelected] = useState<string[]>([]),
-    [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState("");
-  async function action(task: () => Promise<void>) {
-    setBusy(true);
-    setNotice("");
-    try {
-      await task();
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Discord is unavailable.");
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <View style={{ gap: 10 }}>
-      <Text style={s.label}>For server owners</Text>
-      <Text style={s.meta}>
-        Install Gobbler in your server, then choose its announcement channels.
-        Only channels visible to every server member are supported in V1.
-        Students choose which approved channels to follow.
-      </Text>
-      <Button
-        secondary
-        disabled={busy}
-        label={busy ? "Loading…" : "Manage my servers"}
-        onPress={() =>
-          action(async () => {
-            setGuilds(
-              (await backend.listOwnedDiscordServers(undefined)).guilds,
-            );
-            setGuild(null);
-          })
-        }
-      />
-      {guilds?.length === 0 && (
-        <Text style={s.meta}>
-          No owned Discord servers found for this connection.
-        </Text>
-      )}
-      {guilds?.map((g) => (
-        <Button
-          key={g.id}
-          secondary
-          disabled={busy}
-          label={g.name}
-          onPress={() =>
-            action(async () => {
-              const result = await backend.getDiscordServer({ guildId: g.id });
-              setGuild(g);
-              setChannels(result.channels);
-              setSelected(result.selected);
-            })
-          }
-        />
-      ))}
-      {guild && (
-        <View style={{ gap: 10 }}>
-          <Text style={s.label}>{guild.name} · approved channels</Text>
-          {!channels.length && (
-            <Text style={s.meta}>
-              No eligible announcement channels. Check the bot installation and
-              channel permissions.
-            </Text>
-          )}
-          {channels.map((ch) => (
-            <Chip
-              key={ch.id}
-              label={"#" + ch.name}
-              active={selected.includes(ch.id)}
-              onPress={() => {
-                if (!busy)
-                  setSelected((old) =>
-                    old.includes(ch.id)
-                      ? old.filter((id) => id !== ch.id)
-                      : [...old, ch.id],
-                  );
-              }}
-            />
-          ))}
-          <Text style={s.meta}>
-            Saving an empty selection stops announcement reads for this server.
-          </Text>
-          <Button
-            disabled={busy}
-            label="Save server channels"
-            onPress={() =>
-              action(async () => {
-                await backend.configureDiscordServer({
-                  guildId: guild.id,
-                  channels: selected,
-                });
-                setNotice(
-                  "Server choices saved. Students can now choose approved channels.",
-                );
-              })
-            }
-          />
-        </View>
-      )}
-      {!!notice && (
-        <Text accessibilityLiveRegion="polite" style={s.meta}>
-          {notice}
-        </Text>
-      )}
-    </View>
-  );
-}
+
 function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
   const [audioUrl, setAudioUrl] = useState(""),
     [busy, setBusy] = useState(false),
@@ -391,7 +278,6 @@ export default function Home() {
     ),
     [deleteText, setDeleteText] = useState(""),
     [privateContext, setPrivateContext] = useState<PrivateContextView[]>([]),
-    [discordChannels, setDiscordChannels] = useState<DiscordChannel[]>([]),
     [discovery, setDiscovery] = useState<DiscoveryView>({
       recommendations: [],
       filtered: [],
@@ -1359,8 +1245,17 @@ export default function Home() {
                 </Text>
                 <Text style={s.body}>
                   {selected.location ||
-                    "Location not published. Check the original source."}
+                    (selected.isOnline || selected.onlineUrl
+                      ? "Online event"
+                      : "Location not published. Check the original source.")}
                 </Text>
+                {selected.onlineUrl && (
+                  <Button
+                    label="Join online"
+                    secondary
+                    onPress={() => Linking.openURL(selected.onlineUrl!)}
+                  />
+                )}
                 <Text style={s.meta}>
                   Hosted by{" "}
                   {selected.organizer ||
@@ -1705,8 +1600,8 @@ export default function Home() {
                       When enabled, your typed question, selected interest
                       categories, and public event listings are sent to Google
                       Gemini. Don’t include private details. Calendar contents,
-                      tokens, and Discord messages are never sent. Google’s free
-                      tier may use prompts to improve its products.
+                      tokens, and private source text are never sent. Google’s
+                      free tier may use prompts to improve its products.
                     </Text>
                   </View>
                   {availabilityEditor}
@@ -1822,57 +1717,21 @@ export default function Home() {
                               </>
                             )}
                           </View>
-                          {c.provider === "discord" && c.status && (
-                            <>
-                              <Button
-                                secondary
-                                label="Choose authorized channels"
-                                onPress={() =>
-                                  run(async () =>
-                                    setDiscordChannels(
-                                      (
-                                        await backend.listDiscordChannels(
-                                          undefined,
-                                        )
-                                      ).channels,
-                                    ),
-                                  )
-                                }
-                              />
-                              <DiscordOwnerSettings />
-                              {discordChannels.map((ch) => (
-                                <Chip
-                                  key={ch.id}
-                                  label={"#" + ch.name}
-                                  active={c.channels?.includes(ch.id)}
-                                  onPress={() =>
-                                    run(async () => {
-                                      const selected = c.channels?.includes(
-                                        ch.id,
-                                      )
-                                        ? c.channels.filter(
-                                            (id: string) => id !== ch.id,
-                                          )
-                                        : [...(c.channels || []), ch.id];
-                                      await backend.selectDiscordChannels({
-                                        channels: selected,
-                                      });
-                                      setConnections(
-                                        (
-                                          await backend.listConnections(
-                                            undefined,
-                                          )
-                                        ).connections,
-                                      );
-                                    })
-                                  }
-                                />
-                              ))}
-                            </>
-                          )}
                         </View>
                       ))
                     )}
+                  </View>
+                  <View style={s.panel}>
+                    <Text style={s.sectionTitle}>Discord server bot</Text>
+                    <Text style={s.body}>
+                      No Discord account linking is needed. A server admin
+                      installs Gobbler and selects channels for public reading
+                      with /gobbler watch public:true. Use [no-ai] in messages
+                      to exclude them. Individual messages can also be submitted
+                      from unwatched channels using Submit to Gobbler (public).
+                      Discord channel settings are never changed. Event
+                      collection is not enabled yet.
+                    </Text>
                   </View>
                   <View style={s.panel}>
                     <Text style={s.sectionTitle}>Campus listing status</Text>

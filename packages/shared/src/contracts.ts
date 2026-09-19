@@ -49,6 +49,10 @@ export interface CampusEvent extends Extensible {
   end: Instant | null;
   timezone: string;
   location: string | null;
+  /** Optional attendance URL, independent of the physical location. Missing/null means not supplied. */
+  onlineUrl?: string | null;
+  /** True when online attendance is supported, including when the link is not yet supplied. Absent means unknown. */
+  isOnline?: boolean;
   organizer: string | null;
   categories: Category[];
   sources: SourceReference[];
@@ -267,11 +271,11 @@ export interface Operation<Input, Output> {
 export interface HttpApi {
   /** POST /api/narration. Session required; reserves voice budget, reads public events, caches generated audio. No automatic retry. Binary audio/mpeg is decoded to this transport DTO. */
   narrate: Operation<{ eventIds: Id[] }, AudioData>;
-  /** GET /api/discord/owned-servers. Session-scoped provider read; no writes. */
+  /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. GET /api/discord/owned-servers. Session-scoped provider read; no writes. */
   listOwnedDiscordServers: Operation<void, { guilds: DiscordGuild[] }>;
-  /** GET /api/discord/servers/:guildId. Verifies current ownership and returns allowed channels plus saved selection. */
+  /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. GET /api/discord/servers/:guildId. Verifies current ownership and returns allowed channels plus saved selection. */
   getDiscordServer: Operation<{ guildId: Id }, DiscordServerSettings>;
-  /** PUT /api/discord/servers/:guildId. Verifies current ownership/visibility, stores channel policy and invalidates cached private announcements. */
+  /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. PUT /api/discord/servers/:guildId. Verifies current ownership/visibility, stores channel policy and invalidates cached private announcements. */
   configureDiscordServer: Operation<
     { guildId: Id; channels: Id[] },
     { ok: boolean }
@@ -320,9 +324,9 @@ export interface HttpApi {
     { provider: Provider },
     { disconnected: boolean; revoked: boolean }
   >;
-  /** GET /api/discord/channels. Provider reads; returns only authorized announcement channels. */
+  /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. GET /api/discord/channels. Provider reads; returns only authorized announcement channels. */
   listDiscordChannels: Operation<void, { channels: DiscordChannel[] }>;
-  /** PUT /api/discord/channels. Validates access and persists selected channels. */
+  /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. PUT /api/discord/channels. Validates access and persists selected channels. */
   selectDiscordChannels: Operation<{ channels: Id[] }, { ok: boolean }>;
   /** GET /api/private-context. Decrypts ONLY caller's context; no writes. */
   getPrivateContext: Operation<void, PrivateContextView[]>;
@@ -898,4 +902,105 @@ export interface DiscordPolicyService {
     input: { guildId: Id; channels: Id[] },
     context: RequestContext,
   ): Promise<{ ok: boolean }>;
+}
+
+/** Server bot boundary; independent of app-user identity and legacy Discord OAuth. */
+export interface DiscordBotCommand {
+  interactionId: Id;
+  guildId: Id;
+  channelId: Id;
+  actorId: Id;
+  action: "watch" | "unwatch" | "ignore" | "submit";
+  messageId?: Id;
+}
+export interface DiscordBotReceipt {
+  content: string;
+}
+export interface DiscordBotRepository {
+  /** Trusted, signature/permission-validated command only. Atomically updates public channel policy or exclusion and stores an interaction receipt. Replays return the receipt without repeating effects. No provider or model calls. Database failure commits nothing. */
+  apply(command: DiscordBotCommand): Promise<DiscordBotReceipt>;
+  /** Reads policy and exclusions; watched channels or explicitly submitted messages qualify; exclusions always win. No writes or AI. Text exclusion must also be checked by the caller before any model/storage operation. */
+  eligible(input: {
+    guildId: Id;
+    channelId: Id;
+    messageId: Id;
+  }): Promise<boolean>;
+}
+
+/** Public Discord text after transport normalization; contains no author profile, token, attachments or reply history. */
+export interface DiscordCollectedMessage {
+  guildId: Id;
+  channelId: Id;
+  messageId: Id;
+  text: string;
+  createdAt: Instant;
+  editedAt: Instant | null;
+  sourceUrl: string;
+}
+/** A qualified proposal, not a canonical event or permission to write calendars. Date-only until time interpretation is implemented. */
+export interface DiscordEventCandidate {
+  date: LocalDate;
+  title: string;
+  description: string;
+  location: string | null;
+  onlineUrl: string | null;
+  isOnline: boolean;
+  evidence: {
+    date: string;
+    title: string;
+    location: string | null;
+    online: string | null;
+  };
+}
+export interface DiscordReadTarget {
+  guildId: Id;
+  channelId: Id;
+  messageId?: Id;
+}
+export interface DiscordScanState {
+  cursor?: Id;
+  before?: Id;
+  head?: Id;
+}
+export interface DiscordCollectionRepository {
+  /** Fair bounded read of watched channels; never reads private/OAuth records. */
+  channels(
+    limit: number,
+  ): Promise<(DiscordReadTarget & { scan: DiscordScanState })[]>;
+  /** Fair bounded union of manual references and previously collected records to detect edits/deletions. */
+  messages(limit: number): Promise<DiscordReadTarget[]>;
+  /** Read existing fingerprint/status; no content returned to callers. */
+  unchanged(target: DiscordReadTarget, fingerprint: string): Promise<boolean>;
+  /** Rechecks consent/exclusions in a transaction, replaces this message's staged candidate and content. Does not publish globally. Revisions invalidate previous proposals. */
+  save(
+    message: DiscordCollectedMessage,
+    fingerprint: string,
+    candidate: DiscordEventCandidate | null,
+    status: "qualified" | "rejected" | "pending",
+  ): Promise<void>;
+  /** Purges text and staged candidate for a deleted/excluded/inaccessible message. No Discord writes. */
+  remove(target: DiscordReadTarget): Promise<void>;
+  /** Advances a successfully processed channel scan; failure leaves cursor intact. */
+  checkpoint(target: DiscordReadTarget, scan: DiscordScanState): Promise<void>;
+  /** Marks reference checked, for fair edit/delete revalidation. No provider/model call. */
+  checked(target: DiscordReadTarget): Promise<void>;
+  /** Atomic lease; prevents overlapping collectors across processes. */
+  acquire(): Promise<boolean>;
+  /** Releases the lease owned by this worker. */
+  release(): Promise<void>;
+  /** Atomic daily reservation before extraction; fails closed on unavailable storage. No refund/retry after uncertain spending. */
+  reserveAI(limit: number): Promise<boolean>;
+}
+export interface DiscordMessageReader {
+  /** Bot-authenticated GET only. Validates channel/guild identity; returns newest-first page. 404/403 become unavailable, 429 pauses work. */
+  list(
+    target: DiscordReadTarget,
+    before?: Id,
+  ): Promise<DiscordCollectedMessage[]>;
+  /** GET exactly one designated message, not its neighboring history. */
+  get(target: DiscordReadTarget): Promise<DiscordCollectedMessage | null>;
+}
+export interface DiscordTextExtractor {
+  /** Public text only; bounded model inference without tools. Output is untrusted and must pass deterministic evidence/date/location validation. May spend reserved budget. */
+  propose(text: string): Promise<unknown>;
 }

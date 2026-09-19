@@ -1,12 +1,7 @@
 import ical from "node-ical";
 import { load } from "cheerio";
 import { DateTime } from "luxon";
-import {
-  CampusEvent,
-  eventSchema,
-  categories,
-  CAMPUS_TZ,
-} from "./domain.js";
+import { CampusEvent, eventSchema, categories, CAMPUS_TZ } from "./domain.js";
 import { hash } from "./security.js";
 import { remote } from "./config.js";
 export const GOBBLER_FEED =
@@ -92,6 +87,14 @@ export function deduplicate(events: CampusEvent[]): CampusEvent[] {
     const newer = e.updatedAt > old.updatedAt ? e : old;
     groups.set(key, {
       ...newer,
+      onlineUrl:
+        newer.onlineUrl !== undefined
+          ? newer.onlineUrl
+          : (newer === e ? old : e).onlineUrl,
+      isOnline:
+        newer.isOnline !== undefined
+          ? newer.isOnline
+          : (newer === e ? old : e).isOnline,
       id: old.id,
       sources: [...old.sources, ...e.sources].filter(
         (s, i, a) =>

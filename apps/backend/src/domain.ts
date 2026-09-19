@@ -46,6 +46,19 @@ export const eventSchema = z
     end: instant.nullable(),
     timezone: z.string().default(CAMPUS_TZ),
     location: z.string().nullable(),
+    onlineUrl: z
+      .string()
+      .url()
+      .refine(
+        (v) =>
+          /^https?:\/\//i.test(v) &&
+          !new URL(v).username &&
+          !new URL(v).password,
+        "Attendance links must be HTTP(S) without credentials",
+      )
+      .nullable()
+      .optional(),
+    isOnline: z.boolean().optional(),
     organizer: z.string().nullable(),
     categories: z.array(z.enum(categories)),
     sources: z.array(sourceSchema).min(1),
@@ -231,7 +244,7 @@ export function eventICS(e: CampusEvent) {
         ]
       : []),
     `SUMMARY:${esc(e.title)}`,
-    `DESCRIPTION:${esc((e.timeTBD ? "Start time is to be confirmed.\n" : "") + e.description + "\nSource: " + e.sources[0].url)}`,
+    `DESCRIPTION:${esc((e.timeTBD ? "Start time is to be confirmed.\n" : "") + e.description + (e.onlineUrl ? "\nJoin online: " + e.onlineUrl : e.isOnline ? "\nOnline attendance; link not supplied." : "") + "\nSource: " + e.sources[0].url)}`,
     ...(e.location ? [`LOCATION:${esc(e.location)}`] : []),
     `URL:${e.sources[0].url}`,
     `STATUS:${e.status === "cancelled" ? "CANCELLED" : "CONFIRMED"}`,

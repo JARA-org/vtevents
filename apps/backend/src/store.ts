@@ -19,6 +19,21 @@ export async function connectDB() {
   db = mongoClient.db(config.db);
   await Promise.all([
     db
+      .collection("discord_collection_refs")
+      .createIndex({ key: 1 }, { unique: true }),
+    db
+      .collection("discord_collected_messages")
+      .createIndex({ key: 1 }, { unique: true }),
+    db
+      .collection("discord_collection_fences")
+      .createIndex({ key: 1 }, { unique: true }),
+    db
+      .collection("discord_collection_locks")
+      .createIndex({ key: 1 }, { unique: true }),
+    db
+      .collection("discord_extraction_budget")
+      .createIndex({ day: 1 }, { unique: true }),
+    db
       .collection("discord_guilds")
       .createIndex({ guildId: 1 }, { unique: true }),
     db.collection("profiles").createIndex({ userId: 1 }, { unique: true }),
