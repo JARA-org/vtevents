@@ -46,3 +46,9 @@
 - ElevenLabs Free10,000credit plan confirmed in dashboard. Created a TTS-only key with8,000credits per refresh period and leak auto-disable. Real provider narration produced270,881bytes of MP3; repeat used cached identical bytes. Authenticated HTTP narration endpoint passed; disposable QA account deleted. Final browser playback inspection remains.
 - Latest suite:23/23 tests passed. New Discord tests cover current-owner-only configuration, cross-server rejection, private/non-announcement channel rejection, non-member rejection, ownership transfer, permission revocation and empty-selection removal. These use mocked Discord provider responses; no real server has been installed/configured yet.
 - Production build and frontend/backend typechecks passed after owner configuration UI/API changes. Follow-up targeted Discord test passed after explicit current-owner identity check.
+
+## Final browser checkpoint
+
+The local Atlas-backed UI completed signup, saved interests, live discovery, grounded Friday-after-five recommendations and ElevenLabs generation. It displayed “Your audio is ready” and the native audio player. Clicking Play crashed the Codex in-app browser tab; the cause is not yet established, so audible playback is NOT claimed verified. The app recovered in a fresh tab, and its disposable browser QA account was deleted through Settings. A standard browser playback check is still required.
+
+Source checkpoint ace873f was pushed to JARA-org/vtevents/main; local and remote SHAs matched. Known credential values were absent from all 56 tracked/untracked source candidates and the built frontend (99 files total). Secrets remain ignored.

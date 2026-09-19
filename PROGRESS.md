@@ -54,3 +54,9 @@ Implement shared scheduling/event model, integration modules and security, front
 - Updated resource inventory and takeover prompt. V1 is not fully deployed; provider setup, auth email recovery/verification and production HTTPS QA remain.
 - Follow-up: ElevenLabs Free plan verified, TTS-only capped key provisioned and real narration/cache/authenticated HTTP endpoint passed. User confirmed age and completed Discord CAPTCHA.
 - User clarified that each Discord server owner configures allowed channels. Replaced global allowlist with current-owner-authorized per-guild settings, student selection and fresh membership/visibility checks. Restricted channels fail closed. Added owner settings UI and meaningful authorization/revocation tests; latest23/23 suite passes.
+
+## Final browser checkpoint
+
+The local Atlas-backed UI completed signup, saved interests, live discovery, grounded Friday-after-five recommendations and ElevenLabs generation. It displayed “Your audio is ready” and the native audio player. Clicking Play crashed the Codex in-app browser tab; the cause is not yet established, so audible playback is NOT claimed verified. The app recovered in a fresh tab, and its disposable browser QA account was deleted through Settings. A standard browser playback check is still required.
+
+Source checkpoint ace873f was pushed to JARA-org/vtevents/main; local and remote SHAs matched. Known credential values were absent from all 56 tracked/untracked source candidates and the built frontend (99 files total). Secrets remain ignored.
