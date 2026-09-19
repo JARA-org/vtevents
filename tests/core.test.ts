@@ -161,6 +161,7 @@ test("cross-source dedup preserves provenance", () => {
   assert.equal(result[0].id, e.id);
 });
 test("classification matches words, not participant or signature substrings", () => {
+  assert.deepEqual(classify("Isidore String Quartet"), ["Arts & music"]);
   assert.deepEqual(
     classify("Participants can bring their signature sandwiches."),
     [],

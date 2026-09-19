@@ -19,7 +19,7 @@ const text = (s: unknown) =>
       : "";
 export function classify(s: string): CampusEvent["categories"] {
   const rules = [
-    /\b(?:arts?|music\w*|danc\w*|paint\w*|film\w*|theat\w*|craft\w*|pottery)\b/i,
+    /\b(?:arts?|music\w*|danc\w*|paint\w*|film\w*|theat\w*|craft\w*|pottery|quartet|orchestra|ensemble|concert|bluegrass|jazz|gallery|exhibit\w*)\b/i,
     /\b(?:sports?|soccer|football|volley\w*|basketball|wrestl\w*)\b/i,
     /\b(?:outdoors?|hike\w*|hiking|trails?|nature|climb\w*)\b/i,
     /\b(?:technology|coding|code|scien\w*|engineer\w*|robot\w*|hack\w*)\b/i,
