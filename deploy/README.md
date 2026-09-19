@@ -6,9 +6,9 @@ The owner requires **$0 beyond promotional credits and a hard cap**, and chose V
 
 ## Current release and operations
 
-- Source: `JARA-org/vtevents`, revision `3b003bb` (team makeover and latest Discord implementation preserved).
-- Release directory: `/opt/vtevents/releases/3b003bb`; `/opt/vtevents/current` is a symlink to it.
-- Image: `my-little-gobbler-app:3b003bb` (also tagged `latest`); app and Caddy use the `my-little-gobbler` Compose project.
+- Source: `JARA-org/vtevents`, revision `55e3420` (team makeover and latest Discord implementation preserved).
+- Release directory: `/opt/vtevents/releases/55e3420`; `/opt/vtevents/current` is a symlink to it.
+- Image: `my-little-gobbler-app:55e3420` (also tagged `latest`); app and Caddy use the `my-little-gobbler` Compose project.
 - Production env: release-root `.env.production`, mode `0600`. Keep auth/encryption/analytics secrets across updates. No secrets in the image or source archive.
 - Key-based SSH is working. The deployment private key and pinned known-hosts file remain in this workstation's ignored `work/`. The root recovery password was rotated after recovery and is stored privately; the original console password is obsolete.
 - Hourly source/calendar refresh and minute analytics retries run in Node. Both public feeds refreshed after restart. Discord collection remains disabled pending configuration.

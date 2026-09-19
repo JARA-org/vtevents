@@ -1,6 +1,12 @@
 # Verification and hackathon walkthrough
 
-## Current production checkpoint — 2026-09-19
+## Final release update — 2026-09-19
+
+Deployed **55e3420** after integrating upstream Discord Gateway/club/publication changes. **50/50 tests**, architecture/contracts and typechecks passed; actual-host production Docker build passed. API fixture now explicitly blanks optional credentials to avoid inheriting real local Google configuration. Production dependency audit: zero vulnerabilities. HTTPS smoke7/7, synthetic Atlas/core/Gemini/deletion and Google OAuth-initiation checks passed after updating. Production frontend59files had zero configured-secret matches; local source/export170files had zero known-secret matches. Earlier3b003bb release/image retained. HTTP->HTTPS and HTTPSwww->root redirects and Gobbler favicon200 verified.
+
+No Google personal connection is yet present. Owner clarified they needed directions; site sign-in page was opened. All synthetic accounts deleted. Real Google sync/write needs that separate personal consent. New Discord code is deployed but disabled/unconfigured.
+
+## Earlier production checkpoint — 2026-09-19
 
 This checkpoint supersedes older local/deployment-pending entries below; those are retained as history.
 
@@ -12,6 +18,8 @@ This checkpoint supersedes older local/deployment-pending entries below; those a
 - Desktop landing inspected at 1280×800; mobile event/calendar flow at 390×844, document width 390. Gobbler favicon link and My Gobbler page title verified. Settings correctly shows Google/Canvas unavailable and Discord collection disabled.
 - App container restart preserved the synthetic account session, onboarded profile and saved event in Atlas. Startup refresh completed again: 2,242 GobblerConnect and 349 VT Sports records (counts include historical events).
 - Runtime is non-root with read-only filesystem, dropped capabilities, rotated logs and internal-only Node port. App log inspection showed only normal startup. Production frontend bundle scanned against configured secrets: 59 files, zero matches.
+- Google configuration follow-up: Calendar API enabled, sole owner test user saved, two scopes declared and exact production callback configured. Env preflight and HTTPS smoke passed after app recreation. Synthetic OAuth-initiation test verified configured status, redirect, PKCE/state and scope set; account deleted. The owner must consent from their own application account before live sync/write testing.
+- Disposable browser account deletion correctly required a fresh login after five minutes; reauthentication and deletion passed. New Gemini still answered successfully after the old key was deleted.
 - Not claimed: whole-host reboot, long-term scheduled execution, real Google/Canvas writes, Discord installation/canonical publication, Databricks live dashboard, or audible browser playback. Email verification/password recovery and Vultr hard spending protection remain unresolved.
 
 

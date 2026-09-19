@@ -1,10 +1,18 @@
+# Final live release — 2026-09-19
+
+Live source **55e3420** at https://vtevents.us, integrating team main7bbfbf9. 50/50tests, typechecks/contracts, actual-host production build and production dependency audit pass (0 vulnerabilities). Fixed API test fixture isolation from local Google credentials. Core live HTTP flow/Gemini/OAuth initiation and HTTPS smoke pass after update; 1,519 current events. Previous3b003bb release retained. All synthetic QA accounts deleted.
+
+Google app/client/API/scopes/test user are configured and secret deployed. Personal calendar connection is NOT complete: zero connections observed, and owner clarified they needed the site sign-in page, now opened. Next: owner signs in to vtevents.us -> Settings -> Google Calendar -> Connect. Canvas, Discord live installation, Databricks and auth recovery remain pending. New upstream Gateway/club/publication code is present but Discord stays disabled. Vultr hard spending protection is still unverified; no additional resources created. See NEXT_AGENT_PROMPT.md.
+
+---
+
 # Latest production checkpoint — 2026-09-19
 
 **Online: https://vtevents.us**, deployed source `3b003bb`. SSH recovered with the new deployment key, root recovery password rotated, Atlas server `/32` activated, replacement Gemini key tested/deployed, Docker app and Caddy HTTPS healthy. No VM was created/reinstalled; existing host reused. `/opt/vtevents/current` points to `/opt/vtevents/releases/3b003bb`.
 
 45 tests/typechecks/contracts pass; production image built on Vultr. Public HTTPS smoke and real account/preferences/live discovery/save/ICS/Gemini/deletion flow pass. Browser desktop/mobile onboarding/details/calendar export and schedule conflict pass. App restart retained session/profile/save and refreshed both official feeds. Production web bundle has zero known-secret matches.
 
-Remaining: Google OAuth setup, VT Canvas developer key, Discord bot credentials/install/collection publication, Databricks authorized ingestion/dashboard, auth email verification/recovery, audible voice QA. Vultr hard spending cap remains unverified under owner's $0-over-credit limit. Old Gemini key was deleted after owner approval; Vultr API key rotation remains a security follow-up. See NEXT_AGENT_PROMPT.md and docs/RESOURCES.md for exact state. Earlier entries below are historical and superseded.
+Google OAuth client/API/testing consent and owner test user are now configured and deployed; production initiation checks pass. Personal consent/live calendar sync/write and public OAuth verification remain. Other remaining work: VT Canvas developer key, Discord bot credentials/install/collection publication, Databricks authorized ingestion/dashboard, auth email verification/recovery, audible voice QA. Vultr hard spending cap remains unverified under owner's $0-over-credit limit. Old Gemini key was deleted after owner approval; Vultr API key rotation remains a security follow-up. See NEXT_AGENT_PROMPT.md and docs/RESOURCES.md for exact state. Earlier entries below are historical and superseded.
 
 ---
 
