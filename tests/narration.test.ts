@@ -1,7 +1,7 @@
+import { testEvents } from "./fixtures/events.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
-import { demoEvents } from "../packages/shared/src/index.js";
 
 test("voice grounding, private-data boundary, caching, budget and failures", async () => {
   const mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
@@ -14,12 +14,9 @@ test("voice grounding, private-data boundary, caching, budget and failures", asy
   delete process.env.ELEVENLABS_VOICE_ID;
   const originalFetch = global.fetch;
   try {
-    assert.throws(
-      () => narrationText(demoEvents().slice(0, 1)),
-      /current campus events/,
-    );
+    assert.throws(() => narrationText([]), /current campus events/);
     const event = {
-      ...demoEvents()[0],
+      ...testEvents()[0],
       mode: "live" as const,
       title: "Public campus concert",
     };

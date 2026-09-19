@@ -11,10 +11,20 @@ import {
   emptyProfile,
   profileSchema,
   eventICS,
-  demoEvents,
-  demoProfile,
   recommendations,
-} from "../../../packages/shared/src/index.js";
+  categories,
+  CAMPUS_TZ,
+} from "./domain.js";
+import type {
+  BootstrapView,
+  DiscoveryView,
+} from "../../../packages/shared/src/contracts.js";
+import {
+  discoverySchema,
+  discoverEvents,
+  availabilitySchema,
+  previewAvailability,
+} from "./discovery.js";
 import { config, HttpError } from "./config.js";
 import { db, database, mongoClient } from "./store.js";
 import { sourceStatus, liveEvents, refreshSources } from "./coordinator.js";
@@ -98,7 +108,7 @@ export function createApp() {
     app.all("/api/auth/*splat", (_q, r) =>
       r.status(503).json({
         message:
-          "Account services are awaiting MongoDB configuration. Try the demo.",
+          "Account services are awaiting MongoDB configuration. Please try again later.",
       }),
     );
   app.use(express.json({ limit: "64kb" }));
@@ -136,6 +146,39 @@ export function createApp() {
       );
     return e;
   };
+  app.get("/api/bootstrap", (_req, res) => {
+    const view: BootstrapView = {
+      contractVersion: 2,
+      categories: [...categories],
+      timezone: CAMPUS_TZ,
+      emptyProfile,
+    };
+    res.json(view);
+  });
+  app.post("/api/profile/validate", protect, (req, res) =>
+    res.json(profileSchema.parse(req.body)),
+  );
+  app.post("/api/availability/preview", protect, (req, res) =>
+    res.json(previewAvailability(availabilitySchema.parse(req.body))),
+  );
+  app.post("/api/discovery", protect, async (req, res) => {
+    const input = discoverySchema.parse(req.body);
+    const id = res.locals.user.id;
+    const [p, saved, feedback] = await Promise.all([
+      withPrivateContext(id, await profile(id)),
+      database().collection("saved").find({ userId: id }).toArray(),
+      database().collection("feedback").find({ userId: id }).toArray(),
+    ]);
+    res.json(
+      discoverEvents(
+        input,
+        liveEvents(),
+        p,
+        saved.map((r) => r.eventId),
+        Object.fromEntries(feedback.map((r) => [r.eventId, r.value])),
+      ),
+    );
+  });
   app.get("/api/health", (_req, res) =>
     res.json({
       ok: true,
@@ -147,43 +190,21 @@ export function createApp() {
       sources: sourceStatus,
     }),
   );
-  app.get("/api/events", (req, res) => {
-    const mode = req.query.mode === "demo" ? "demo" : "live";
-    res.json({
-      mode,
-      events: mode === "demo" ? demoEvents() : liveEvents(),
-      sources: mode === "demo" ? {} : sourceStatus,
-    });
+  app.get("/api/events", protect, (req, res) => {
+    if (req.query.mode && req.query.mode !== "live")
+      throw new HttpError(400, "Unsupported event mode.");
+    res.json({ mode: "live", events: liveEvents(), sources: sourceStatus });
   });
-  app.get("/api/events/:id/ics", (req, res) => {
-    const mode = req.query.mode === "demo";
-    const e = (mode ? demoEvents() : liveEvents()).find(
-      (e) => e.id === req.params.id,
-    );
-    if (!e) throw new HttpError(404, "Event not found.");
+  app.get("/api/events/:id/ics", protect, (req, res) => {
+    if (req.query.mode && req.query.mode !== "live")
+      throw new HttpError(400, "Unsupported event mode.");
+    const e = currentEvent(String(req.params.id));
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="my-little-gobbler-${e.id.replace(/[^a-zA-Z0-9-]/g, "")}.ics"`,
     );
     res.send(eventICS(e));
-  });
-  app.post("/api/demo/assistant", async (req, res) => {
-    const input = z
-      .object({
-        query: z.string().max(1000),
-        profile: profileSchema.optional(),
-      })
-      .parse(req.body);
-    res.json(
-      await askGobbler(
-        input.query,
-        demoEvents(),
-        { ...(input.profile || demoProfile), aiEnabled: false },
-        [],
-        {},
-      ),
-    );
   });
   app.get("/api/me", protect, async (_req, res) => {
     const id = res.locals.user.id;
@@ -297,10 +318,12 @@ export function createApp() {
     rateLimit({ windowMs: 60000, limit: 5 }),
     async (req, res) => {
       const { eventIds } = z
-        .object({ eventIds: z.array(z.string().max(120)).min(1).max(3) })
+        .object({ eventIds: z.array(z.string().max(120)).min(1).max(40) })
         .strict()
         .parse(req.body);
-      const audio = await narrate([...new Set(eventIds)].map(currentEvent));
+      const audio = await narrate(
+        [...new Set(eventIds)].slice(0, 3).map(currentEvent),
+      );
       res.setHeader("Cache-Control", "private, no-store");
       res.type("audio/mpeg").send(audio);
     },

@@ -18,13 +18,13 @@ npm run build
 npm run local
 ```
 
-Open http://localhost:3000. `local` starts a real local MongoDB replica set for development when `MONGODB_URI` is absent. The first run downloads the official MongoDB binary. Development data and generated secrets stay in ignored `work/`. This is **not** Atlas or a production database. Stop with Ctrl+C. The application also runs public discovery and demo mode without a database using `npm run dev`.
+Open http://localhost:3000. `local` starts a real local MongoDB replica set for development when `MONGODB_URI` is absent. The first run downloads the official MongoDB binary. Development data and generated secrets stay in ignored `work/`. This is **not** Atlas or a production database. Stop with Ctrl+C. Event discovery requires a signed-in account and a configured database.
 
 For Atlas, copy `.env.example` to ignored `.env`, fill real backend values securely, and run `npm run dev` or `npm start` after building. Do not retain the example Mongo URI as a real value. `npm run web` starts Expo's development server, but use the same-origin Node server for authentication/integration QA. Mobile store builds are outside V1.
 
 ## What works
 
-- Responsive Expo Router/React Native/TypeScript website, original turkey mascot, landing page and account-free demo.
+- Responsive Expo Router/React Native/TypeScript website, original turkey mascot, landing page and required account sign-in.
 - Better Auth email/password sign-in, persistent profiles, editable interests, recurring availability, one-time busy blocks, saves and feedback.
 - Public event discovery, filters, details, provenance, freshness, cancellation handling and cross-source deduplication.
 - Deterministic recommendations and grounded Gobbler responses. Optional backend-only Gemini interprets questions and ranks up to 40 public event candidates; unknown IDs are rejected, and explanations and schedule facts come from stored records.
@@ -33,7 +33,7 @@ For Atlas, copy `.env.example` to ignored `.env`, fill real backend values secur
 - OAuth connection paths, encrypted credentials/private context, sync/disconnect, account deletion, analytics outbox and refresh job endpoint.
 - Gobbler favicon and optional ElevenLabs narration of up to three stored public event summaries. Authenticated requests, shared audio cache, strict character allowance and explicit playback; no private schedule sent. Live audio and authenticated endpoint verified on the Free plan; TTS-only key capped at 8,000 credits per refresh period.
 
-See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE.md), [resource inventory](docs/RESOURCES.md), and [verification/demo walkthrough](docs/VERIFICATION.md).
+See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE.md), [resource inventory](docs/RESOURCES.md), and [verification walkthrough](docs/VERIFICATION.md).
 
 ## Deploy the full Node application
 
@@ -53,9 +53,15 @@ Do not use `npm run local` in deployment: its database is development-only and R
 
 ## Optional preview publication
 
-The Sites manifest publishes only the Expo export. Generate a dated public snapshot with `npx tsx scripts/snapshot.ts`, then `npx tsx scripts/build-preview.ts`. `EXPO_PUBLIC_PREVIEW_ONLY=true` is a nonsecret feature flag. The banner explicitly identifies the deployment as a preview, accounts/connections are disabled, and snapshot timestamps are shown in Settings and event details. Demo interactions run locally in the browser. Samples never replace a failed live feed.
+The frontend requires the Node backend for authenticated app behavior. Static-only
+previews no longer run matching, fixtures, or calendar generation in the browser.
+Use the full same-origin deployment or a preview host that routes `/api` to the
+backend. The `EXPO_PUBLIC_PREVIEW_ONLY` flag only displays a preview banner; it
+is not a substitute for the backend. Public snapshot files are data artifacts,
+not a client-side business-logic fallback.
 
-For the full production build, use `npm run build` **without** the preview flag. Production APIs remain Node.js; Sites preview does not replace the backend.
+Read [AGENTS.md](AGENTS.md) and [the contract guide](docs/BACKEND_CONTRACTS.md)
+before changing application interfaces.
 
 ## Checks
 
@@ -74,7 +80,7 @@ Tests use an isolated disposable MongoDB replica set, synthetic accounts and moc
 - Shared public event records contain no personal calendar or Discord data. Every private API derives its owner from the authenticated session.
 - Gemini receives opted-in typed questions, selected interest categories, and bounded public event text. Calendar contents, user identity, saves, credentials and Discord content are excluded. Its free-tier terms may allow use of prompts for product improvement; this is disclosed before opt-in. Requests have a unique daily budget record and SDK retries are disabled.
 - Analytics contains pseudonymous IDs, event IDs, action types and timestamps. No raw calendar text, messages or tokens. Failures queue for bounded retries and do not break the app.
-- The demo stores only sample preferences/saves in browser local storage. Public source links always lead to the original listing.
+- Demo mode and its browser storage have been removed. Public source links lead to the original listing.
 - Account deletion removes account data and credentials and queues remote analytics erasure. A pseudonymous suppression marker is retained to prevent delayed analytics writes from restoring erased activity; erasure retries during outages. Calendar events already written to external services remain in those services. Disconnect attempts token revocation and reports if manual provider revocation is still needed.
 
 Production launch remains gated on cost-safe Vultr hosting, credential rotation, remaining provider testing, campus/server approvals where needed, and final deployed verification. Email verification and password recovery are also still pending before a broad public launch.

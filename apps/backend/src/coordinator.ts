@@ -1,4 +1,4 @@
-import { CampusEvent } from "../../../packages/shared/src/index.js";
+import { CampusEvent } from "./domain.js";
 import { db, mongoClient } from "./store.js";
 import { fetchGobbler, fetchSports, deduplicate } from "./sources.js";
 import { hash } from "./security.js";

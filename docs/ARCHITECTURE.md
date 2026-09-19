@@ -14,7 +14,7 @@ Node.js / Express / TypeScript
         + outbox ---------- Databricks Statement Execution API
 ```
 
-`apps/frontend` contains Expo UI; `apps/backend/src` contains the modular Node backend; `packages/shared/src` contains Zod schemas, scheduling logic, ICS generation, and explicitly separate demo fixtures.
+`apps/frontend` contains Expo UI; `apps/backend/src` contains the modular Node backend; `packages/shared/src/contracts.ts` contains type-only boundary contracts. `apps/backend/src/domain.ts` owns runtime validation, scheduling, and ICS generation. The frontend uses the typed HTTP client and renders backend-produced discovery results, after account sign-in.
 
 Collections: public `events` and `source_snapshots`; private `profiles`, `saved`, `feedback`, `connections`, `private_context`, `calendar_writes`, `oauth_states`; operational `outbox`, `analytics_deletions`, `ai_budget`, `voice_budget`, `voice_cache`, `voice_locks`; Better Auth's `user`, `session`, `account`, `verification`. Unique indexes enforce user/event write identity and one AI budget counter per UTC day. OAuth state expires through both query checks and a Mongo TTL index.
 
@@ -33,3 +33,4 @@ Optional ElevenLabs narration accepts only current stored public event IDs. Code
 The selected deployment is one Node container behind Caddy HTTPS on Vultr, packaged in deploy/compose.yaml. Atlas remains external. No instance is running: the owner's zero-over-credit hard-cap requirement is not met by the observed Vultr limits, and free-compute approval is pending. In-process jobs will run continuously while the selected host is up; Mongo preserves retry state across restarts.
 
 Server approval lives in discord_guilds, keyed uniquely by guild ID. Only the current Discord owner can edit it through Settings; the backend checks both OAuth owner metadata and Discord identity against the bot's guild owner ID. Reads check current membership, ownership continuity and channel visibility. V1 excludes restricted channels by requiring everyone-role View Channel and rejecting any view-denying overwrite. Each student also selects approved channels. Cached private context is filtered against fresh authorization before delivery, and changes clear cached Discord announcements.
+See `docs/BACKEND_CONTRACTS.md` for interface ownership, compatibility, and enforcement.

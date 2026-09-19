@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -9,26 +9,38 @@ import {
   StyleSheet,
   useWindowDimensions,
   Linking,
+  Share,
   ActivityIndicator,
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import {
+import type {
   CampusEvent,
   Profile,
-  categories,
-  emptyProfile,
-  demoProfile,
-  demoEvents,
-  recommendations,
-  scheduleFit,
-  eventICS,
-  CAMPUS_TZ,
-  questionFilter,
-  filterQuestion,
+  Category,
+  DiscoveryView,
+  Recommendation,
+  ConnectionView,
+  PrivateContextView,
+  DiscordChannel,
+  AssistantReply,
+  UserSummary,
+  SourceHealth,
+  HealthView,
+  DiscordGuild,
 } from "@gobbler/shared";
+import { backend } from "../services/backend";
+// Blank UI form state only; domain defaults are returned by bootstrap.
+const blankProfile: Profile = {
+  name: "",
+  interests: [],
+  recurring: [],
+  busy: [],
+  onboarded: false,
+  aiEnabled: false,
+};
+const CAMPUS_TZ = "America/New_York"; // presentation formatting only
 import { DateTime } from "luxon";
-
 const C = {
   ink: "#30232B",
   muted: "#746770",
@@ -57,11 +69,10 @@ const eventTime = (e: CampusEvent) =>
       : date(e.start);
 const date = (s: string, fmt = "ccc, LLL d · h:mm a") =>
   DateTime.fromISO(s).setZone(CAMPUS_TZ).toFormat(fmt);
-const PREVIEW = process.env.EXPO_PUBLIC_PREVIEW_ONLY === "true";
 function DiscordOwnerSettings() {
-  const [guilds, setGuilds] = useState<any[] | null>(null),
-    [guild, setGuild] = useState<any>(null),
-    [channels, setChannels] = useState<any[]>([]),
+  const [guilds, setGuilds] = useState<DiscordGuild[] | null>(null),
+    [guild, setGuild] = useState<DiscordGuild | null>(null),
+    [channels, setChannels] = useState<DiscordChannel[]>([]),
     [selected, setSelected] = useState<string[]>([]),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
@@ -90,7 +101,9 @@ function DiscordOwnerSettings() {
         label={busy ? "Loading…" : "Manage my servers"}
         onPress={() =>
           action(async () => {
-            setGuilds((await api("/discord/owned-servers")).guilds);
+            setGuilds(
+              (await backend.listOwnedDiscordServers(undefined)).guilds,
+            );
             setGuild(null);
           })
         }
@@ -108,7 +121,7 @@ function DiscordOwnerSettings() {
           label={g.name}
           onPress={() =>
             action(async () => {
-              const result = await api("/discord/servers/" + g.id);
+              const result = await backend.getDiscordServer({ guildId: g.id });
               setGuild(g);
               setChannels(result.channels);
               setSelected(result.selected);
@@ -148,11 +161,10 @@ function DiscordOwnerSettings() {
             label="Save server channels"
             onPress={() =>
               action(async () => {
-                await api(
-                  "/discord/servers/" + guild.id,
-                  { channels: selected },
-                  "PUT",
-                );
+                await backend.configureDiscordServer({
+                  guildId: guild.id,
+                  channels: selected,
+                });
                 setNotice(
                   "Server choices saved. Students can now choose approved channels.",
                 );
@@ -169,12 +181,11 @@ function DiscordOwnerSettings() {
     </View>
   );
 }
-
 function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
   const [audioUrl, setAudioUrl] = useState(""),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
-  const selection = ids.slice(0, 3).join("|");
+  const selection = ids.join("|");
   useEffect(() => {
     setAudioUrl("");
     setNotice("");
@@ -197,17 +208,12 @@ function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
           setBusy(true);
           setNotice("");
           try {
-            const r = await fetch("/api/narration", {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ eventIds: ids.slice(0, 3) }),
-            });
-            if (!r.ok) {
-              const error = await r.json();
-              throw new Error(error.message || "Voice is unavailable.");
-            }
-            setAudioUrl(URL.createObjectURL(await r.blob()));
+            const audio = await backend.narrate({ eventIds: ids });
+            setAudioUrl(
+              URL.createObjectURL(
+                new Blob([audio.bytes], { type: audio.contentType }),
+              ),
+            );
             setNotice("Your audio is ready. Press play to listen.");
           } catch (e) {
             setNotice(
@@ -223,7 +229,7 @@ function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
       <Text style={s.meta}>
         {enabled
           ? "Reads the first three public event summaries using ElevenLabs. Your question and private schedule are not sent."
-          : "ElevenLabs narration is available for signed-in students when the voice service is connected. The demo stays separate."}
+          : "ElevenLabs narration is available for signed-in students when the voice service is connected."}
       </Text>
       {!!notice && (
         <Text accessibilityLiveRegion="polite" style={s.meta}>
@@ -247,34 +253,6 @@ function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
     </View>
   );
 }
-async function api(path: string, body?: any, method?: string) {
-  if (PREVIEW) {
-    if (path === "/health") return { accounts: false, gemini: false };
-    if (path.startsWith("/events?")) {
-      if (path.includes("mode=demo"))
-        return { mode: "demo", events: demoEvents(), sources: {} };
-      const snapshot = await fetch("/campus-events.json");
-      if (!snapshot.ok)
-        throw new Error(
-          "Public event snapshot is unavailable. The sample demo is still available.",
-        );
-      return snapshot.json();
-    }
-    throw new Error(
-      "Accounts and connections are not enabled on this preview deployment.",
-    );
-  }
-  const r = await fetch("/api" + path, {
-    credentials: "include",
-    method: method || (body ? "POST" : "GET"),
-    headers: body ? { "Content-Type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await r.json();
-  if (!r.ok)
-    throw new Error(data.message || "Could not complete that request.");
-  return data;
-}
 function Button({
   label,
   onPress,
@@ -286,7 +264,7 @@ function Button({
   onPress: () => void;
   secondary?: boolean;
   disabled?: boolean;
-  icon?: any;
+  icon?: React.ComponentProps<typeof Ionicons>["name"];
 }) {
   return (
     <Pressable
@@ -379,9 +357,10 @@ export default function Home() {
     mobile = width < 800;
   const impressions = useRef(new Set<string>());
   const [page, setPage] = useState<Page>("landing"),
-    [mode, setMode] = useState<"demo" | "live">("live"),
-    [user, setUser] = useState<any>(null),
-    [profile, setProfile] = useState<Profile>(emptyProfile),
+    [user, setUser] = useState<UserSummary | null>(null),
+    [profile, setProfile] = useState<Profile>(blankProfile),
+    [emptyProfile, setEmptyProfile] = useState<Profile>(blankProfile),
+    [categories, setCategories] = useState<Category[]>([]),
     [events, setEvents] = useState<CampusEvent[]>([]),
     [saved, setSaved] = useState<string[]>([]),
     [feedback, setFeedback] = useState<Record<string, number>>({}),
@@ -394,14 +373,14 @@ export default function Home() {
     [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
-    [connections, setConnections] = useState<any[]>([]),
-    [sources, setSources] = useState<any>({}),
-    [health, setHealth] = useState<any>({}),
+    [connections, setConnections] = useState<ConnectionView[]>([]),
+    [sources, setSources] = useState<Record<string, SourceHealth>>({}),
+    [health, setHealth] = useState<Partial<HealthView>>({}),
     [query, setQuery] = useState(""),
-    [answer, setAnswer] = useState<any>(null),
+    [answer, setAnswer] = useState<AssistantReply | null>(null),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
-    [signUp, setSignUp] = useState(true),
+    [signUp, setSignUp] = useState(false),
     [name, setName] = useState(""),
     [weekday, setWeekday] = useState(1),
     [blockStart, setBlockStart] = useState("17:00"),
@@ -411,9 +390,14 @@ export default function Home() {
       DateTime.now().setZone(CAMPUS_TZ).toISODate()!,
     ),
     [deleteText, setDeleteText] = useState(""),
-    [privateContext, setPrivateContext] = useState<any[]>([]),
-    [discordChannels, setDiscordChannels] = useState<any[]>([]),
-    [rankedLive, setRankedLive] = useState<any[] | null>(null);
+    [privateContext, setPrivateContext] = useState<PrivateContextView[]>([]),
+    [discordChannels, setDiscordChannels] = useState<DiscordChannel[]>([]),
+    [discovery, setDiscovery] = useState<DiscoveryView>({
+      recommendations: [],
+      filtered: [],
+      savedRecommendations: [],
+      schedule: [],
+    });
   const notify = (m: string) => {
     setToast(m);
     setTimeout(() => setToast(""), 5000);
@@ -442,16 +426,16 @@ export default function Home() {
       document.title = `${p === "landing" ? "Your little guide to campus life" : p.charAt(0).toUpperCase() + p.slice(1)} · My Little Gobbler`;
     }
   };
-  const loadEvents = async (m: string) => {
-    const data =
-      m === "demo"
-        ? { events: demoEvents(), sources: {} }
-        : await api("/events?mode=" + m);
+  useEffect(() => {
+    if (!user && page !== "landing" && page !== "auth") setPage("auth");
+  }, [user, page]);
+  const loadEvents = async () => {
+    const data = await backend.listEvents({ mode: "live" });
     setEvents(data.events);
     setSources(data.sources);
   };
   const loadMe = async () => {
-    const me = await api("/me");
+    const me = await backend.getAccount(undefined);
     setUser(me.user);
     setProfile(me.profile);
     setSaved(me.saved);
@@ -459,10 +443,23 @@ export default function Home() {
     return me;
   };
   useEffect(() => {
-    api("/health")
+    backend
+      .bootstrap(undefined)
+      .then((data) => {
+        setEmptyProfile(data.emptyProfile);
+        setCategories(data.categories);
+      })
+      .catch(() =>
+        setError(
+          "The backend is unavailable. Start the backend to use this app.",
+        ),
+      );
+    backend
+      .health(undefined)
       .then(setHealth)
       .catch(() => {});
-    api("/me")
+    backend
+      .getAccount(undefined)
       .then((me) => {
         setUser(me.user);
         setProfile(me.profile);
@@ -480,109 +477,104 @@ export default function Home() {
       .catch(() => {});
   }, []);
   useEffect(() => {
-    if (page !== "landing" && page !== "auth") void run(() => loadEvents(mode));
-  }, [mode, page === "landing", page === "auth"]);
+    if (user && page !== "landing" && page !== "auth")
+      void run(() => loadEvents());
+  }, [user, page === "landing", page === "auth"]);
   useEffect(() => {
-    if (mode === "demo") {
-      try {
-        const p = localStorage.getItem("gobbler-demo-profile"),
-          sv = localStorage.getItem("gobbler-demo-saved");
-        setProfile(p ? JSON.parse(p) : demoProfile);
-        setSaved(sv ? JSON.parse(sv) : []);
-      } catch {
-        setProfile(demoProfile);
-      }
-    }
-  }, [mode]);
+    if (!user) return;
+    let active = true;
+    setDiscovery({
+      recommendations: [],
+      filtered: [],
+      savedRecommendations: [],
+      schedule: [],
+    });
+    const timer = setTimeout(() => {
+      backend
+        .discover({
+          search,
+          category: category as Category | "All interests",
+          dateFilter: dateFilter as
+            "Any day" | "Today" | "This week" | "Weekend",
+        })
+        .then((view) => {
+          if (active) setDiscovery(view);
+        })
+        .catch((e: Error) => {
+          if (active) {
+            setDiscovery({
+              recommendations: [],
+              filtered: [],
+              savedRecommendations: [],
+              schedule: [],
+            });
+            setError(e.message);
+          }
+        });
+    }, 150);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [
+    page,
+    profile,
+    saved,
+    feedback,
+    user,
+    events,
+    search,
+    category,
+    dateFilter,
+  ]);
   useEffect(() => {
-    if (mode === "demo") {
-      try {
-        localStorage.setItem("gobbler-demo-profile", JSON.stringify(profile));
-        localStorage.setItem("gobbler-demo-saved", JSON.stringify(saved));
-      } catch {}
-    }
-  }, [profile, saved]);
-  useEffect(() => {
-    if (
-      user &&
-      mode === "live" &&
-      ["discover", "schedule", "saved"].includes(page)
-    )
-      api("/recommendations")
-        .then((x) => setRankedLive(x.recommendations))
-        .catch(() => setRankedLive(null));
-  }, [page, profile, saved, feedback, user, mode, events]);
-  useEffect(() => {
-    if (page === "settings" && mode === "live" && user) {
+    if (page === "settings" && user) {
       void run(async () => {
-        const d = await api("/connections");
+        const d = await backend.listConnections(undefined);
         setConnections(d.connections);
         setSources(d.sources);
-        setPrivateContext(await api("/private-context"));
+        setPrivateContext(await backend.getPrivateContext(undefined));
       });
     }
   }, [page]);
-  const ranked = useMemo(
-    () =>
-      mode === "live" && rankedLive
-        ? rankedLive
-        : recommendations(events, profile, saved, feedback),
-    [events, profile, saved, feedback, rankedLive, mode],
-  );
-  const filtered = ranked.filter(({ event: e }: any) => {
-    const start = DateTime.fromISO(e.start).setZone(CAMPUS_TZ),
-      now = DateTime.now().setZone(CAMPUS_TZ);
-    return (
-      (!search ||
-        (e.title + " " + e.description + " " + e.location)
-          .toLowerCase()
-          .includes(search.toLowerCase())) &&
-      (category === "All interests" || e.categories.includes(category)) &&
-      (dateFilter === "Any day" ||
-        (dateFilter === "Today" && start.hasSame(now, "day")) ||
-        (dateFilter === "This week" && start <= now.plus({ days: 7 })) ||
-        (dateFilter === "Weekend" && start.weekday >= 6))
-    );
-  });
+  const ranked = discovery.recommendations;
+  const filtered = discovery.filtered;
   useEffect(() => {
-    if (mode === "live" && user && page === "discover")
+    if (user && page === "discover")
       for (const item of filtered.slice(0, 10)) {
         if (!impressions.current.has(item.event.id)) {
           impressions.current.add(item.event.id);
-          api("/analytics", {
-            kind: "recommendation_impression",
-            eventId: item.event.id,
-          }).catch(() => {});
+          backend
+            .track({
+              kind: "recommendation_impression",
+              eventId: item.event.id,
+            })
+            .catch(() => {});
         }
       }
-  }, [events, page, mode, user, category, dateFilter]);
+  }, [filtered, page, user]);
   const saveProfile = (p: Profile) =>
     run(async () => {
-      if (mode === "live") {
+      {
         if (!user) throw new Error("Sign in to save your preferences.");
-        await api("/profile", p, "PUT");
+        p = await backend.updateProfile(p);
       }
       setProfile(p);
       notify("Preferences saved.");
     });
-  const enterDemo = () => {
-    setMode("demo");
-    setProfile(demoProfile);
-    setEvents(demoEvents());
-    setRankedLive(null);
-    go("discover");
-  };
   const toggleSave = (e: CampusEvent) =>
     run(async () => {
       const next = !saved.includes(e.id);
-      if (mode === "live") {
+      {
         if (!user) {
           go("auth");
           return;
         }
-        await api("/saved/" + e.id, { saved: next }, "PUT");
+        const result = await backend.setSaved({ eventId: e.id, saved: next });
+        setSaved(
+          result.saved ? [...saved, e.id] : saved.filter((x) => x !== e.id),
+        );
       }
-      setSaved(next ? [...saved, e.id] : saved.filter((x) => x !== e.id));
       notify(
         next ? "Saved to your little list." : "Removed from saved events.",
       );
@@ -590,31 +582,35 @@ export default function Home() {
   const viewEvent = (e: CampusEvent) => {
     setSelected(e);
     setCalendar(false);
-    if (user && mode === "live")
-      api("/analytics", { kind: "event_view", eventId: e.id }).catch(() => {});
+    if (user)
+      backend.track({ kind: "event_view", eventId: e.id }).catch(() => {});
   };
-  const download = (e: CampusEvent) => {
-    if (Platform.OS === "web") {
-      const url = URL.createObjectURL(
-        new Blob([eventICS(e)], { type: "text/calendar;charset=utf-8" }),
-      );
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `my-little-gobbler-${e.id}.ics`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-      notify(
-        "Calendar download started. Open the file in your calendar to finish.",
-      );
-    } else Linking.openURL("/api/events/" + e.id + "/ics?mode=" + mode);
-  };
+  const download = (e: CampusEvent) =>
+    run(async () => {
+      const calendarText = await backend.exportCalendar({
+        eventId: e.id,
+      });
+      if (Platform.OS === "web") {
+        const url = URL.createObjectURL(
+          new Blob([calendarText], { type: "text/calendar;charset=utf-8" }),
+        );
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `my-little-gobbler-${e.id}.ics`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        notify(
+          "Calendar download started. Open the file in your calendar to finish.",
+        );
+      } else await Share.share({ message: calendarText, title: e.title });
+    });
   function EventCard({
     item,
     compact = false,
   }: {
-    item: any;
+    item: Recommendation;
     compact?: boolean;
   }) {
     const { event: e, fit, reason } = item;
@@ -708,11 +704,9 @@ export default function Home() {
           ]}
         >
           <Text style={s.small}>
-            {mode === "demo"
-              ? "SAMPLE EVENT"
-              : e.sources[0].source === "gobblerconnect"
-                ? "GobblerConnect"
-                : "VT Sports"}
+            {e.sources[0].source === "gobblerconnect"
+              ? "GobblerConnect"
+              : "VT Sports"}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -736,48 +730,32 @@ export default function Home() {
     );
   }
   const addBlock = () => {
-    if (
-      !/^([01]\d|2[0-3]):[0-5]\d$/.test(blockStart) ||
-      !/^([01]\d|2[0-3]):[0-5]\d$/.test(blockEnd) ||
-      blockStart >= blockEnd
-    ) {
-      setError("Use HH:mm times with the end after the start.");
-      return;
-    }
-    void saveProfile({
-      ...profile,
-      recurring: [
-        ...profile.recurring,
-        {
-          id: Date.now().toString(),
+    void run(async () => {
+      const draft = await backend.previewAvailability({
+        profile,
+        block: {
+          kind: "recurring",
           weekday,
           start: blockStart,
           end: blockEnd,
-          kind: blockKind,
+          availability: blockKind,
         },
-      ],
+      });
+      await saveProfile(draft);
     });
   };
   const busyBlock = () => {
-    const start = DateTime.fromISO(busyDate + "T" + blockStart, {
-        zone: CAMPUS_TZ,
-      }),
-      end = DateTime.fromISO(busyDate + "T" + blockEnd, { zone: CAMPUS_TZ });
-    if (!start.isValid || !end.isValid || end <= start) {
-      setError("Enter a valid date and time range.");
-      return;
-    }
-    void saveProfile({
-      ...profile,
-      busy: [
-        ...profile.busy,
-        {
-          id: Date.now().toString(),
-          start: start.toUTC().toISO()!,
-          end: end.toUTC().toISO()!,
-          source: "manual",
+    void run(async () => {
+      const draft = await backend.previewAvailability({
+        profile,
+        block: {
+          kind: "dated",
+          date: busyDate,
+          start: blockStart,
+          end: blockEnd,
         },
-      ],
+      });
+      await saveProfile(draft);
     });
   };
   const availabilityEditor = (
@@ -924,57 +902,21 @@ export default function Home() {
           )}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={
-              user || mode === "demo" ? "Settings" : "Sign in"
-            }
+            accessibilityLabel={user ? "Settings" : "Sign in"}
             onPress={() => {
-              if (!user && mode !== "demo") setSignUp(false);
-              go(user || mode === "demo" ? "settings" : "auth");
+              if (!user) setSignUp(false);
+              go(user ? "settings" : "auth");
             }}
             style={s.avatar}
           >
             <Ionicons
-              name={
-                user || mode === "demo" ? "settings-outline" : "person-outline"
-              }
+              name={user ? "settings-outline" : "person-outline"}
               size={22}
               color={C.maroon}
             />
           </Pressable>
         </View>
-        {PREVIEW && (
-          <View style={s.demoBanner}>
-            <Text style={s.meta}>
-              PREVIEW · Demo is ready. Public listings are dated snapshots;
-              accounts and connected services await production setup.
-            </Text>
-          </View>
-        )}
-        {mode === "demo" && page !== "landing" && (
-          <View style={s.demoBanner}>
-            <Text style={[s.small, { flex: 1 }]}>
-              DEMO MODE · Sample events and availability. Your accounts stay
-              private.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setMode("live");
-                setProfile(emptyProfile);
-                setSaved([]);
-                setRankedLive(null);
-                if (user)
-                  void run(async () => {
-                    await loadMe();
-                    await loadEvents("live");
-                  });
-                go("discover");
-              }}
-            >
-              <Text style={s.linkText}>View live events →</Text>
-            </Pressable>
-          </View>
-        )}
+
         {mobile && page !== "landing" && page !== "auth" && (
           <View
             style={[
@@ -1064,22 +1006,25 @@ export default function Home() {
                   </Text>
                   <View style={s.wrap}>
                     <Button
-                      label="Take Gobbler for a spin"
+                      label="Sign in"
                       icon="sparkles-outline"
-                      onPress={enterDemo}
+                      onPress={() => {
+                        setSignUp(false);
+                        go("auth");
+                      }}
                     />
                     <Button
                       label="Create your account"
                       secondary
                       onPress={() => {
-                        setMode("live");
                         setSignUp(true);
                         go("auth");
                       }}
                     />
                   </View>
                   <Text style={s.meta}>
-                    No account needed for the demo. Just a little curiosity.
+                    Sign in to discover events, save favorites, and connect your
+                    calendar.
                   </Text>
                 </View>
                 <View
@@ -1144,10 +1089,9 @@ export default function Home() {
                   Campus is happening. Find your part in it.
                 </Text>
                 <Button
-                  label="Explore live events"
+                  label="Sign in to explore events"
                   secondary
                   onPress={() => {
-                    setMode("live");
                     go("discover");
                   }}
                 />
@@ -1190,17 +1134,13 @@ export default function Home() {
                 disabled={loading}
                 onPress={() =>
                   run(async () => {
-                    await api(
-                      signUp ? "/auth/sign-up/email" : "/auth/sign-in/email",
-                      {
-                        email,
-                        password,
-                        ...(signUp ? { name } : {}),
-                        callbackURL: "/",
-                      },
-                    );
+                    await (signUp ? backend.signUp : backend.signIn)({
+                      email,
+                      password,
+                      name,
+                      callbackURL: "/",
+                    });
                     setPassword("");
-                    setMode("live");
                     const me = await loadMe();
                     go(me.profile.onboarded ? "discover" : "onboarding");
                   })
@@ -1215,20 +1155,14 @@ export default function Home() {
                 }
                 onPress={() => setSignUp(!signUp)}
               />
-              <Button
-                secondary
-                label="Try the demo instead"
-                onPress={enterDemo}
-              />
               {!health.accounts && (
                 <Text style={s.meta}>
-                  Account setup is awaiting the project database. The demo and
-                  public listings are available.
+                  Sign-in is temporarily unavailable. Please try again later.
                 </Text>
               )}
             </View>
           )}
-          {page === "onboarding" && (
+          {user && page === "onboarding" && (
             <View
               style={{
                 gap: 24,
@@ -1266,8 +1200,8 @@ export default function Home() {
                 label="Find my campus moments"
                 onPress={() =>
                   run(async () => {
-                    const p = { ...profile, onboarded: true };
-                    if (mode === "live") await api("/profile", p, "PUT");
+                    let p = { ...profile, onboarded: true };
+                    p = await backend.updateProfile(p);
                     setProfile(p);
                     go("discover");
                   })
@@ -1275,14 +1209,12 @@ export default function Home() {
               />
             </View>
           )}
-          {page === "discover" && !selected && (
+          {user && page === "discover" && !selected && (
             <>
               <View style={[s.welcome, mobile && { padding: 22 }]}>
                 <View style={{ flex: 1, gap: 12 }}>
                   <Text style={s.eyebrowText}>
-                    {mode === "demo"
-                      ? "A LITTLE TASTE OF CAMPUS LIFE"
-                      : "YOUR CAMPUS, YOUR KIND OF DAY"}
+                    {"YOUR CAMPUS, YOUR KIND OF DAY"}
                   </Text>
                   <Text
                     accessibilityRole="header"
@@ -1297,9 +1229,7 @@ export default function Home() {
                   </Text>
                   <Pressable
                     accessibilityRole="button"
-                    onPress={() =>
-                      go(user || mode === "demo" ? "onboarding" : "auth")
-                    }
+                    onPress={() => go(user ? "onboarding" : "auth")}
                   >
                     <Text style={s.linkText}>
                       {profile.onboarded
@@ -1323,9 +1253,7 @@ export default function Home() {
                 <View>
                   <Text style={s.sectionTitle}>Your next campus moment</Text>
                   <Text style={[s.meta, { marginTop: 7 }]}>
-                    {mode === "demo"
-                      ? "Sample picks for a full, account-free tour."
-                      : "Real campus listings, with room to explore."}
+                    {"Real campus listings, with room to explore."}
                   </Text>
                 </View>
                 <Text style={s.meta}>
@@ -1383,12 +1311,12 @@ export default function Home() {
                   <Button
                     secondary
                     label="Refresh events"
-                    onPress={() => run(() => loadEvents(mode))}
+                    onPress={() => run(() => loadEvents())}
                   />
                 </View>
               )}
               <View style={s.eventGrid}>
-                {filtered.slice(0, 60).map((item: any) => (
+                {filtered.slice(0, 60).map((item) => (
                   <EventCard key={item.event.id} item={item} />
                 ))}
               </View>
@@ -1420,9 +1348,7 @@ export default function Home() {
               </Pressable>
               <View style={s.panel}>
                 <Text style={s.eyebrowText}>
-                  {mode === "demo"
-                    ? "SAMPLE EVENT"
-                    : selected.sources[0].source.toUpperCase()}
+                  {selected.sources[0].source.toUpperCase()}
                 </Text>
                 <Text accessibilityRole="header" style={s.pageTitle}>
                   {selected.title}
@@ -1446,15 +1372,14 @@ export default function Home() {
                 <View style={s.fit}>
                   <Text style={s.body}>
                     {ranked.find((x) => x.event.id === selected.id)?.reason ||
-                      scheduleFit(selected, profile).reason}
+                      "Schedule information is unavailable. Please refresh."}
                   </Text>
                 </View>
                 <Text style={s.meta}>
                   Source timezone: {selected.timezone} · Last checked{" "}
                   {date(selected.sources[0].fetchedAt)}
                 </Text>
-                {Date.now() - Date.parse(selected.sources[0].fetchedAt) >
-                  86400000 && (
+                {selected.stale && (
                   <Text style={{ color: C.orange }}>
                     This listing is stale. Confirm details at the source.
                   </Text>
@@ -1492,12 +1417,12 @@ export default function Home() {
                       key={value}
                       onPress={() =>
                         run(async () => {
-                          if (mode === "live") {
+                          {
                             if (!user)
                               throw new Error("Sign in to share feedback.");
-                            await api("/feedback", {
+                            await backend.submitFeedback({
                               eventId: selected.id,
-                              value,
+                              value: value as -1 | 1,
                             });
                           }
                           setFeedback({ ...feedback, [selected.id]: value });
@@ -1535,19 +1460,18 @@ export default function Home() {
                       active={destination === "ics"}
                       onPress={() => setDestination("ics")}
                     />
-                    {mode === "live" &&
-                      ["google", "canvas"].map((p) => (
-                        <Chip
-                          key={p}
-                          label={
-                            p === "google"
-                              ? "Google · primary calendar"
-                              : "Canvas · personal calendar"
-                          }
-                          active={destination === p}
-                          onPress={() => setDestination(p)}
-                        />
-                      ))}
+                    {["google", "canvas"].map((p) => (
+                      <Chip
+                        key={p}
+                        label={
+                          p === "google"
+                            ? "Google · primary calendar"
+                            : "Canvas · personal calendar"
+                        }
+                        active={destination === p}
+                        onPress={() => setDestination(p)}
+                      />
+                    ))}
                   </View>
                   <Text style={s.meta}>
                     {destination === "ics"
@@ -1565,9 +1489,9 @@ export default function Home() {
                       destination === "ics"
                         ? download(selected)
                         : run(async () => {
-                            await api("/calendar", {
+                            await backend.addCalendar({
                               eventId: selected.id,
-                              destination,
+                              destination: destination as "google" | "canvas",
                               confirmed: true,
                             });
                             notify("Event added to your calendar.");
@@ -1579,7 +1503,7 @@ export default function Home() {
               )}
             </View>
           )}
-          {page === "saved" && !selected && (
+          {user && page === "saved" && !selected && (
             <>
               <Text style={s.eyebrowText}>KEEP THE GOOD ONES CLOSE</Text>
               <Text accessibilityRole="header" style={s.pageTitle}>
@@ -1602,11 +1526,9 @@ export default function Home() {
                 </View>
               )}
               <View style={s.eventGrid}>
-                {ranked
-                  .filter((x) => saved.includes(x.event.id))
-                  .map((item) => (
-                    <EventCard key={item.event.id} item={item} />
-                  ))}
+                {discovery.savedRecommendations.map((item) => (
+                  <EventCard key={item.event.id} item={item} />
+                ))}
               </View>
               {saved.some((id) => !events.some((e) => e.id === id)) && (
                 <Text style={s.meta}>
@@ -1616,7 +1538,7 @@ export default function Home() {
               )}
             </>
           )}
-          {page === "schedule" && !selected && (
+          {user && page === "schedule" && !selected && (
             <>
               <Text style={s.eyebrowText}>
                 A LITTLE ROOM FOR SOMETHING GOOD
@@ -1631,12 +1553,9 @@ export default function Home() {
               </Text>
               <View style={[s.columns, mobile && { flexDirection: "column" }]}>
                 <View style={{ flex: 1, gap: 16 }}>
-                  {ranked
-                    .filter((x) => saved.includes(x.event.id))
-                    .sort((a, b) => a.event.start.localeCompare(b.event.start))
-                    .map((item) => (
-                      <EventCard key={item.event.id} item={item} compact />
-                    ))}
+                  {discovery.schedule.map((item) => (
+                    <EventCard key={item.event.id} item={item} compact />
+                  ))}
                   {!saved.length && (
                     <View style={s.panel}>
                       <Text style={s.body}>
@@ -1654,7 +1573,7 @@ export default function Home() {
               </View>
             </>
           )}
-          {page === "gobbler" && !selected && (
+          {user && page === "gobbler" && !selected && (
             <>
               <View
                 style={{ alignItems: "center", gap: 14, paddingVertical: 20 }}
@@ -1692,35 +1611,18 @@ export default function Home() {
                   disabled={loading || !query.trim()}
                   onPress={() =>
                     run(async () => {
-                      if (mode === "live" && !user) {
+                      if (!user) {
                         go("auth");
                         return;
                       }
-                      if (mode === "demo") {
-                        const matches = recommendations(
-                          filterQuestion(events, questionFilter(query)),
-                          profile,
-                          saved,
-                          feedback,
-                        ).slice(0, 8);
-                        setAnswer({
-                          answer: matches.length
-                            ? `I found ${matches.length} sample options for you.`
-                            : "No sample events match that request. Try another day or interest.",
-                          notice:
-                            "Demo Gobbler uses deterministic matching with sample events.",
-                          recommendations: matches,
-                        });
-                      } else setAnswer(await api("/assistant", { query }));
+                      setAnswer(await backend.askAssistant({ query }));
                     })
                   }
                 />
                 <Text style={s.meta}>
-                  {mode === "demo"
-                    ? "Demo Gobbler uses sample events and deterministic matching."
-                    : profile.aiEnabled
-                      ? "Gemini can match your question to campus events. Schedule checks and explanations come from app records."
-                      : "Gobbler uses deterministic matching. Enable Gemini in Settings to interpret more natural questions."}
+                  {profile.aiEnabled
+                    ? "Gemini can match your question to campus events. Schedule checks and explanations come from app records."
+                    : "Gobbler uses deterministic matching. Enable Gemini in Settings to interpret more natural questions."}
                 </Text>
               </View>
               {answer && (
@@ -1729,15 +1631,13 @@ export default function Home() {
                     <Text style={s.sectionTitle}>{answer.answer}</Text>
                     <Text style={s.meta}>{answer.notice}</Text>
                     <GobblerVoice
-                      key={mode + query}
-                      ids={answer.recommendations.map(
-                        (item: any) => item.event.id,
-                      )}
-                      enabled={mode === "live" && !!user && !!health.voice}
+                      key={query}
+                      ids={answer.recommendations.map((item) => item.event.id)}
+                      enabled={!!user && !!health.voice}
                     />
                   </View>
                   <View style={s.eventGrid}>
-                    {answer.recommendations.map((item: any) => (
+                    {answer.recommendations.map((item) => (
                       <EventCard key={item.event.id} item={item} />
                     ))}
                   </View>
@@ -1745,7 +1645,7 @@ export default function Home() {
               )}
             </>
           )}
-          {page === "settings" && (
+          {user && page === "settings" && (
             <>
               <Text style={s.eyebrowText}>YOUR GOBBLER, YOUR WAY</Text>
               <Text accessibilityRole="header" style={s.pageTitle}>
@@ -1818,12 +1718,7 @@ export default function Home() {
                       You’re always in control. Calendar writes require your
                       confirmation.
                     </Text>
-                    {mode === "demo" ? (
-                      <Text style={s.body}>
-                        Connections are disabled in the public demo. Sign in to
-                        connect your own accounts.
-                      </Text>
-                    ) : !user ? (
+                    {!user ? (
                       <Button
                         label="Sign in to connect"
                         onPress={() => go("auth")}
@@ -1865,10 +1760,9 @@ export default function Home() {
                               label={c.status ? "Reconnect" : "Connect"}
                               onPress={() =>
                                 run(async () => {
-                                  const d = await api(
-                                    "/connections/" + c.provider + "/connect",
-                                    {},
-                                  );
+                                  const d = await backend.connect({
+                                    provider: c.provider,
+                                  });
                                   await Linking.openURL(d.url);
                                 })
                               }
@@ -1880,14 +1774,18 @@ export default function Home() {
                                   label="Sync now"
                                   onPress={() =>
                                     run(async () => {
-                                      await api(
-                                        "/connections/" + c.provider + "/sync",
-                                        {},
-                                      );
-                                      const d = await api("/connections");
+                                      await backend.syncConnection({
+                                        provider: c.provider,
+                                      });
+                                      const d =
+                                        await backend.listConnections(
+                                          undefined,
+                                        );
                                       setConnections(d.connections);
                                       setPrivateContext(
-                                        await api("/private-context"),
+                                        await backend.getPrivateContext(
+                                          undefined,
+                                        ),
                                       );
                                       notify("Sync complete.");
                                     })
@@ -1898,16 +1796,20 @@ export default function Home() {
                                   label="Disconnect"
                                   onPress={() =>
                                     run(async () => {
-                                      const d = await api(
-                                        "/connections/" + c.provider,
-                                        {},
-                                        "DELETE",
-                                      );
+                                      const d = await backend.disconnect({
+                                        provider: c.provider,
+                                      });
                                       setConnections(
-                                        (await api("/connections")).connections,
+                                        (
+                                          await backend.listConnections(
+                                            undefined,
+                                          )
+                                        ).connections,
                                       );
                                       setPrivateContext(
-                                        await api("/private-context"),
+                                        await backend.getPrivateContext(
+                                          undefined,
+                                        ),
                                       );
                                       notify(
                                         d.revoked
@@ -1928,7 +1830,11 @@ export default function Home() {
                                 onPress={() =>
                                   run(async () =>
                                     setDiscordChannels(
-                                      (await api("/discord/channels")).channels,
+                                      (
+                                        await backend.listDiscordChannels(
+                                          undefined,
+                                        )
+                                      ).channels,
                                     ),
                                   )
                                 }
@@ -1948,13 +1854,15 @@ export default function Home() {
                                             (id: string) => id !== ch.id,
                                           )
                                         : [...(c.channels || []), ch.id];
-                                      await api(
-                                        "/discord/channels",
-                                        { channels: selected },
-                                        "PUT",
-                                      );
+                                      await backend.selectDiscordChannels({
+                                        channels: selected,
+                                      });
                                       setConnections(
-                                        (await api("/connections")).connections,
+                                        (
+                                          await backend.listConnections(
+                                            undefined,
+                                          )
+                                        ).connections,
                                       );
                                     })
                                   }
@@ -1968,27 +1876,21 @@ export default function Home() {
                   </View>
                   <View style={s.panel}>
                     <Text style={s.sectionTitle}>Campus listing status</Text>
-                    {mode === "demo" ? (
-                      <Text style={s.body}>
-                        Sample data only. No private accounts are used.
-                      </Text>
-                    ) : (
-                      Object.entries(sources).map(([key, value]: any) => (
-                        <View key={key} style={{ gap: 6 }}>
-                          <Text style={s.label}>
-                            {key === "gobblerconnect"
-                              ? "GobblerConnect"
-                              : "VT Sports"}{" "}
-                            · {value.status}
-                          </Text>
-                          <Text style={s.meta}>
-                            {value.lastSync
-                              ? "Last checked " + date(value.lastSync)
-                              : value.error || "Awaiting first refresh"}
-                          </Text>
-                        </View>
-                      ))
-                    )}
+                    {Object.entries(sources).map(([key, value]) => (
+                      <View key={key} style={{ gap: 6 }}>
+                        <Text style={s.label}>
+                          {key === "gobblerconnect"
+                            ? "GobblerConnect"
+                            : "VT Sports"}{" "}
+                          · {value.status}
+                        </Text>
+                        <Text style={s.meta}>
+                          {value.lastSync
+                            ? "Last checked " + date(value.lastSync)
+                            : value.error || "Awaiting first refresh"}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
                   {privateContext.map((ctx) => (
                     <View style={s.panel} key={ctx.provider}>
@@ -1999,12 +1901,12 @@ export default function Home() {
                         Visible only to your account. Synced{" "}
                         {date(ctx.syncedAt)}
                       </Text>
-                      {ctx.courses?.map((c: any) => (
+                      {ctx.courses?.map((c) => (
                         <Text key={c.id} style={s.body}>
                           {c.name}
                         </Text>
                       ))}
-                      {ctx.announcements?.slice(0, 15).map((a: any) => (
+                      {ctx.announcements?.slice(0, 15).map((a) => (
                         <Pressable
                           key={a.id}
                           accessibilityRole="link"
@@ -2018,64 +1920,72 @@ export default function Home() {
                   <View style={s.panel}>
                     <Text style={s.sectionTitle}>Your data, your choice</Text>
                     <Text style={s.body}>
-                      {mode === "demo"
-                        ? "Demo preferences and saves stay in this browser."
-                        : "Delete your profile, saved events, connections, and private schedule from My Little Gobbler. Events already added to external calendars remain there."}
+                      {
+                        "Delete your profile, saved events, connections, and private schedule from My Little Gobbler. Events already added to external calendars remain there."
+                      }
                     </Text>
-                    {mode === "demo" ? (
-                      <Button
-                        secondary
-                        label="Reset demo data"
-                        onPress={() => {
-                          localStorage.removeItem("gobbler-demo-profile");
-                          localStorage.removeItem("gobbler-demo-saved");
-                          setProfile(demoProfile);
-                          setSaved([]);
-                          notify("Demo reset.");
-                        }}
-                      />
-                    ) : (
-                      user && (
-                        <>
-                          <Button
-                            secondary
-                            label="Sign out"
-                            onPress={() =>
-                              run(async () => {
-                                await api("/auth/sign-out", {});
-                                setUser(null);
-                                setProfile(emptyProfile);
-                                setSaved([]);
-                                go("landing");
-                              })
-                            }
-                          />
-                          <Field
-                            label="Type DELETE to permanently delete your account"
-                            value={deleteText}
-                            onChange={setDeleteText}
-                          />
-                          <Button
-                            disabled={deleteText !== "DELETE" || loading}
-                            secondary
-                            label="Permanently delete my account"
-                            onPress={() =>
-                              run(async () => {
-                                await api(
-                                  "/account",
-                                  { confirmation: "DELETE" },
-                                  "DELETE",
-                                );
-                                setUser(null);
-                                setProfile(emptyProfile);
-                                setSaved([]);
-                                go("landing");
-                                notify("Your account data was deleted.");
-                              })
-                            }
-                          />
-                        </>
-                      )
+                    {user && (
+                      <>
+                        <Button
+                          secondary
+                          label="Sign out"
+                          onPress={() =>
+                            run(async () => {
+                              await backend.signOut({});
+                              setUser(null);
+                              setSelected(null);
+                              setEvents([]);
+                              setConnections([]);
+                              setPrivateContext([]);
+                              setFeedback({});
+                              setAnswer(null);
+                              setDiscovery({
+                                recommendations: [],
+                                filtered: [],
+                                savedRecommendations: [],
+                                schedule: [],
+                              });
+                              setProfile(emptyProfile);
+                              setSaved([]);
+                              go("landing");
+                            })
+                          }
+                        />
+                        <Field
+                          label="Type DELETE to permanently delete your account"
+                          value={deleteText}
+                          onChange={setDeleteText}
+                        />
+                        <Button
+                          disabled={deleteText !== "DELETE" || loading}
+                          secondary
+                          label="Permanently delete my account"
+                          onPress={() =>
+                            run(async () => {
+                              await backend.deleteAccount({
+                                confirmation: "DELETE",
+                              });
+                              setUser(null);
+                              setSelected(null);
+                              setEvents([]);
+                              setConnections([]);
+                              setPrivateContext([]);
+                              setFeedback({});
+                              setAnswer(null);
+                              setDiscovery({
+                                recommendations: [],
+                                filtered: [],
+                                savedRecommendations: [],
+                                schedule: [],
+                              });
+                              setProfile(emptyProfile);
+                              setSaved([]);
+                              go("landing");
+                              notify("Your account data was deleted.");
+                            })
+                          }
+                        />
+                      </>
                     )}
                   </View>
                 </View>
@@ -2362,16 +2272,6 @@ const s = StyleSheet.create({
   },
   columns: { flexDirection: "row", gap: 28, alignItems: "flex-start" },
   divider: { height: 1, backgroundColor: C.line },
-  demoBanner: {
-    flexDirection: "row",
-    gap: 12,
-    flexWrap: "wrap",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    backgroundColor: "#F7EDD5",
-  },
   error: { backgroundColor: "#FFF0F0", borderRadius: 12, padding: 18, gap: 10 },
   toast: { backgroundColor: "#EBF4EB", padding: 14, borderRadius: 10 },
   footer: {

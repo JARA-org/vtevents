@@ -9,11 +9,13 @@
   "scripts": {
     "dev": "tsx watch apps/backend/src/server.ts",
     "web": "npm run start -w @gobbler/frontend",
-    "build": "npm run build -w @gobbler/frontend && tsc -p apps/backend/tsconfig.json",
+    "build": "npm run check:architecture && npm run check:contracts && npm run build -w @gobbler/frontend && tsc -p apps/backend/tsconfig.json",
     "start": "node dist/apps/backend/src/server.js",
-    "test": "tsx --test tests/*.test.ts",
-    "typecheck": "tsc --noEmit -p apps/backend/tsconfig.json && tsc --noEmit -p apps/frontend/tsconfig.json",
-    "local": "tsx scripts/local.ts"
+    "test": "npm run check:architecture && npm run check:contracts && tsx --test tests/*.test.ts",
+    "typecheck": "npm run check:architecture && npm run check:contracts && tsc --noEmit -p apps/backend/tsconfig.json && tsc --noEmit -p apps/frontend/tsconfig.json",
+    "local": "tsx scripts/local.ts",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:contracts": "node scripts/check-contracts.mjs"
   },
   "engines": {
     "node": ">=22"

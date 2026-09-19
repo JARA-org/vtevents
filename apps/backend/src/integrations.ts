@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { DateTime } from "luxon";
-import { CampusEvent, Profile } from "../../../packages/shared/src/index.js";
+import { CampusEvent, Profile } from "./domain.js";
 import { database } from "./store.js";
 import { config, HttpError, remote } from "./config.js";
 import { seal, unseal, hash } from "./security.js";
@@ -341,11 +341,6 @@ export function writeKey(userId: string, eventId: string, p: Provider) {
   return hash(`${userId}|${eventId}|${p}`);
 }
 export async function addCalendar(userId: string, p: Provider, e: CampusEvent) {
-  if (e.mode === "demo")
-    throw new HttpError(
-      400,
-      "Sample events cannot be written to a connected calendar. Use the sample ICS download.",
-    );
   if (!e.end || e.endEstimated || e.timeTBD || e.status === "cancelled")
     throw new HttpError(
       400,

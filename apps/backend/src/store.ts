@@ -6,7 +6,7 @@ export function database() {
   if (!db)
     throw new HttpError(
       503,
-      "Account services are not configured yet. You can still explore the demo.",
+      "Account services are not configured yet. Please try again later.",
     );
   return db;
 }

@@ -1,14 +1,14 @@
+import { testEvents } from "./fixtures/events.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DateTime } from "luxon";
 import {
-  demoEvents,
   emptyProfile,
   scheduleFit,
   eventICS,
   eventSchema,
   recommendations,
-} from "../packages/shared/src/index.js";
+} from "../apps/backend/src/domain.js";
 import {
   classify,
   deduplicate,
@@ -19,7 +19,7 @@ import { writeKey } from "../apps/backend/src/integrations.js";
 import { askGobbler } from "../apps/backend/src/assistant.js";
 import { reconcileEvents } from "../apps/backend/src/coordinator.js";
 const e = {
-  ...demoEvents(DateTime.fromISO("2026-09-19T12:00:00Z"))[0],
+  ...testEvents(DateTime.fromISO("2026-09-19T12:00:00Z"))[0],
   start: "2026-09-25T21:00:00Z",
   end: "2026-09-25T22:00:00Z",
 };

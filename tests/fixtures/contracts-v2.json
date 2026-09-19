@@ -1,0 +1,2222 @@
+{
+  "Json": {
+    "kind": "alias",
+    "type": "null | boolean | number | string | Json[] | {\n    [key: string]: Json;\n}"
+  },
+  "Extensible": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "extensions": {
+        "optional": true,
+        "type": "Record<string, Json> | undefined"
+      }
+    }
+  },
+  "Id": {
+    "kind": "alias",
+    "type": "string"
+  },
+  "Instant": {
+    "kind": "alias",
+    "type": "string"
+  },
+  "LocalDate": {
+    "kind": "alias",
+    "type": "string"
+  },
+  "LocalTime": {
+    "kind": "alias",
+    "type": "string"
+  },
+  "Mode": {
+    "kind": "alias",
+    "type": "\"live\""
+  },
+  "Category": {
+    "kind": "alias",
+    "type": "\"Arts & music\" | \"Sports\" | \"Outdoors\" | \"Tech & science\" | \"Community\" | \"Career\" | \"Food & fun\""
+  },
+  "Provider": {
+    "kind": "alias",
+    "type": "\"google\" | \"canvas\" | \"discord\""
+  },
+  "CalendarProvider": {
+    "kind": "alias",
+    "type": "\"google\" | \"canvas\""
+  },
+  "SourceName": {
+    "kind": "alias",
+    "type": "\"gobblerconnect\" | \"vt-sports\" | \"vt-events\" | \"canvas\" | \"discord\""
+  },
+  "SourceReference": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "source": {
+        "optional": false,
+        "type": "SourceName"
+      },
+      "sourceId": {
+        "optional": false,
+        "type": "string"
+      },
+      "url": {
+        "optional": false,
+        "type": "string"
+      },
+      "fetchedAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "sourceUpdatedAt": {
+        "optional": true,
+        "type": "string | null | undefined"
+      },
+      "evidenceId": {
+        "optional": true,
+        "type": "string | undefined"
+      }
+    }
+  },
+  "CampusEvent": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "title": {
+        "optional": false,
+        "type": "string"
+      },
+      "description": {
+        "optional": false,
+        "type": "string"
+      },
+      "start": {
+        "optional": false,
+        "type": "string"
+      },
+      "end": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "timezone": {
+        "optional": false,
+        "type": "string"
+      },
+      "location": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "organizer": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "categories": {
+        "optional": false,
+        "type": "Category[]"
+      },
+      "sources": {
+        "optional": false,
+        "type": "SourceReference[]"
+      },
+      "updatedAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "status": {
+        "optional": false,
+        "type": "\"scheduled\" | \"cancelled\""
+      },
+      "mode": {
+        "optional": false,
+        "type": "\"live\""
+      },
+      "timeTBD": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "allDay": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "endEstimated": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "stale": {
+        "optional": true,
+        "type": "boolean | undefined"
+      },
+      "revision": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "clubId": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "sports": {
+        "optional": true,
+        "type": "SportsDetails | undefined"
+      },
+      "links": {
+        "optional": true,
+        "type": "EventLink[] | undefined"
+      },
+      "evidence": {
+        "optional": true,
+        "type": "FieldEvidence[] | undefined"
+      },
+      "conflicts": {
+        "optional": true,
+        "type": "FieldConflict[] | undefined"
+      },
+      "visibility": {
+        "optional": true,
+        "type": "Visibility | undefined"
+      },
+      "timeDetails": {
+        "optional": true,
+        "type": "EventTimeDetails | undefined"
+      }
+    }
+  },
+  "EventTimeDetails": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "precision": {
+        "optional": false,
+        "type": "\"confirmed\" | \"date_only\" | \"start_only\" | \"end_only\" | \"unknown\""
+      },
+      "startDate": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "endDate": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "note": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "confirmedStart": {
+        "optional": true,
+        "type": "string | null | undefined"
+      },
+      "confirmedEnd": {
+        "optional": true,
+        "type": "string | null | undefined"
+      }
+    }
+  },
+  "SportsDetails": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "sport": {
+        "optional": false,
+        "type": "string"
+      },
+      "opponent": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "venueType": {
+        "optional": false,
+        "type": "\"unknown\" | \"home\" | \"away\" | \"neutral\""
+      },
+      "state": {
+        "optional": false,
+        "type": "\"cancelled\" | \"live\" | \"unknown\" | \"upcoming\" | \"final\" | \"postponed\""
+      },
+      "homeScore": {
+        "optional": true,
+        "type": "string | null | undefined"
+      },
+      "awayScore": {
+        "optional": true,
+        "type": "string | null | undefined"
+      },
+      "period": {
+        "optional": true,
+        "type": "string | null | undefined"
+      },
+      "clock": {
+        "optional": true,
+        "type": "string | null | undefined"
+      },
+      "opponentLogoUrl": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "checkedAt": {
+        "optional": true,
+        "type": "string | undefined"
+      }
+    }
+  },
+  "EventLink": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "label": {
+        "optional": false,
+        "type": "string"
+      },
+      "url": {
+        "optional": false,
+        "type": "string"
+      },
+      "kind": {
+        "optional": false,
+        "type": "\"source\" | \"tickets\" | \"stream\" | \"stats\" | \"recap\" | \"other\""
+      },
+      "embeddable": {
+        "optional": true,
+        "type": "boolean | undefined"
+      }
+    }
+  },
+  "RecurringBlock": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "weekday": {
+        "optional": false,
+        "type": "number"
+      },
+      "start": {
+        "optional": false,
+        "type": "string"
+      },
+      "end": {
+        "optional": false,
+        "type": "string"
+      },
+      "kind": {
+        "optional": false,
+        "type": "\"free\" | \"busy\""
+      }
+    }
+  },
+  "BusyBlock": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "start": {
+        "optional": false,
+        "type": "string"
+      },
+      "end": {
+        "optional": false,
+        "type": "string"
+      },
+      "source": {
+        "optional": false,
+        "type": "\"canvas\" | \"manual\" | \"google\""
+      }
+    }
+  },
+  "Profile": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "name": {
+        "optional": false,
+        "type": "string"
+      },
+      "interests": {
+        "optional": false,
+        "type": "Category[]"
+      },
+      "recurring": {
+        "optional": false,
+        "type": "RecurringBlock[]"
+      },
+      "busy": {
+        "optional": false,
+        "type": "BusyBlock[]"
+      },
+      "onboarded": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "aiEnabled": {
+        "optional": false,
+        "type": "boolean"
+      }
+    }
+  },
+  "Fit": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "status": {
+        "optional": false,
+        "type": "\"unknown\" | \"free\" | \"conflict\""
+      },
+      "reason": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "Recommendation": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "event": {
+        "optional": false,
+        "type": "CampusEvent"
+      },
+      "fit": {
+        "optional": false,
+        "type": "Fit"
+      },
+      "score": {
+        "optional": false,
+        "type": "number"
+      },
+      "reason": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "UserSummary": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "name": {
+        "optional": false,
+        "type": "string"
+      },
+      "email": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "AccountView": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "user": {
+        "optional": false,
+        "type": "UserSummary"
+      },
+      "profile": {
+        "optional": false,
+        "type": "Profile"
+      },
+      "saved": {
+        "optional": false,
+        "type": "string[]"
+      },
+      "feedback": {
+        "optional": false,
+        "type": "Record<string, number>"
+      }
+    }
+  },
+  "SourceHealth": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "status": {
+        "optional": false,
+        "type": "string"
+      },
+      "lastSync": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "count": {
+        "optional": true,
+        "type": "number | undefined"
+      },
+      "error": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "completeness": {
+        "optional": true,
+        "type": "\"unknown\" | \"complete\" | \"partial\" | undefined"
+      }
+    }
+  },
+  "HealthView": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "ok": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "name": {
+        "optional": false,
+        "type": "string"
+      },
+      "database": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "accounts": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "gemini": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "sources": {
+        "optional": false,
+        "type": "Record<string, SourceHealth>"
+      },
+      "voice": {
+        "optional": true,
+        "type": "boolean | undefined"
+      }
+    }
+  },
+  "BootstrapView": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "categories": {
+        "optional": false,
+        "type": "Category[]"
+      },
+      "timezone": {
+        "optional": false,
+        "type": "string"
+      },
+      "emptyProfile": {
+        "optional": false,
+        "type": "Profile"
+      },
+      "contractVersion": {
+        "optional": false,
+        "type": "2"
+      }
+    }
+  },
+  "EventList": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "mode": {
+        "optional": false,
+        "type": "\"live\""
+      },
+      "events": {
+        "optional": false,
+        "type": "CampusEvent[]"
+      },
+      "sources": {
+        "optional": false,
+        "type": "Record<string, SourceHealth>"
+      },
+      "snapshot": {
+        "optional": true,
+        "type": "boolean | undefined"
+      },
+      "generatedAt": {
+        "optional": true,
+        "type": "string | undefined"
+      }
+    }
+  },
+  "DiscoveryRequest": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "mode": {
+        "optional": true,
+        "type": "\"live\" | undefined"
+      },
+      "search": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "category": {
+        "optional": true,
+        "type": "Category | \"All interests\" | undefined"
+      },
+      "dateFilter": {
+        "optional": true,
+        "type": "\"Any day\" | \"Today\" | \"This week\" | \"Weekend\" | undefined"
+      }
+    }
+  },
+  "DiscoveryView": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "recommendations": {
+        "optional": false,
+        "type": "Recommendation[]"
+      },
+      "filtered": {
+        "optional": false,
+        "type": "Recommendation[]"
+      },
+      "savedRecommendations": {
+        "optional": false,
+        "type": "Recommendation[]"
+      },
+      "schedule": {
+        "optional": false,
+        "type": "Recommendation[]"
+      }
+    }
+  },
+  "AssistantReply": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "engine": {
+        "optional": false,
+        "type": "string"
+      },
+      "notice": {
+        "optional": false,
+        "type": "string"
+      },
+      "answer": {
+        "optional": false,
+        "type": "string"
+      },
+      "recommendations": {
+        "optional": false,
+        "type": "Recommendation[]"
+      },
+      "conversationId": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "messageId": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "citations": {
+        "optional": true,
+        "type": "Citation[] | undefined"
+      },
+      "suggestedActions": {
+        "optional": true,
+        "type": "SuggestedAction[] | undefined"
+      }
+    }
+  },
+  "ConnectionView": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "provider": {
+        "optional": false,
+        "type": "Provider"
+      },
+      "configured": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "blocker": {
+        "optional": false,
+        "type": "string"
+      },
+      "status": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "lastSync": {
+        "optional": true,
+        "type": "string | null | undefined"
+      },
+      "channels": {
+        "optional": true,
+        "type": "string[] | undefined"
+      }
+    }
+  },
+  "ConnectionsView": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "connections": {
+        "optional": false,
+        "type": "ConnectionView[]"
+      },
+      "sources": {
+        "optional": false,
+        "type": "Record<string, SourceHealth>"
+      },
+      "analytics": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "DiscordChannel": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "name": {
+        "optional": false,
+        "type": "string"
+      },
+      "guildId": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "Announcement": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "url": {
+        "optional": false,
+        "type": "string"
+      },
+      "title": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "text": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "channel": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "timestamp": {
+        "optional": true,
+        "type": "string | undefined"
+      }
+    }
+  },
+  "PrivateContextView": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "provider": {
+        "optional": false,
+        "type": "Provider"
+      },
+      "syncedAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "busy": {
+        "optional": true,
+        "type": "BusyBlock[] | undefined"
+      },
+      "announcements": {
+        "optional": true,
+        "type": "Announcement[] | undefined"
+      },
+      "courses": {
+        "optional": true,
+        "type": "{ id: string | number; name: string; }[] | undefined"
+      },
+      "coverageStart": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "coverageEnd": {
+        "optional": true,
+        "type": "string | undefined"
+      }
+    }
+  },
+  "SyncResult": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "busyCount": {
+        "optional": true,
+        "type": "number | undefined"
+      },
+      "courseCount": {
+        "optional": true,
+        "type": "number | undefined"
+      },
+      "announcementCount": {
+        "optional": true,
+        "type": "number | undefined"
+      },
+      "announcements": {
+        "optional": true,
+        "type": "number | undefined"
+      },
+      "coverageEnd": {
+        "optional": true,
+        "type": "string | undefined"
+      }
+    }
+  },
+  "CalendarWriteResult": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "duplicate": {
+        "optional": false,
+        "type": "boolean"
+      }
+    }
+  },
+  "ApiError": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "message": {
+        "optional": false,
+        "type": "string"
+      },
+      "code": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "requestId": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "retryable": {
+        "optional": true,
+        "type": "boolean | undefined"
+      },
+      "fields": {
+        "optional": true,
+        "type": "{ path: string; message: string; }[] | undefined"
+      }
+    }
+  },
+  "AnalyticsKind": {
+    "kind": "alias",
+    "type": "\"recommendation_impression\" | \"event_view\" | \"save\" | \"calendar_addition\" | \"recommendation_feedback\""
+  },
+  "AvailabilityInput": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "profile": {
+        "optional": false,
+        "type": "Profile"
+      },
+      "block": {
+        "optional": false,
+        "type": "{ kind: \"recurring\"; weekday: number; start: string; end: string; availability: \"free\" | \"busy\"; } | { kind: \"dated\"; date: string; start: string; end: string; }"
+      }
+    }
+  },
+  "Operation": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "input": {
+        "optional": false,
+        "type": "Input"
+      },
+      "output": {
+        "optional": false,
+        "type": "Output"
+      }
+    }
+  },
+  "HttpApi": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "narrate": {
+        "optional": false,
+        "type": "Operation<{ eventIds: string[]; }, AudioData>"
+      },
+      "listOwnedDiscordServers": {
+        "optional": false,
+        "type": "Operation<void, { guilds: DiscordGuild[]; }>"
+      },
+      "getDiscordServer": {
+        "optional": false,
+        "type": "Operation<{ guildId: string; }, DiscordServerSettings>"
+      },
+      "configureDiscordServer": {
+        "optional": false,
+        "type": "Operation<{ guildId: string; channels: string[]; }, { ok: boolean; }>"
+      },
+      "health": {
+        "optional": false,
+        "type": "Operation<void, HealthView>"
+      },
+      "bootstrap": {
+        "optional": false,
+        "type": "Operation<void, BootstrapView>"
+      },
+      "listEvents": {
+        "optional": false,
+        "type": "Operation<{ mode: \"live\"; }, EventList>"
+      },
+      "exportCalendar": {
+        "optional": false,
+        "type": "Operation<{ eventId: string; }, string>"
+      },
+      "getAccount": {
+        "optional": false,
+        "type": "Operation<void, AccountView>"
+      },
+      "updateProfile": {
+        "optional": false,
+        "type": "Operation<Profile, Profile>"
+      },
+      "validateProfile": {
+        "optional": false,
+        "type": "Operation<Profile, Profile>"
+      },
+      "previewAvailability": {
+        "optional": false,
+        "type": "Operation<AvailabilityInput, Profile>"
+      },
+      "getRecommendations": {
+        "optional": false,
+        "type": "Operation<void, { recommendations: Recommendation[]; }>"
+      },
+      "discover": {
+        "optional": false,
+        "type": "Operation<DiscoveryRequest, DiscoveryView>"
+      },
+      "setSaved": {
+        "optional": false,
+        "type": "Operation<{ eventId: string; saved: boolean; }, { saved: boolean; }>"
+      },
+      "submitFeedback": {
+        "optional": false,
+        "type": "Operation<{ eventId: string; value: 1 | -1; }, { ok: boolean; }>"
+      },
+      "askAssistant": {
+        "optional": false,
+        "type": "Operation<{ query: string; }, AssistantReply>"
+      },
+      "track": {
+        "optional": false,
+        "type": "Operation<{ kind: AnalyticsKind; eventId: string; }, { ok: boolean; }>"
+      },
+      "listConnections": {
+        "optional": false,
+        "type": "Operation<void, ConnectionsView>"
+      },
+      "connect": {
+        "optional": false,
+        "type": "Operation<{ provider: Provider; }, { url: string; }>"
+      },
+      "finishConnection": {
+        "optional": false,
+        "type": "Operation<{ provider: Provider; state: string; code: string; }, { redirectUrl: string; }>"
+      },
+      "syncConnection": {
+        "optional": false,
+        "type": "Operation<{ provider: Provider; }, SyncResult>"
+      },
+      "disconnect": {
+        "optional": false,
+        "type": "Operation<{ provider: Provider; }, { disconnected: boolean; revoked: boolean; }>"
+      },
+      "listDiscordChannels": {
+        "optional": false,
+        "type": "Operation<void, { channels: DiscordChannel[]; }>"
+      },
+      "selectDiscordChannels": {
+        "optional": false,
+        "type": "Operation<{ channels: string[]; }, { ok: boolean; }>"
+      },
+      "getPrivateContext": {
+        "optional": false,
+        "type": "Operation<void, PrivateContextView[]>"
+      },
+      "addCalendar": {
+        "optional": false,
+        "type": "Operation<{ eventId: string; destination: CalendarProvider; confirmed: true; }, CalendarWriteResult>"
+      },
+      "deleteAccount": {
+        "optional": false,
+        "type": "Operation<{ confirmation: \"DELETE\"; }, { deleted: boolean; }>"
+      },
+      "runJobs": {
+        "optional": false,
+        "type": "Operation<void, { ok: boolean; }>"
+      },
+      "signUp": {
+        "optional": false,
+        "type": "Operation<{ email: string; password: string; name: string; callbackURL?: string | undefined; }, AuthResult>"
+      },
+      "signIn": {
+        "optional": false,
+        "type": "Operation<{ email: string; password: string; callbackURL?: string | undefined; }, AuthResult>"
+      },
+      "signOut": {
+        "optional": false,
+        "type": "Operation<Record<string, never>, { success: boolean; }>"
+      }
+    }
+  },
+  "AuthResult": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "user": {
+        "optional": false,
+        "type": "UserSummary"
+      },
+      "token": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "redirect": {
+        "optional": true,
+        "type": "boolean | undefined"
+      },
+      "url": {
+        "optional": true,
+        "type": "string | undefined"
+      }
+    }
+  },
+  "BackendClient": {
+    "kind": "alias",
+    "type": "{\n    [K in Exclude<keyof HttpApi, \"runJobs\" | \"finishConnection\">]: (input: HttpApi[K][\"input\"]) => Promise<HttpApi[K][\"output\"]>;\n}"
+  },
+  "PageRequest": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "cursor": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "limit": {
+        "optional": true,
+        "type": "number | undefined"
+      }
+    }
+  },
+  "Page": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "items": {
+        "optional": false,
+        "type": "T[]"
+      },
+      "nextCursor": {
+        "optional": false,
+        "type": "string | null"
+      }
+    }
+  },
+  "Capabilities": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "contractVersion": {
+        "optional": false,
+        "type": "2"
+      },
+      "availableOperations": {
+        "optional": false,
+        "type": "string[]"
+      }
+    }
+  },
+  "Visibility": {
+    "kind": "alias",
+    "type": "{\n    kind: \"public\";\n} | {\n    kind: \"user\";\n    userId: Id;\n} | {\n    kind: \"channel\";\n    guildId: Id;\n    channelId: Id;\n}"
+  },
+  "Citation": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "sourceId": {
+        "optional": false,
+        "type": "string"
+      },
+      "url": {
+        "optional": false,
+        "type": "string"
+      },
+      "excerpt": {
+        "optional": true,
+        "type": "string | undefined"
+      }
+    }
+  },
+  "FieldEvidence": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "field": {
+        "optional": false,
+        "type": "string"
+      },
+      "value": {
+        "optional": false,
+        "type": "Json"
+      },
+      "citation": {
+        "optional": false,
+        "type": "Citation"
+      },
+      "observedAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "sourceUpdatedAt": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "method": {
+        "optional": false,
+        "type": "\"manual\" | \"structured\" | \"extracted\""
+      }
+    }
+  },
+  "FieldConflict": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "field": {
+        "optional": false,
+        "type": "string"
+      },
+      "alternatives": {
+        "optional": false,
+        "type": "FieldEvidence[]"
+      },
+      "resolution": {
+        "optional": false,
+        "type": "\"unresolved\" | \"authority\" | \"recency\" | \"reviewed\""
+      },
+      "selectedEvidenceId": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "reason": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "SuggestedAction": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "kind": {
+        "optional": false,
+        "type": "\"view_event\" | \"save_event\" | \"prepare_calendar\" | \"open_source\""
+      },
+      "label": {
+        "optional": false,
+        "type": "string"
+      },
+      "eventId": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "url": {
+        "optional": true,
+        "type": "string | undefined"
+      }
+    }
+  },
+  "Club": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "name": {
+        "optional": false,
+        "type": "string"
+      },
+      "description": {
+        "optional": false,
+        "type": "string"
+      },
+      "categories": {
+        "optional": false,
+        "type": "Category[]"
+      },
+      "links": {
+        "optional": false,
+        "type": "EventLink[]"
+      },
+      "sources": {
+        "optional": false,
+        "type": "SourceReference[]"
+      },
+      "updatedAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "typicalActivities": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "summaryEvidence": {
+        "optional": true,
+        "type": "Citation[] | undefined"
+      }
+    }
+  },
+  "NewsArticle": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "title": {
+        "optional": false,
+        "type": "string"
+      },
+      "url": {
+        "optional": false,
+        "type": "string"
+      },
+      "publishedAt": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "summary": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "eventIds": {
+        "optional": false,
+        "type": "string[]"
+      },
+      "clubIds": {
+        "optional": false,
+        "type": "string[]"
+      },
+      "sources": {
+        "optional": false,
+        "type": "SourceReference[]"
+      }
+    }
+  },
+  "Conversation": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "title": {
+        "optional": false,
+        "type": "string"
+      },
+      "createdAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "updatedAt": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "ChatMessage": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "conversationId": {
+        "optional": false,
+        "type": "string"
+      },
+      "role": {
+        "optional": false,
+        "type": "\"user\" | \"assistant\""
+      },
+      "text": {
+        "optional": false,
+        "type": "string"
+      },
+      "createdAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "citations": {
+        "optional": true,
+        "type": "Citation[] | undefined"
+      },
+      "recommendations": {
+        "optional": true,
+        "type": "Recommendation[] | undefined"
+      }
+    }
+  },
+  "Memory": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "text": {
+        "optional": false,
+        "type": "string"
+      },
+      "origin": {
+        "optional": false,
+        "type": "\"explicit\" | \"conversation\""
+      },
+      "createdAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "updatedAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "expiresAt": {
+        "optional": false,
+        "type": "string | null"
+      }
+    }
+  },
+  "CalendarDraft": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "eventId": {
+        "optional": false,
+        "type": "string"
+      },
+      "destination": {
+        "optional": false,
+        "type": "CalendarProvider"
+      },
+      "title": {
+        "optional": false,
+        "type": "string"
+      },
+      "description": {
+        "optional": false,
+        "type": "string"
+      },
+      "location": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "start": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "end": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "allDay": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "timezone": {
+        "optional": false,
+        "type": "string"
+      },
+      "warnings": {
+        "optional": false,
+        "type": "string[]"
+      },
+      "canSubmit": {
+        "optional": false,
+        "type": "boolean"
+      },
+      "revision": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "JobReceipt": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "state": {
+        "optional": false,
+        "type": "\"queued\" | \"running\" | \"succeeded\" | \"failed\""
+      },
+      "createdAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "completedAt": {
+        "optional": true,
+        "type": "string | undefined"
+      },
+      "error": {
+        "optional": true,
+        "type": "ApiError | undefined"
+      }
+    }
+  },
+  "PlannedBackendServices": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "getCapabilities": {
+        "optional": false,
+        "type": "() => Promise<Capabilities>"
+      },
+      "getEvent": {
+        "optional": false,
+        "type": "(input: { eventId: string; }) => Promise<CampusEvent>"
+      },
+      "getSportsTicker": {
+        "optional": false,
+        "type": "(input: PageRequest & { sport?: string | undefined; }) => Promise<Page<CampusEvent>>"
+      },
+      "getEventHistory": {
+        "optional": false,
+        "type": "(input: PageRequest & { clubId?: string | undefined; sport?: string | undefined; opponent?: string | undefined; }) => Promise<Page<CampusEvent>>"
+      },
+      "searchClubs": {
+        "optional": false,
+        "type": "(input: PageRequest & { query?: string | undefined; category?: Category | undefined; }) => Promise<Page<Club>>"
+      },
+      "getClub": {
+        "optional": false,
+        "type": "(input: { clubId: string; }) => Promise<Club>"
+      },
+      "getNews": {
+        "optional": false,
+        "type": "(input: PageRequest & { eventId?: string | undefined; clubId?: string | undefined; }) => Promise<Page<NewsArticle>>"
+      },
+      "createConversation": {
+        "optional": false,
+        "type": "(input: { title?: string | undefined; }) => Promise<Conversation>"
+      },
+      "listConversations": {
+        "optional": false,
+        "type": "(input: PageRequest) => Promise<Page<Conversation>>"
+      },
+      "listMessages": {
+        "optional": false,
+        "type": "(input: PageRequest & { conversationId: string; }) => Promise<Page<ChatMessage>>"
+      },
+      "sendMessage": {
+        "optional": false,
+        "type": "(input: { conversationId: string; text: string; requestId: string; }) => Promise<AssistantReply>"
+      },
+      "deleteConversation": {
+        "optional": false,
+        "type": "(input: { conversationId: string; }) => Promise<{ deleted: boolean; retainedMemoryIds: string[]; }>"
+      },
+      "listMemories": {
+        "optional": false,
+        "type": "(input: PageRequest) => Promise<Page<Memory>>"
+      },
+      "remember": {
+        "optional": false,
+        "type": "(input: { text: string; requestId: string; expiresAt?: string | undefined; }) => Promise<Memory>"
+      },
+      "forget": {
+        "optional": false,
+        "type": "(input: { memoryId: string; }) => Promise<{ deleted: boolean; }>"
+      },
+      "prepareCalendar": {
+        "optional": false,
+        "type": "(input: { eventId: string; destination: CalendarProvider; }) => Promise<CalendarDraft>"
+      },
+      "editCalendarDraft": {
+        "optional": false,
+        "type": "(input: { draftId: string; revision: string; changes: Partial<Pick<CalendarDraft, \"title\" | \"description\" | \"location\" | \"start\" | \"end\" | \"allDay\">>; }) => Promise<CalendarDraft>"
+      },
+      "commitCalendarDraft": {
+        "optional": false,
+        "type": "(input: { draftId: string; revision: string; requestId: string; confirmed: true; }) => Promise<JobReceipt>"
+      },
+      "getOperation": {
+        "optional": false,
+        "type": "(input: { operationId: string; }) => Promise<JobReceipt>"
+      },
+      "exportAccount": {
+        "optional": false,
+        "type": "(input: { requestId: string; }) => Promise<JobReceipt>"
+      }
+    }
+  },
+  "RequestContext": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "requestId": {
+        "optional": false,
+        "type": "string"
+      },
+      "actor": {
+        "optional": false,
+        "type": "{ kind: \"user\"; userId: string; } | { kind: \"worker\"; jobId: string; }"
+      },
+      "now": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "SourceRecord": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "source": {
+        "optional": false,
+        "type": "string"
+      },
+      "sourceId": {
+        "optional": false,
+        "type": "string"
+      },
+      "payload": {
+        "optional": false,
+        "type": "Json"
+      },
+      "fetchedAt": {
+        "optional": false,
+        "type": "string"
+      },
+      "sourceUpdatedAt": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "visibility": {
+        "optional": false,
+        "type": "Visibility"
+      },
+      "url": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "SourceBatch": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "source": {
+        "optional": false,
+        "type": "string"
+      },
+      "records": {
+        "optional": false,
+        "type": "SourceRecord[]"
+      },
+      "coverage": {
+        "optional": false,
+        "type": "{ from: string | null; to: string | null; }"
+      },
+      "completeness": {
+        "optional": false,
+        "type": "\"unknown\" | \"complete\" | \"partial\""
+      },
+      "nextCursor": {
+        "optional": false,
+        "type": "string | null"
+      },
+      "rejected": {
+        "optional": false,
+        "type": "{ sourceId: string | null; reason: string; }[]"
+      }
+    }
+  },
+  "ValidationReport": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "accepted": {
+        "optional": false,
+        "type": "T[]"
+      },
+      "rejected": {
+        "optional": false,
+        "type": "{ sourceId: string | null; reason: string; }[]"
+      },
+      "complete": {
+        "optional": false,
+        "type": "boolean"
+      }
+    }
+  },
+  "MergeProposal": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "candidateIds": {
+        "optional": false,
+        "type": "string[]"
+      },
+      "evidence": {
+        "optional": false,
+        "type": "FieldEvidence[]"
+      },
+      "conflicts": {
+        "optional": false,
+        "type": "FieldConflict[]"
+      },
+      "decision": {
+        "optional": false,
+        "type": "\"merge\" | \"separate\" | \"review\""
+      },
+      "reason": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "ReconciliationPlan": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "expectedRevision": {
+        "optional": false,
+        "type": "string"
+      },
+      "upserts": {
+        "optional": false,
+        "type": "CampusEvent[]"
+      },
+      "retireIds": {
+        "optional": false,
+        "type": "string[]"
+      },
+      "aliases": {
+        "optional": false,
+        "type": "{ source: string; sourceId: string; eventId: string; }[]"
+      },
+      "unresolved": {
+        "optional": false,
+        "type": "MergeProposal[]"
+      }
+    }
+  },
+  "CommitReceipt": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "revision": {
+        "optional": false,
+        "type": "string"
+      },
+      "inserted": {
+        "optional": false,
+        "type": "number"
+      },
+      "updated": {
+        "optional": false,
+        "type": "number"
+      },
+      "retired": {
+        "optional": false,
+        "type": "number"
+      },
+      "committedAt": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "SourceAdapter": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "fetch": {
+        "optional": false,
+        "type": "(input: { cursor?: string | undefined; from?: string | undefined; to?: string | undefined; }, context: RequestContext) => Promise<SourceBatch>"
+      },
+      "normalize": {
+        "optional": false,
+        "type": "(batch: SourceBatch) => ValidationReport<CampusEvent>"
+      }
+    }
+  },
+  "EventRepository": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "read": {
+        "optional": false,
+        "type": "(input: { ids?: string[] | undefined; page?: PageRequest | undefined; }, context: RequestContext) => Promise<Page<CampusEvent>>"
+      },
+      "readSnapshot": {
+        "optional": false,
+        "type": "(input: { source: string; }, context: RequestContext) => Promise<{ revision: string; batch: SourceBatch | null; }>"
+      },
+      "commit": {
+        "optional": false,
+        "type": "(input: { batch: SourceBatch; plan: ReconciliationPlan; }, context: RequestContext) => Promise<CommitReceipt>"
+      }
+    }
+  },
+  "CoordinatorService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "plan": {
+        "optional": false,
+        "type": "(input: { previous: CampusEvent[]; batch: ValidationReport<CampusEvent>; revision: string; proposals: MergeProposal[]; }) => ReconciliationPlan"
+      },
+      "refresh": {
+        "optional": false,
+        "type": "(input: { sources: string[]; }, context: RequestContext) => Promise<{ commits: CommitReceipt[]; failures: ApiError[]; }>"
+      }
+    }
+  },
+  "ExtractionService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "extract": {
+        "optional": false,
+        "type": "(input: { records: SourceRecord[]; candidates: CampusEvent[]; }, context: RequestContext) => Promise<MergeProposal[]>"
+      }
+    }
+  },
+  "SchedulingService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "evaluate": {
+        "optional": false,
+        "type": "(input: { events: CampusEvent[]; profile: Profile; }) => { eventId: string; fit: Fit; }[]"
+      },
+      "preview": {
+        "optional": false,
+        "type": "(input: AvailabilityInput) => Profile"
+      }
+    }
+  },
+  "RecommendationService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "rank": {
+        "optional": false,
+        "type": "(input: { events: CampusEvent[]; profile: Profile; saved: string[]; feedback: Record<string, number>; now: string; }) => Recommendation[]"
+      }
+    }
+  },
+  "PrivateContextService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "read": {
+        "optional": false,
+        "type": "(context: RequestContext) => Promise<PrivateContextView[]>"
+      },
+      "sync": {
+        "optional": false,
+        "type": "(input: { provider: Provider; }, context: RequestContext) => Promise<SyncResult>"
+      },
+      "remove": {
+        "optional": false,
+        "type": "(input: { provider: Provider; }, context: RequestContext) => Promise<{ deleted: boolean; }>"
+      }
+    }
+  },
+  "AssistantService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "answer": {
+        "optional": false,
+        "type": "(input: { query: string; conversationId?: string | undefined; }, context: RequestContext) => Promise<AssistantReply>"
+      }
+    }
+  },
+  "AnalyticsService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "enqueue": {
+        "optional": false,
+        "type": "(input: { kind: AnalyticsKind; eventId: string; }, context: RequestContext) => Promise<{ queued: boolean; }>"
+      },
+      "flush": {
+        "optional": false,
+        "type": "(context: RequestContext) => Promise<{ delivered: number; deferred: number; }>"
+      },
+      "erase": {
+        "optional": false,
+        "type": "(context: RequestContext) => Promise<{ localDeleted: boolean; remotePending: boolean; }>"
+      }
+    }
+  },
+  "BackendModules": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "narration": {
+        "optional": false,
+        "type": "NarrationService"
+      },
+      "discordPolicy": {
+        "optional": false,
+        "type": "DiscordPolicyService"
+      },
+      "sources": {
+        "optional": false,
+        "type": "Record<string, SourceAdapter>"
+      },
+      "events": {
+        "optional": false,
+        "type": "EventRepository"
+      },
+      "coordinator": {
+        "optional": false,
+        "type": "CoordinatorService"
+      },
+      "extraction": {
+        "optional": false,
+        "type": "ExtractionService"
+      },
+      "scheduling": {
+        "optional": false,
+        "type": "SchedulingService"
+      },
+      "recommendations": {
+        "optional": false,
+        "type": "RecommendationService"
+      },
+      "privateContext": {
+        "optional": false,
+        "type": "PrivateContextService"
+      },
+      "assistant": {
+        "optional": false,
+        "type": "AssistantService"
+      },
+      "analytics": {
+        "optional": false,
+        "type": "AnalyticsService"
+      },
+      "profiles": {
+        "optional": false,
+        "type": "ProfileRepository"
+      },
+      "preferences": {
+        "optional": false,
+        "type": "PreferenceRepository"
+      },
+      "identity": {
+        "optional": false,
+        "type": "IdentityService"
+      },
+      "connections": {
+        "optional": false,
+        "type": "ConnectionService"
+      },
+      "calendar": {
+        "optional": false,
+        "type": "CalendarService"
+      },
+      "conversations": {
+        "optional": false,
+        "type": "ConversationRepository"
+      },
+      "clubs": {
+        "optional": false,
+        "type": "ClubService"
+      },
+      "news": {
+        "optional": false,
+        "type": "NewsService"
+      },
+      "jobs": {
+        "optional": false,
+        "type": "JobService"
+      }
+    }
+  },
+  "ProfileRepository": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "get": {
+        "optional": false,
+        "type": "(context: RequestContext) => Promise<Profile>"
+      },
+      "replace": {
+        "optional": false,
+        "type": "(input: Profile, context: RequestContext) => Promise<Profile>"
+      },
+      "delete": {
+        "optional": false,
+        "type": "(context: RequestContext) => Promise<{ deleted: boolean; }>"
+      }
+    }
+  },
+  "PreferenceRepository": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "read": {
+        "optional": false,
+        "type": "(context: RequestContext) => Promise<{ saved: string[]; feedback: Record<string, number>; }>"
+      },
+      "setSaved": {
+        "optional": false,
+        "type": "(input: { eventId: string; saved: boolean; }, context: RequestContext) => Promise<{ saved: boolean; }>"
+      },
+      "setFeedback": {
+        "optional": false,
+        "type": "(input: { eventId: string; value: 1 | -1; }, context: RequestContext) => Promise<{ ok: boolean; }>"
+      }
+    }
+  },
+  "IdentityService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "resolveSession": {
+        "optional": false,
+        "type": "(input: { credential: string; }) => Promise<UserSummary | null>"
+      },
+      "authorize": {
+        "optional": false,
+        "type": "(input: { action: string; visibility: Visibility; }, context: RequestContext) => Promise<void>"
+      },
+      "deleteAccount": {
+        "optional": false,
+        "type": "(input: { confirmation: \"DELETE\"; }, context: RequestContext) => Promise<{ deleted: boolean; remoteCleanupPending: boolean; }>"
+      }
+    }
+  },
+  "ConnectionService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "list": {
+        "optional": false,
+        "type": "(context: RequestContext) => Promise<ConnectionView[]>"
+      },
+      "begin": {
+        "optional": false,
+        "type": "(input: { provider: Provider; }, context: RequestContext) => Promise<{ url: string; }>"
+      },
+      "finish": {
+        "optional": false,
+        "type": "(input: { provider: Provider; state: string; code: string; }, context: RequestContext) => Promise<ConnectionView>"
+      },
+      "disconnect": {
+        "optional": false,
+        "type": "(input: { provider: Provider; }, context: RequestContext) => Promise<{ disconnected: boolean; revoked: boolean; }>"
+      }
+    }
+  },
+  "CalendarService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "export": {
+        "optional": false,
+        "type": "(input: { event: CampusEvent; }) => string"
+      },
+      "prepare": {
+        "optional": false,
+        "type": "(input: { eventId: string; destination: CalendarProvider; }, context: RequestContext) => Promise<CalendarDraft>"
+      },
+      "revise": {
+        "optional": false,
+        "type": "(input: { draft: CalendarDraft; expectedRevision: string; }, context: RequestContext) => Promise<CalendarDraft>"
+      },
+      "commit": {
+        "optional": false,
+        "type": "(input: { draftId: string; revision: string; confirmed: true; requestId: string; }, context: RequestContext) => Promise<JobReceipt>"
+      }
+    }
+  },
+  "ConversationRepository": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "messages": {
+        "optional": false,
+        "type": "(input: PageRequest & { conversationId: string; }, context: RequestContext) => Promise<Page<ChatMessage>>"
+      },
+      "append": {
+        "optional": false,
+        "type": "(input: ChatMessage, context: RequestContext) => Promise<ChatMessage>"
+      },
+      "delete": {
+        "optional": false,
+        "type": "(input: { conversationId: string; }, context: RequestContext) => Promise<{ deleted: boolean; retainedMemoryIds: string[]; }>"
+      },
+      "memories": {
+        "optional": false,
+        "type": "(input: PageRequest, context: RequestContext) => Promise<Page<Memory>>"
+      },
+      "putMemory": {
+        "optional": false,
+        "type": "(input: Memory, context: RequestContext) => Promise<Memory>"
+      },
+      "deleteMemory": {
+        "optional": false,
+        "type": "(input: { memoryId: string; }, context: RequestContext) => Promise<{ deleted: boolean; }>"
+      }
+    }
+  },
+  "ClubService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "search": {
+        "optional": false,
+        "type": "(input: PageRequest & { query?: string | undefined; }, context: RequestContext) => Promise<Page<Club>>"
+      },
+      "refresh": {
+        "optional": false,
+        "type": "(input: { clubIds: string[]; }, context: RequestContext) => Promise<JobReceipt>"
+      }
+    }
+  },
+  "NewsService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "list": {
+        "optional": false,
+        "type": "(input: PageRequest & { eventId?: string | undefined; clubId?: string | undefined; }, context: RequestContext) => Promise<Page<NewsArticle>>"
+      },
+      "refresh": {
+        "optional": false,
+        "type": "(input: { since?: string | undefined; }, context: RequestContext) => Promise<JobReceipt>"
+      }
+    }
+  },
+  "JobService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "enqueue": {
+        "optional": false,
+        "type": "(input: { kind: \"sources\" | \"private_context\" | \"analytics\" | \"clubs\" | \"news\"; requestId: string; }, context: RequestContext) => Promise<JobReceipt>"
+      },
+      "run": {
+        "optional": false,
+        "type": "(input: { jobId: string; }, context: RequestContext) => Promise<JobReceipt>"
+      },
+      "get": {
+        "optional": false,
+        "type": "(input: { jobId: string; }, context: RequestContext) => Promise<JobReceipt>"
+      }
+    }
+  },
+  "AudioData": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "bytes": {
+        "optional": false,
+        "type": "ArrayBuffer"
+      },
+      "contentType": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "DiscordGuild": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "id": {
+        "optional": false,
+        "type": "string"
+      },
+      "name": {
+        "optional": false,
+        "type": "string"
+      }
+    }
+  },
+  "DiscordServerSettings": {
+    "kind": "interface",
+    "heritage": [
+      "extends Extensible"
+    ],
+    "members": {
+      "channels": {
+        "optional": false,
+        "type": "DiscordChannel[]"
+      },
+      "selected": {
+        "optional": false,
+        "type": "string[]"
+      }
+    }
+  },
+  "NarrationService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "narrate": {
+        "optional": false,
+        "type": "(input: { eventIds: string[]; }, context: RequestContext) => Promise<AudioData>"
+      }
+    }
+  },
+  "DiscordPolicyService": {
+    "kind": "interface",
+    "heritage": [],
+    "members": {
+      "ownedServers": {
+        "optional": false,
+        "type": "(context: RequestContext) => Promise<DiscordGuild[]>"
+      },
+      "settings": {
+        "optional": false,
+        "type": "(input: { guildId: string; }, context: RequestContext) => Promise<DiscordServerSettings>"
+      },
+      "configure": {
+        "optional": false,
+        "type": "(input: { guildId: string; channels: string[]; }, context: RequestContext) => Promise<{ ok: boolean; }>"
+      }
+    }
+  }
+}

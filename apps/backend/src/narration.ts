@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { DateTime } from "luxon";
-import { CampusEvent, CAMPUS_TZ } from "../../../packages/shared/src/index.js";
+import { CampusEvent, CAMPUS_TZ } from "./domain.js";
 import { database } from "./store.js";
 import { HttpError } from "./config.js";
 

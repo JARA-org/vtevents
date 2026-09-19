@@ -7,7 +7,7 @@ import {
   categories,
   questionFilter,
   filterQuestion,
-} from "../../../packages/shared/src/index.js";
+} from "./domain.js";
 import { db } from "./store.js";
 const querySchema = z.object({
   weekday: z.number().int().min(1).max(7).nullable(),

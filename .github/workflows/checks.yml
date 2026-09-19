@@ -1,5 +1,7 @@
 name: My Little Gobbler checks
 on:
+  push:
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
