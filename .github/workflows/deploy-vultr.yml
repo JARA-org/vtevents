@@ -1,0 +1,71 @@
+name: Deploy to Vultr
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vultr-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Verify application
+        run: |
+          npm ci --include=dev
+          npm run typecheck
+          npm test
+          bash -n deploy/remote-release.sh
+      - name: Build production image and release bundle
+        env:
+          RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          docker build --tag "my-little-gobbler-app:$RELEASE" .
+          mkdir -p "$RUNNER_TEMP/release/deploy"
+          cp -R deploy/. "$RUNNER_TEMP/release/deploy/"
+          docker save "my-little-gobbler-app:$RELEASE" | gzip > "$RUNNER_TEMP/release/image.tar.gz"
+          tar -czf "$RUNNER_TEMP/release.tar.gz" -C "$RUNNER_TEMP/release" .
+      - name: Deploy verified image
+        env:
+          RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          VULTR_SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
+          VULTR_SSH_KNOWN_HOSTS: ${{ secrets.VULTR_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$VULTR_SSH_PRIVATE_KEY" || { echo 'Missing VULTR_SSH_PRIVATE_KEY secret'; exit 1; }
+          test -n "$VULTR_SSH_KNOWN_HOSTS" || { echo 'Missing VULTR_SSH_KNOWN_HOSTS secret'; exit 1; }
+          umask 077
+          ssh_dir="$RUNNER_TEMP/vultr-ssh"
+          mkdir -p "$ssh_dir"
+          trap 'rm -f "$ssh_dir/key" "$ssh_dir/known_hosts"' EXIT
+          printf '%s\n' "$VULTR_SSH_PRIVATE_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$VULTR_SSH_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          unset VULTR_SSH_PRIVATE_KEY VULTR_SSH_KNOWN_HOSTS
+          ssh-keygen -y -f "$ssh_dir/key" > /dev/null
+          ssh-keygen -F 45.77.222.255 -f "$ssh_dir/known_hosts" > /dev/null
+          options=(-i "$ssh_dir/key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$ssh_dir/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+          target=root@45.77.222.255
+          ssh "${options[@]}" "$target" "umask 077; mkdir -p /opt/gobbler-incoming/$RELEASE"
+          scp "${options[@]}" "$RUNNER_TEMP/release.tar.gz" "$target:/opt/gobbler-incoming/$RELEASE/release.tar.gz"
+          # Bootstrap script comes from the same checked-out commit as the image.
+          scp "${options[@]}" deploy/remote-release.sh "$target:/opt/gobbler-incoming/$RELEASE/deploy.sh"
+          ssh "${options[@]}" "$target" "bash /opt/gobbler-incoming/$RELEASE/deploy.sh $RELEASE"
+      - name: Check public HTTPS
+        run: node deploy/smoke.mjs https://vtevents.us
