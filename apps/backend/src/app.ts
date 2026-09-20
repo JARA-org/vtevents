@@ -29,6 +29,7 @@ import { config, HttpError } from "./config.js";
 import { db, database, mongoClient } from "./store.js";
 import { sourceStatus, liveEvents, liveDeadlines, refreshSources } from "./coordinator.js";
 import { consolidateEvents } from "./event-consolidation.js";
+import { ansRuntime, isAnsAssistantRequest } from "./ans-runtime.js";
 import { searchPublicMemory } from "./public-memory.js";
 import { askGobbler } from "./assistant.js";
 import { narrate, voiceReady } from "./narration.js";
@@ -77,6 +78,7 @@ export function createApp() {
     rateLimit({
       windowMs: 60000,
       limit: 120,
+      skip: isAnsAssistantRequest,
       standardHeaders: "draft-8",
       legacyHeaders: false,
     }),
@@ -210,7 +212,9 @@ export function createApp() {
     const publicEvents = liveEvents();
     // Website records were already reconciled by the coordinator. Discord
     // eligibility is rechecked on every read so withdrawals never use a cache.
-    return published.length ? consolidateEvents([...publicEvents, ...published]) : publicEvents;
+    return published.length
+      ? ansRuntime ? await ansRuntime.reconcile([...publicEvents, ...published]) : consolidateEvents([...publicEvents, ...published])
+      : publicEvents;
   };
   const currentEvent = async (id: string) => {
     const e = (await currentEvents()).find((e) => e.id === id || e.aliases?.includes(id));
@@ -376,11 +380,15 @@ export function createApp() {
   app.post(
     "/api/assistant",
     protect,
-    rateLimit({ windowMs: 60000, limit: 10 }),
+    rateLimit({ windowMs: 60000, limit: 10, skip: isAnsAssistantRequest }),
     async (req, res) => {
       const { query } = z
         .object({ query: z.string().min(1).max(1000) })
         .parse(req.body);
+      if (ansRuntime && !isAnsAssistantRequest(req)) {
+        res.json(await ansRuntime.ask(query, req.headers.cookie || ""));
+        return;
+      }
       const id = res.locals.user.id,
         p = await withPrivateContext(id, await profile(id));
       const [saved, feedback] = await Promise.all([

@@ -5,6 +5,7 @@ import { runJobs } from "./jobs.js";
 import { flushAnalytics } from "./analytics.js";
 import { flushAccountEmail } from "./account-email.js";
 import { startDiscordCollection } from "./discord-jobs.js";
+import { startAnsRuntime } from "./ans-runtime.js";
 import { monitorEventLoopDelay } from "node:perf_hooks";
 // Numeric process metrics only: no URLs, user context, credentials or event text.
 const lag = monitorEventLoopDelay({ resolution: 20 });
@@ -24,7 +25,10 @@ setInterval(() => {
   lag.reset();
 }, 60000).unref();
 await connectDB();
-createApp().listen(config.port, "0.0.0.0", () =>
+const app = createApp();
+const stopAns = process.env.ANS_DIRECTORY ? await startAnsRuntime(process.env.ANS_DIRECTORY, app) : undefined;
+if (stopAns) console.log("ans_runtime_ready", { coordinator: true, assistant: true });
+app.listen(config.port, "0.0.0.0", () =>
   console.log(`My Gobbler listening on ${config.port}`),
 );
 const background = (job: () => Promise<void>, name: string) => {
@@ -33,7 +37,7 @@ const background = (job: () => Promise<void>, name: string) => {
 background(runJobs, "refresh");
 const stopDiscord = startDiscordCollection();
 process.once("SIGTERM", () => {
-  void stopDiscord().finally(() => process.exit(0));
+  void Promise.all([stopDiscord(), stopAns?.()]).finally(() => process.exit(0));
 });
 setInterval(() => background(runJobs, "refresh"), 60000).unref();
 setInterval(() => background(flushAnalytics, "analytics"), 60000).unref();

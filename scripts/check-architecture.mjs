@@ -31,6 +31,7 @@ const edges = {
   "agent-policy.ts": [],
   "ans-verification.ts": [],
   "ans-handoff.ts": ["agent-policy"],
+  "ans-runtime.ts": ["ans-verification", "ans-handoff", "event-consolidation", "domain", "config"],
   "club-accounts.ts": ["store", "config"],
   "discord-publication.ts": [
     "agent-policy",
@@ -42,6 +43,7 @@ const edges = {
     "discord-bot-store",
   ],
   "app.ts": [
+    "ans-runtime",
     "event-consolidation",
     "public-memory",
     "account-email",
@@ -61,6 +63,7 @@ const edges = {
     "discord-bot-http",
   ],
   "server.ts": [
+    "ans-runtime",
     "store",
     "app",
     "config",

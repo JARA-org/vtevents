@@ -44,6 +44,7 @@ export const ansConfigSchema = z
   .strict();
 const fingerprint = z.string().regex(/^SHA256:[a-f0-9]{64}$/);
 const badgeSchema = z.object({
+  schemaVersion: z.enum(["V1", "V2"]).optional(),
   status: z.enum([
     "ACTIVE",
     "WARNING",
@@ -61,6 +62,8 @@ const badgeSchema = z.object({
         attestations: z.object({
           identityCerts: z.array(z.object({ fingerprint })).max(32).optional(),
           serverCerts: z.array(z.object({ fingerprint })).max(32).optional(),
+          validIdentityCerts: z.array(z.object({ fingerprint })).max(32).optional(),
+          validServerCerts: z.array(z.object({ fingerprint })).max(32).optional(),
         }),
       }),
     }),
@@ -232,8 +235,13 @@ export function createAnsVerifier(
         event.agent.version !== peer.version
       )
         throw new Error("ANS registration identity mismatch");
+      // GoDaddy's production v1 endpoint publishes current rotation arrays under
+      // valid*Certs. Never fall back to the historical singular certificate.
+      const certificates = badge.schemaVersion === "V1"
+        ? (direction === "caller" ? event.attestations.validIdentityCerts : event.attestations.validServerCerts)
+        : (direction === "caller" ? event.attestations.identityCerts : event.attestations.serverCerts);
       if (
-        !(direction === "caller" ? event.attestations.identityCerts : event.attestations.serverCerts)?.some(
+        !certificates?.some(
           (entry) => entry.fingerprint === digest,
         )
       )

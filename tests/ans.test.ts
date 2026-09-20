@@ -35,7 +35,7 @@ const pin = config.peers[0];
 const url = `https://log.example.test/v1/agents/${pin.agentId}`;
 const digest = "SHA256:" + createHash("sha256").update(x509.raw).digest("hex");
 const now = Date.parse(x509.validFrom) + 60000;
-function fixture(status = "ACTIVE", fingerprint = digest, badgeUrl = url, certificateKind = "identityCerts") {
+function fixture(status = "ACTIVE", fingerprint = digest, badgeUrl = url, certificateKind = "identityCerts", schemaVersion?: string) {
   let requests = 0;
   const verifier = createAnsVerifier(config, {
     now: () => now,
@@ -45,6 +45,7 @@ function fixture(status = "ACTIVE", fingerprint = digest, badgeUrl = url, certif
       return new Response(
         JSON.stringify({
           status,
+          schemaVersion,
           payload: {
             producer: {
               event: {
@@ -72,6 +73,17 @@ test("ANS binds a live badge to a pinned TLS certificate", async () => {
     assert.equal(result.fingerprint, digest);
     assert.equal(result.status, status);
   }
+});
+
+test("production V1 badges use current rotation arrays and preserve certificate roles", async () => {
+  const evidence = { authorized: true, certificatePem: cert };
+  await fixture("ACTIVE", digest, url, "validIdentityCerts", "V1").verifier.verifyCaller("discord", evidence);
+  await fixture("ACTIVE", digest, url, "validServerCerts", "V1").verifier.verifyCallee("discord", pin.host, evidence);
+  for (const kind of ["identityCert", "identityCerts", "validServerCerts"]) {
+    await assert.rejects(fixture("ACTIVE", digest, url, kind, "V1").verifier.verifyCaller("discord", evidence));
+  }
+  await assert.rejects(fixture("REVOKED", digest, url, "validIdentityCerts", "V1").verifier.verifyCaller("discord", evidence));
+  await assert.rejects(fixture("ACTIVE", digest, url, "validIdentityCerts", "V3").verifier.verifyCaller("discord", evidence));
 });
 test("ANS fails closed on revoked, missing, or mismatched identities", async () => {
   for (const status of ["REVOKED", "EXPIRED", "UNKNOWN", "unexpected"])

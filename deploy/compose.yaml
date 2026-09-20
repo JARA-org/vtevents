@@ -15,6 +15,10 @@ services:
       PORT: 3000
       APP_ORIGIN: https://${GOBBLER_DOMAIN:?Set GOBBLER_DOMAIN to an owned hostname}
     expose: ["3000"]
+    # Operator-owned credentials never enter the image or release bundle.
+    # ANS_DIRECTORY=/run/gobbler-ans in the host env explicitly enables ANS.
+    volumes:
+      - /opt/gobbler-ans:/run/gobbler-ans:ro
     read_only: true
     tmpfs: ["/tmp:size=16m,mode=1777"]
     cap_drop: ["ALL"]

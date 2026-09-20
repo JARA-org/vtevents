@@ -1289,6 +1289,17 @@ export interface AnsPeerVerificationService extends AnsVerificationService {
   /** Trusted TLS adapter only. Binds the server certificate to the operator-selected host and registered serverCerts. Fresh DNS/HTTPS reads; throws before application data is sent. No writes, AI, or automatic retry. */
   verifyCallee(role: AgentRole, dialedHost: string, transport: AnsTransportIdentity): Promise<AnsVerifiedIdentity>;
 }
+/** Backend-only enabled transport. No browser access to credentials or cookies.
+ * Calls have bounded payloads/timeouts, no retries and no local fallback on failure. */
+export interface AnsRuntimeServices {
+  /** Authenticated Discord-to-coordinator public reconciliation. Pure remote
+   * computation; no persistence, AI spending or transactions. Rejects private DTOs. */
+  reconcile(events: CampusEvent[]): Promise<CampusEvent[]>;
+  /** Authenticated coordinator-to-assistant request. Cookie is forwarded only
+   * after server verification; receiver independently authenticates the user.
+   * May spend existing AI budget and read user-scoped context; no provider writes. */
+  ask(query: string, cookie: string): Promise<AssistantReply>;
+}
 export interface AgentHandoff {
   sender: AgentRole;
   recipient: AgentRole;
