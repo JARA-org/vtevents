@@ -619,7 +619,6 @@ export default function Home() {
           )}
           {page === "club-setup" && (
             <ClubGuide
-              onBack={() => go("landing")}
               onWorkspace={() => router.push("/clubs")}
             />
           )}

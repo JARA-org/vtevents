@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "expo-router";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Button, Gobbler, Pressable } from "./ui";
+import { Gobbler, Pressable } from "./ui";
 import { C, font } from "./theme";
 
 /** Static product documentation for club representatives. Presentation only: no
@@ -148,7 +148,7 @@ const promises = [
   "Announcement text is treated as information, never as instructions to follow.",
 ];
 
-export function ClubGuide({ onBack, onWorkspace }: { onBack: () => void; onWorkspace: () => void }) {
+export function ClubGuide({ onWorkspace }: { onWorkspace: () => void }) {
   const { width } = useWindowDimensions();
   const mobile = width < 800;
   return (
@@ -167,10 +167,6 @@ export function ClubGuide({ onBack, onWorkspace }: { onBack: () => void; onWorks
             channels you pick, puts qualifying announcements in front of the rest
             of campus, and emails you when one goes live.
           </Text>
-          <View style={[g.actions, mobile && { alignItems: "stretch" }]}>
-            <Button label="Open my club workspace" icon="briefcase-outline" onPress={onWorkspace} />
-            <Button secondary label="Back to home" onPress={onBack} />
-          </View>
         </View>
         {!mobile && (
           <View style={g.art}>
@@ -268,7 +264,6 @@ const g = StyleSheet.create({
     color: C.ink,
   },
   lead: { fontFamily: font, fontSize: 17, lineHeight: 27, color: C.muted },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 4 },
   art: { width: 210, height: 210, alignItems: "center", justifyContent: "center" },
   circle: {
     position: "absolute",
