@@ -337,6 +337,13 @@ test("club accounts isolate events and securely consume server setup tickets", a
       true,
       "date-only input does not invent a time",
     );
+    await discordCollectionRepository.save({...announcement,text:announcement.text+" from 3:30 PM - 5:00 PM; watch through https://example.org/live"},"timed-source",candidate,"qualified");
+    const timed=(await a.get("/api/events")).body.events.find((e:any)=>e.id===automatic.id);
+    assert.equal(timed.start,"2099-09-25T19:30:00.000Z");
+    assert.equal(timed.end,"2099-09-25T21:00:00.000Z");
+    assert.equal(timed.timeTBD,false);
+    assert.equal(timed.onlineUrl,"https://example.org/live");
+    assert.equal(timed.location,"Squires");
     let workspace = (await a.get(`/api/clubs/${created.body.id}/workspace`))
       .body;
     const edit = workspace.editableEvents[0];

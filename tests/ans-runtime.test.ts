@@ -56,6 +56,11 @@ test("ANS runtime gates actual TLS sockets, forwards session only after verifica
     rejectCaller = false;
     const event: CampusEvent = {id:"one",title:"Event",description:"",start:"2026-10-01T10:00:00Z",end:null,timezone:"America/New_York",location:"Campus",organizer:null,categories:["Community"],sources:[{source:"discord",sourceId:"one",url:"https://discord.com/channels/1/2/3",fetchedAt:"2026-09-20T00:00:00Z"}],updatedAt:"2026-09-20T00:00:00Z",status:"scheduled",mode:"live",timeTBD:false,allDay:false,endEstimated:false};
     assert.equal((await ansRuntime!.reconcile([event,event])).length,1);
+    const legacy={...event,isOnline:null,sports:null,admission:null};
+    const normalized=validateAnsEvents([legacy])[0];
+    assert.equal("sports" in normalized,false);
+    assert.equal((await ansRuntime!.reconcile([normalized,event])).length,1);
+    assert.throws(()=>validateAnsEvents([{...event,isOnline:"yes"}]));
     assert.throws(() => validateAnsEvents([{...event,visibility:{kind:"user",userId:"private"}}]));
     await assert.rejects(ansRuntime!.ask("x".repeat(4*1024*1024), "session=valid"));
     // Exercise the real route, including CSRF/origin validation, independent

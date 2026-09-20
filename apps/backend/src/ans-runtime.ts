@@ -27,8 +27,13 @@ export function validateAnsEvents(value: unknown): CampusEvent[] {
   return value.map(item => {
     if (!item || typeof item !== "object" || (item.visibility && item.visibility.kind !== "public"))
       throw new Error("Private event is not allowed");
-    eventSchema.parse(item);
-    return item as CampusEvent;
+    // Legacy Mongo snapshots serialized missing optional fields as null.
+    // Normalize only these absence values; retain validation for all actual data.
+    const normalized = {...item};
+    for (const field of ["isOnline", "sports", "admission"])
+      if (normalized[field] === null) delete normalized[field];
+    eventSchema.parse(normalized);
+    return normalized as CampusEvent;
   });
 }
 

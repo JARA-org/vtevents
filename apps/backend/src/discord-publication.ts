@@ -104,12 +104,12 @@ export const discordPublication: DiscordPublicationService = {
         onlineUrl: candidate.onlineUrl,
         isOnline: candidate.isOnline,
       };
-      const start = DateTime.fromISO(values.date, { zone: CAMPUS_TZ }).startOf(
-        "day",
-      );
+      const day = DateTime.fromISO(values.date, { zone: CAMPUS_TZ }).startOf("day");
+      const start = candidate.startTime ? DateTime.fromISO(`${values.date}T${candidate.startTime}`, {zone:CAMPUS_TZ}) : day;
+      const end = candidate.endTime ? DateTime.fromISO(`${values.date}T${candidate.endTime}`, {zone:CAMPUS_TZ}) : null;
       if (
         !input?.includePast &&
-        start.plus({ days: 1 }).toMillis() <= Date.now()
+        day.plus({ days: 1 }).toMillis() <= Date.now()
       )
         continue;
       const revision = hash(
@@ -122,7 +122,7 @@ export const discordPublication: DiscordPublicationService = {
           title: values.title,
           description: values.description,
           start: start.toUTC().toISO(),
-          end: null,
+          end: end?.toUTC().toISO() || null,
           timezone: CAMPUS_TZ,
           location: values.location,
           onlineUrl: values.onlineUrl,
@@ -140,7 +140,7 @@ export const discordPublication: DiscordPublicationService = {
           updatedAt,
           status: "scheduled",
           mode: "live",
-          timeTBD: true,
+          timeTBD: !candidate.startTime,
           allDay: false,
           endEstimated: false,
         }),
@@ -148,10 +148,10 @@ export const discordPublication: DiscordPublicationService = {
         ownerCorrected: !!override,
         revision,
         timeDetails: {
-          precision: "date_only" as const,
+          precision: candidate.startTime ? "confirmed" as const : "date_only" as const,
           startDate: values.date,
-          confirmedStart: null,
-          confirmedEnd: null,
+          confirmedStart: candidate.startTime ? start.toUTC().toISO() : null,
+          confirmedEnd: end?.toUTC().toISO() || null,
         },
       };
       result.push({ event, edit: { eventId: id, revision, values } });

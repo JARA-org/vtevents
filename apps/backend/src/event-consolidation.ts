@@ -327,6 +327,11 @@ function merge(a: CampusEvent, b: CampusEvent): CampusEvent {
   }
   out.conflicts = unique(out.conflicts, (x) => JSON.stringify(x));
   out.evidence = unique(out.evidence, (x) => JSON.stringify(x));
+  // Mongo encodes explicit undefined properties as null. Keep absent optional
+  // values absent so a persisted record still satisfies the event contract.
+  if (out.isOnline == null) delete out.isOnline;
+  if (out.sports == null) delete out.sports;
+  if (out.admission == null) delete out.admission;
   return out;
 }
 

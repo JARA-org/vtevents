@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
+  Linking,
 } from "react-native";
 import { router } from "expo-router";
 import { Button } from "../components/ui";
@@ -246,8 +247,10 @@ export default function ClubsPage() {
               <View key={event.id}>
                 <Text style={styles.title}>{event.title}</Text>
                 <Text>
-                  {event.start} · {event.location || ""}
+                  {new Intl.DateTimeFormat("en-US", {timeZone:event.timezone, dateStyle:"medium", ...(event.timeTBD ? {} : {timeStyle:"short" as const})}).format(new Date(event.start))}
+                  {event.timeTBD ? " · Time to be confirmed" : event.end ? ` – ${new Intl.DateTimeFormat("en-US", {timeZone:event.timezone,timeStyle:"short"}).format(new Date(event.end))}` : ""} · {event.location || ""}
                 </Text>
+                {event.onlineUrl && <Text accessibilityRole="link" onPress={() => void Linking.openURL(event.onlineUrl!)} style={{color:C.maroon}}>Watch / join online: {event.onlineUrl}</Text>}
               </View>
             ))}
             <Text>

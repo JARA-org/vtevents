@@ -7,6 +7,8 @@ import type {
 const quote = z.string().trim().min(1).max(2000);
 const proposal = z
   .object({
+    startTime: z.string().optional(),
+    endTime: z.string().optional(),
     date: z.string(),
     dateReasoning: z.string().trim().min(1).max(1000).optional(),
     dateMessageId: z
@@ -165,5 +167,28 @@ export function validateDiscordCandidate(
   )
     return null;
   if (!p.location && !p.isOnline) return null;
-  return p;
+  // Clock arithmetic is deterministic. Ignore model-supplied times and derive
+  // only an explicit, unique same-day AM/PM range from the source evidence.
+  const { startTime: ignoredStart, endTime: ignoredEnd, ...grounded } = p;
+  const ranges = [...text.matchAll(/\b(\d{1,2})(?::([0-5]\d))?\s*(AM|PM)\s*[-–—]\s*(\d{1,2})(?::([0-5]\d))?\s*(AM|PM)\b/gi)];
+  let times: {startTime?:string;endTime?:string} = {};
+  if (ranges.length === 1 && !/\b(?:UTC|GMT|PST|PDT|CST|CDT|MST|MDT)\b/i.test(text)) {
+    const m = ranges[0];
+    const clock = (h:string,min:string|undefined,period:string) => Number(h)>=1 && Number(h)<=12 ? `${String(Number(h)%12+(period.toUpperCase()==="PM"?12:0)).padStart(2,"0")}:${min||"00"}` : undefined;
+    const startTime=clock(m[1],m[2],m[3]), endTime=clock(m[4],m[5],m[6]);
+    if(startTime && endTime && endTime>startTime) {
+      const clocks=[startTime,endTime].map(t=>DateTime.fromISO(`${p.date}T${t}`,{zone:"America/New_York"}));
+      if(clocks.every((clock,i)=>clock.isValid && clock.toFormat("HH:mm")===[startTime,endTime][i] && clock.getPossibleOffsets().length===1)) times={startTime,endTime};
+    }
+  }
+  // Recover clearly labeled attendance links from existing stored proposals too.
+  // Never treat unrelated URLs (registration, source links, etc.) as attendance.
+  if (!grounded.onlineUrl) {
+    const links=[...text.matchAll(/\b(?:watch|join)\s+(?:(?:online|live)\s+)?(?:through|at|via|on)\s+<?(https?:\/\/[^\s<>]+)/gi)];
+    if(links.length===1) {
+      const url=links[0][1].replace(/[.,;!?)]+$/,"");
+      try { const parsed=new URL(url); if(!parsed.username&&!parsed.password) {grounded.onlineUrl=url;grounded.isOnline=true;grounded.evidence.online=links[0][0];} } catch { /* Invalid source URL stays absent. */ }
+    }
+  }
+  return {...grounded,...times};
 }

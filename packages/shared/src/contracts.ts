@@ -992,8 +992,11 @@ export interface DiscordCollectedMessage {
   editedAt: Instant | null;
   sourceUrl: string;
 }
-/** A qualified proposal, not a canonical event or permission to write calendars. Date-only until time interpretation is implemented. */
+/** A qualified proposal, not a canonical event or permission to write calendars. */
 export interface DiscordEventCandidate {
+  /** Evidence-derived campus-local HH:mm; absent when no unambiguous time is supplied. */
+  startTime?: string;
+  endTime?: string;
   /** Source of date evidence in a grouped/image announcement; required for grouped inferred dates. */
   dateMessageId?: Id;
   /** Explanation for a date inferred from the message's original posting time. Absent for explicit full dates. */

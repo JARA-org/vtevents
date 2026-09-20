@@ -31,6 +31,20 @@ const proposal: DiscordEventCandidate = {
     online: "Join online at https://example.org/join",
   },
 };
+
+test("existing date-only fencing proposals recover explicit clocks and viewing links from evidence", () => {
+  const text="Fencing competition from 3:30 PM - 5:00 PM today. It's at Squires Auditorium, also you can watch through https://www.youtube.com/watch?v=v9QtM6qnG50.";
+  const candidate={...proposal,date:"2026-09-20",dateReasoning:"Today is the original posting date in campus time",title:"Fencing competition",location:"Squires Auditorium",onlineUrl:null,isOnline:false,evidence:{date:"today",title:"Fencing competition",location:"Squires Auditorium",online:null}};
+  const context={postedAt:"2026-09-20T16:00:00Z",timezone:"America/New_York"};
+  const result=validateDiscordCandidate(candidate,text,context)!;
+  assert.equal(result.startTime,"15:30");
+  assert.equal(result.endTime,"17:00");
+  assert.equal(result.onlineUrl,"https://www.youtube.com/watch?v=v9QtM6qnG50");
+  assert.equal(result.isOnline,true);
+  assert.equal(result.location,"Squires Auditorium");
+  assert.equal(validateDiscordCandidate({...candidate,startTime:"01:00"},text.replace("3:30 PM - 5:00 PM","sometime"),context)?.startTime,undefined);
+  assert.equal(validateDiscordCandidate(candidate,text.replace("3:30 PM - 5:00 PM","3:30 PM - 5:00 PM PST"),context)?.startTime,undefined);
+});
 test("image-only announcements qualify from bounded transcription and captions opt out before image/AI access", async () => {
   const message: DiscordCollectedMessage = {
     guildId: "1",
