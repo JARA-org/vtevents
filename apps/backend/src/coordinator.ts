@@ -4,6 +4,7 @@ import type {
   SourceHealth,
 } from "../../../packages/shared/src/contracts.js";
 import { db, mongoClient } from "./store.js";
+import { parseStoredEvent, parseStoredDeadline } from "./domain.js";
 import { consolidateEvents } from "./event-consolidation.js";
 import { agentHandoffPolicy } from "./agent-policy.js";
 import { publicSources } from "./public-source-registry.js";
@@ -23,6 +24,29 @@ let running: Promise<void> | undefined;
 let loaded = false;
 let memoryHash: string | undefined;
 const nextChecks = new Map<string, number>();
+/** Count of stored records this process could not represent. Reported, never hidden. */
+export let unreadableRecords = 0;
+/** Repairs legacy storage encodings and drops records that cannot be represented.
+ * A single unusable stored row must not remove the rest of a source's history. */
+function readStored<T>(
+  rows: unknown[],
+  parse: (value: unknown) => T | null,
+  source: string,
+): T[] {
+  const kept: T[] = [];
+  let dropped = 0;
+  for (const row of rows) {
+    const record = parse(row);
+    if (record) kept.push(record);
+    else dropped++;
+  }
+  if (dropped) {
+    unreadableRecords += dropped;
+    // Identifiers and counts only: never stored event text in a log line.
+    console.warn("stored_records_unreadable", JSON.stringify({ source, dropped }));
+  }
+  return kept;
+}
 export function reconcileEvents(raw: CampusEvent[], previous: CampusEvent[]) {
   return consolidateEvents(raw, previous);
 }
@@ -30,16 +54,27 @@ export function reconcileEvents(raw: CampusEvent[], previous: CampusEvent[]) {
 export async function restoreSources() {
   if (loaded) return;
   if (db) {
-    cachedEvents = await db
-      .collection<CampusEvent>("events")
-      .find({}, { projection: { _id: 0 } })
-      .toArray();
+    unreadableRecords = 0;
+    cachedEvents = readStored(
+      await db
+        .collection<CampusEvent>("events")
+        .find({}, { projection: { _id: 0 } })
+        .toArray(),
+      parseStoredEvent,
+      "events",
+    );
     for (const row of await db
       .collection("source_snapshots")
       .find({})
       .toArray()) {
-      snapshots.set(row.source, row.events || []);
-      deadlineSnapshots.set(row.source, row.deadlines || []);
+      snapshots.set(
+        row.source,
+        readStored(row.events || [], parseStoredEvent, row.source),
+      );
+      deadlineSnapshots.set(
+        row.source,
+        readStored(row.deadlines || [], parseStoredDeadline, row.source),
+      );
       sourceStatus[row.source] = {
         status: "cached",
         lastSync: row.syncedAt,

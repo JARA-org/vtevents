@@ -166,6 +166,10 @@ export interface HealthView extends Extensible {
   gemini: boolean;
   sources: Record<string, SourceHealth>;
   voice?: boolean;
+  /** Stored records this process could not represent and therefore excluded from
+   * listings. Absent when unknown; zero is the healthy value. Diagnostics only:
+   * it never changes authorization or implies a source is complete. */
+  unreadableRecords?: number;
 }
 export interface BootstrapView extends Extensible {
   categories: Category[];
@@ -1054,6 +1058,11 @@ export interface DiscordCollectionRepository {
   reserveAI(limit: number): Promise<boolean>;
   /** Atomic global/server/hour/message/revision reservation before inference. Denial increments nothing. Failed calls retain reservations; no automatic refund. */
   reserveExtraction(input: DiscordExtractionReservation): Promise<boolean>;
+  /** True when this exact content revision has already consumed its single
+   * extraction reservation, so no further attempt can ever succeed for it. Read-only
+   * scheduling hint: it reserves nothing, refunds nothing and grants no permission.
+   * An edit or explicit submission produces a new revision that is unaffected. */
+  extractionSpent?(input: DiscordExtractionReservation): Promise<boolean>;
 }
 export interface DiscordExtractionReservation {
   guildId: Id;
@@ -1249,6 +1258,10 @@ export interface DiscordMessageJob extends DiscordReadTarget {
   messageId: Id;
   revision: string;
   leaseOwner: string;
+  /** Delivery attempts for this revision, starting at 1. Scheduling input only:
+   * it never relaxes a spending cap, revision reservation or eligibility check.
+   * Absent means the queue does not track attempts. */
+  attempts?: number;
 }
 export interface DiscordTriggerQueue {
   /** Trusted Gateway/command IDs only. Coalesces work durably; stores IDs, not message text. Rechecks eligibility before enqueue. */

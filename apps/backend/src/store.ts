@@ -14,6 +14,11 @@ export async function connectDB() {
   if (!config.mongo) return;
   mongoClient = new MongoClient(config.mongo, {
     serverSelectionTimeoutMS: 10000,
+    // Absent optional fields must stay absent. Without this the driver stores
+    // `undefined` as BSON null, and reading it back fails the optional
+    // non-nullable field schemas. Explicit nulls are unaffected, so a
+    // deliberately cleared nullable value still round-trips.
+    ignoreUndefined: true,
   });
   await mongoClient.connect();
   db = mongoClient.db(config.db);

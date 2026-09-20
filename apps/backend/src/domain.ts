@@ -1,5 +1,6 @@
 import type {
   CampusEvent,
+  CampusDeadline,
   Profile,
   Fit,
 } from "../../../packages/shared/src/contracts.js";
@@ -97,6 +98,85 @@ export const deadlineSchema = z.object({
   term:z.string().max(300).optional(),submissionUrl:publicUrl.optional(),sources:z.array(sourceSchema).min(1),
   updatedAt:instant,status:z.enum(["active","withdrawn"]),media:z.array(mediaSchema).max(30).optional(),
 }).refine(v=>!v.dueAt||DateTime.fromISO(v.dueAt).setZone(v.timezone).toISODate()===v.dueDate,"Deadline date and cutoff disagree");
+
+/** Fields whose schema accepts a value or absence but never null. Documents written
+ * before store.ts set `ignoreUndefined` recorded absent optional fields as BSON null,
+ * so a stored null means "absent" for exactly these keys. Nullable fields are
+ * deliberately excluded (end, location, organizer, onlineUrl, opponent, sourceUpdatedAt,
+ * confirmedStart/confirmedEnd, scores, period, clock): their null is real data. */
+const absentWhenNull = {
+  event: ["description", "timezone", "media", "links", "sports", "timeDetails",
+    "admission", "audience", "address", "registrationUrl", "organizerUrl",
+    "ownerCorrected", "aliases", "isOnline", "timeTBD", "allDay", "endEstimated"],
+  deadline: ["timezone", "dueAt", "audience", "term", "submissionUrl", "media"],
+  source: ["providerId", "label"],
+  media: ["alt", "credit", "sourceUrl"],
+  link: ["embeddable"],
+  sports: ["opponentLogoUrl", "checkedAt"],
+  timeDetails: ["startDate", "endDate", "note"],
+  admission: ["price", "currency", "free", "availability"],
+} as const;
+const storedDefaults = {
+  description: "",
+  timezone: CAMPUS_TZ,
+  timeTBD: false,
+  allDay: false,
+  endEstimated: false,
+};
+function withoutAbsent(value: unknown, keys: readonly string[]) {
+  if (!value || typeof value !== "object") return value;
+  const next = { ...(value as Record<string, unknown>) };
+  for (const key of keys) if (next[key] === null) delete next[key];
+  return next;
+}
+function normalizeRecord(value: unknown, keys: readonly string[]) {
+  const record = withoutAbsent(value, keys) as Record<string, unknown>;
+  if (!record || typeof record !== "object") return record;
+  for (const [field, nested] of [
+    ["sources", absentWhenNull.source],
+    ["media", absentWhenNull.media],
+    ["links", absentWhenNull.link],
+  ] as const)
+    if (Array.isArray(record[field]))
+      record[field] = (record[field] as unknown[]).map((item) =>
+        withoutAbsent(item, nested),
+      );
+  for (const [field, nested] of [
+    ["sports", absentWhenNull.sports],
+    ["timeDetails", absentWhenNull.timeDetails],
+    ["admission", absentWhenNull.admission],
+  ] as const)
+    if (record[field]) record[field] = withoutAbsent(record[field], nested);
+  return record;
+}
+/** Pure shape repair for one stored record. No I/O, model calls or field invention:
+ * it only removes legacy null placeholders and applies the schema's own defaults. */
+export function normalizeStoredEvent(value: unknown): unknown {
+  const record = normalizeRecord(value, absentWhenNull.event);
+  return record && typeof record === "object"
+    ? { ...storedDefaults, ...record }
+    : record;
+}
+export function normalizeStoredDeadline(value: unknown): unknown {
+  const record = normalizeRecord(value, absentWhenNull.deadline);
+  return record && typeof record === "object"
+    ? { timezone: CAMPUS_TZ, ...record }
+    : record;
+}
+/** Validates one stored record, preserving fields the schema does not declare
+ * (clubId, revision, visibility, evidence, conflicts, extensions). Returns null for a
+ * record that cannot be represented, so one unusable row never discards the rest.
+ * Read-only: no writes, retries or provider calls. */
+export function parseStoredEvent(value: unknown): CampusEvent | null {
+  const record = normalizeStoredEvent(value);
+  return eventSchema.safeParse(record).success ? (record as CampusEvent) : null;
+}
+export function parseStoredDeadline(value: unknown): CampusDeadline | null {
+  const record = normalizeStoredDeadline(value);
+  return deadlineSchema.safeParse(record).success
+    ? (record as CampusDeadline)
+    : null;
+}
 
 export const recurringSchema = z
   .object({

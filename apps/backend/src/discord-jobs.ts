@@ -12,6 +12,7 @@ import { createAnnouncementReader } from "./discord-announcement-reader.js";
 import type {
   DiscordMessageTrigger,
   DiscordCollectionInspection,
+  DiscordExtractionLimits,
   DiscordTriggerQueue,
   DiscordMessageJob,
 } from "../../../packages/shared/src/contracts.js";
@@ -41,6 +42,54 @@ export async function runDiscordWorkers(
   );
   const failure = results.find((result) => result.status === "rejected");
   if (failure?.status === "rejected") throw failure.reason;
+}
+/** Scheduling only. Early attempts retry quickly so a settling edit, a brief provider
+ * error or a busy lock costs seconds instead of a flat minute; later attempts back off
+ * to the previous one-minute ceiling. Retrying sooner cannot increase spending: the
+ * atomic per-server budgets and the single per-revision reservation are unchanged, and
+ * a denied reservation increments nothing. */
+export function retryDelay(job: Pick<DiscordMessageJob, "attempts">) {
+  const attempts = Math.max(1, job.attempts ?? 1);
+  return Math.min(60000, 3000 * 2 ** (attempts - 1));
+}
+/** Work stays queued while it may still proceed. When this exact revision has already
+ * consumed its one extraction reservation, no later poll can change the outcome, so the
+ * job is dropped instead of waking every minute forever. The staged record keeps its
+ * pending status for `/gobbler status`, and an edit or explicit submission enqueues a
+ * new revision. Returning a delay (never undefined) keeps the job when unsure. */
+async function deferral(job: DiscordMessageJob, limits: DiscordExtractionLimits) {
+  try {
+    const fingerprint = await currentFingerprint(job);
+    if (!fingerprint) return retryDelay(job);
+    const spent = await discordCollectionRepository.extractionSpent?.({
+      guildId: job.guildId,
+      channelId: job.channelId,
+      messageId: job.messageId,
+      fingerprint,
+      limits,
+    });
+    if (spent) {
+      console.warn("discord_extraction_exhausted", JSON.stringify({
+        guildId: job.guildId,
+        channelId: job.channelId,
+        messageId: job.messageId,
+      }));
+      return undefined;
+    }
+  } catch {
+    /* Unknown state keeps the job queued. */
+  }
+  return retryDelay(job);
+}
+/** Reads the fingerprint the collector just stored for this message. No provider or
+ * model call: it only reports what the last collection pass recorded. */
+async function currentFingerprint(job: DiscordMessageJob) {
+  const row = await database()
+    .collection<{ key: string; fingerprint?: string }>(
+      "discord_collected_messages",
+    )
+    .findOne({ key: `${job.guildId}:${job.channelId}:${job.messageId}` });
+  return row?.fingerprint || "";
 }
 /** Drain only event-triggered persistent work; never scan Discord channels or call AI for an unrelated message. */
 export function runDiscordCollection(): Promise<void> {
@@ -81,12 +130,12 @@ export function runDiscordCollection(): Promise<void> {
         summary.skipped
           ? 2000
           : summary.pending || summary.errors
-            ? 60000
+            ? await deferral(job, limits)
             : undefined,
       );
     } catch {
-      await discordTriggerQueue.finish(job, 60000);
-      console.warn("discord_job_failed");
+      await discordTriggerQueue.finish(job, retryDelay(job));
+      console.warn("discord_job_failed", JSON.stringify({ attempts: job.attempts ?? 1 }));
     }
   }).finally(() => {
     pending = undefined;

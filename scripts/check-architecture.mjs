@@ -80,7 +80,10 @@ const edges = {
   "security.ts": [],
   "store.ts": ["config"],
   "sources.ts": ["domain", "security", "config", "sports-source", "event-consolidation"],
-  "coordinator.ts": ["store", "agent-policy", "event-consolidation", "public-source-registry", "public-ingestion", "public-source-store", "public-fetch", "public-memory"],
+  // Reviewed edge: the coordinator commits canonical records, so it validates them
+  // through the module that owns event/deadline validation rather than duplicating
+  // those rules. It uses the stored-record parsers only; no scheduling or ranking.
+  "coordinator.ts": ["store", "domain", "agent-policy", "event-consolidation", "public-source-registry", "public-ingestion", "public-source-store", "public-fetch", "public-memory"],
   "discovery.ts": ["domain", "config"],
   "assistant.ts": ["domain", "store", "agent-policy", "public-memory"],
   "integrations.ts": ["domain", "config", "store", "security", "analytics", "agent-policy"],

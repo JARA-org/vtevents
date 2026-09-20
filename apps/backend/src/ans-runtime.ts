@@ -8,8 +8,8 @@ import type { AnsRuntimeServices, AnsPeerVerificationService, AssistantReply, Ca
 import { createAnsVerifier, ansConfigSchema } from "./ans-verification.js";
 import { receiveAnsHandoff, sendAnsHandoff } from "./ans-handoff.js";
 import { consolidateEvents } from "./event-consolidation.js";
-import { eventSchema } from "./domain.js";
-import { config } from "./config.js";
+import { eventSchema, normalizeStoredEvent } from "./domain.js";
+import { config, HttpError } from "./config.js";
 
 const limit = 4 * 1024 * 1024;
 class AnsResponseError extends Error {
@@ -21,19 +21,29 @@ export const isAnsAssistantRequest = (req: IncomingMessage) => assistantRequests
 export let ansRuntime: AnsRuntimeServices | undefined;
 
 /** Public DTO gate. Preserve additive fields while validating core event fields;
- * explicitly reject private visibility before passing records to reconciliation. */
+ * explicitly reject private visibility before passing records to reconciliation.
+ * Legacy storage encodings are repaired by the shared stored-record normalizer;
+ * anything still unrepresentable is rejected. Failures raise an unavailable error
+ * rather than a Zod error, so an internal data fault is never reported to a
+ * browser as invalid user input. */
 export function validateAnsEvents(value: unknown): CampusEvent[] {
-  if (!Array.isArray(value) || value.length > 5000) throw new Error("Invalid event batch");
-  return value.map(item => {
+  if (!Array.isArray(value) || value.length > 5000)
+    throw new HttpError(503, "Agent reconciliation is unavailable.");
+  return value.map((item, index) => {
     if (!item || typeof item !== "object" || (item.visibility && item.visibility.kind !== "public"))
-      throw new Error("Private event is not allowed");
-    // Legacy Mongo snapshots serialized missing optional fields as null.
-    // Normalize only these absence values; retain validation for all actual data.
-    const normalized = {...item};
-    for (const field of ["isOnline", "sports", "admission"])
-      if (normalized[field] === null) delete normalized[field];
-    eventSchema.parse(normalized);
-    return normalized as CampusEvent;
+      throw new HttpError(503, "Agent reconciliation is unavailable.");
+    const record = normalizeStoredEvent(item);
+    const result = eventSchema.safeParse(record);
+    if (!result.success) {
+      // Identifiers and failing field paths only; never event text.
+      console.error("ans_event_invalid", JSON.stringify({
+        index,
+        id: typeof (item as { id?: unknown }).id === "string" ? (item as { id: string }).id : null,
+        fields: result.error.issues.map(issue => issue.path.join(".")).slice(0, 10),
+      }));
+      throw new HttpError(503, "Agent reconciliation is unavailable.");
+    }
+    return record as CampusEvent;
   });
 }
 

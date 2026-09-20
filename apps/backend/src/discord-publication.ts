@@ -154,8 +154,7 @@ export const discordPublication: DiscordPublicationService = {
         row.fingerprint + ":" + (override?.revision || "source"),
       );
       const updatedAt = override?.updatedAt || row.editedAt || row.createdAt;
-      const event = {
-        ...eventSchema.parse({
+      const projected = eventSchema.safeParse({
           id,
           title: values.title,
           description: values.description,
@@ -181,7 +180,19 @@ export const discordPublication: DiscordPublicationService = {
           timeTBD: !values.startTime,
           allDay: false,
           endEstimated: false,
-        }),
+        });
+      if (!projected.success) {
+        // One unpublishable correction or source revision must not remove every
+        // other club's events. Identifiers and field paths only, never event text.
+        console.error("discord_publication_invalid", JSON.stringify({
+          eventId: id,
+          ownerCorrected: !!override,
+          fields: projected.error.issues.map((issue) => issue.path.join(".")).slice(0, 10),
+        }));
+        continue;
+      }
+      const event = {
+        ...projected.data,
         clubId: club._id,
         ownerCorrected: !!override,
         revision,

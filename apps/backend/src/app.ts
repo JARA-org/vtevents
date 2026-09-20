@@ -27,7 +27,7 @@ import {
 } from "./discovery.js";
 import { config, HttpError } from "./config.js";
 import { db, database, mongoClient } from "./store.js";
-import { sourceStatus, liveEvents, liveDeadlines, refreshSources } from "./coordinator.js";
+import { sourceStatus, liveEvents, liveDeadlines, refreshSources, unreadableRecords } from "./coordinator.js";
 import { consolidateEvents } from "./event-consolidation.js";
 import { ansRuntime, isAnsAssistantRequest } from "./ans-runtime.js";
 import { searchPublicMemory } from "./public-memory.js";
@@ -171,7 +171,20 @@ export function createApp() {
   };
   const profile = async (id: string, name = "Hokie") => {
     const p = await database().collection("profiles").findOne({ userId: id });
-    return p ? profileSchema.parse(p) : { ...emptyProfile, name };
+    if (!p) return { ...emptyProfile, name };
+    const parsed = profileSchema.safeParse(p);
+    // A stored record that no longer validates is a server fault, not a bad form
+    // submission: report it as unavailable and log the failing fields only.
+    if (!parsed.success) {
+      console.error("stored_profile_invalid", JSON.stringify({
+        fields: parsed.error.issues.map((issue) => issue.path.join(".")).slice(0, 10),
+      }));
+      throw new HttpError(
+        503,
+        "Your saved preferences could not be loaded. Please try again shortly.",
+      );
+    }
+    return parsed.data;
   };
   app.get("/api/clubs/mine", protect, async (_req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -280,6 +293,7 @@ export function createApp() {
         gemini: !!process.env.GEMINI_API_KEY,
         voice: voiceReady(),
         sources: sourceStatus,
+        unreadableRecords,
       });
   });
   app.get("/api/events", protect, async (req, res) => {
@@ -602,7 +616,7 @@ export function createApp() {
     );
   }
   app.use(
-    (error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    (error: unknown, req: Request, res: Response, _next: NextFunction) => {
       const status =
         error instanceof HttpError
           ? error.status
@@ -613,6 +627,17 @@ export function createApp() {
         console.error("request_failed", {
           kind: error instanceof Error ? error.name : "unknown",
         });
+      // A 400 from request validation used to be indistinguishable from a stored
+      // record failing its schema. Record the failing paths so an internal data
+      // fault can never again hide behind "check your entries".
+      else if (error instanceof ZodError)
+        console.warn(
+          "request_rejected",
+          JSON.stringify({
+            path: req.path,
+            fields: error.issues.map((issue) => issue.path.join(".")).slice(0, 10),
+          }),
+        );
       res.status(status).json({
         message:
           error instanceof HttpError

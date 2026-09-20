@@ -223,6 +223,27 @@ export const discordCollectionRepository: DiscordCollectionRepository = {
       );
     return (result?.count || 0) <= limit;
   },
+  /** Read-only: reserves nothing and never refunds. Mirrors the revision scope key
+   * used by reserveExtraction so scheduling can stop polling work that can never
+   * proceed. Storage failure reports "not spent" so scheduling keeps retrying
+   * rather than silently abandoning a message. */
+  async extractionSpent(input) {
+    const day = new Date().toISOString().slice(0, 10);
+    const ids = [
+      `revision:${key(input)}:${input.fingerprint}`,
+      `revision:${key(input)}:${input.fingerprint}:day:${day}`,
+    ];
+    try {
+      const counter = await database()
+        .collection<{ _id: string; count: number }>(
+          "discord_extraction_counters",
+        )
+        .findOne({ _id: { $in: ids } as never });
+      return (counter?.count || 0) >= 1;
+    } catch {
+      return false;
+    }
+  },
   async reserveExtraction(input) {
     if (!mongoClient) throw new Error("Storage unavailable");
     const limits = input.limits.serverOnly

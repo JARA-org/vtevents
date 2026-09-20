@@ -12,6 +12,7 @@ const jobs = () =>
     dueAt: Date;
     leaseUntil?: Date;
     leaseOwner?: string;
+    attempts?: number;
   }>("discord_message_jobs");
 const key = (t: { guildId: string; channelId: string; messageId?: string }) =>
   `${t.guildId}:${t.channelId}:${t.messageId}`;
@@ -34,6 +35,8 @@ export const discordTriggerQueue: DiscordTriggerQueue = {
           messageId: target.messageId,
           revision: randomUUID(),
           dueAt: new Date(Date.now() + delayMs),
+          // A new trigger is fresh work: its backoff restarts from the first step.
+          attempts: 0,
         },
       },
       { upsert: true },
@@ -83,7 +86,10 @@ export const discordTriggerQueue: DiscordTriggerQueue = {
           { leaseUntil: { $lt: new Date() } },
         ],
       },
-      { $set: { leaseOwner, leaseUntil: new Date(Date.now() + 180000) } },
+      {
+        $set: { leaseOwner, leaseUntil: new Date(Date.now() + 180000) },
+        $inc: { attempts: 1 },
+      },
       { sort: { dueAt: 1 }, returnDocument: "after" },
     );
     return row
@@ -93,6 +99,7 @@ export const discordTriggerQueue: DiscordTriggerQueue = {
           messageId: row.messageId,
           revision: row.revision,
           leaseOwner,
+          attempts: row.attempts || 1,
         }
       : null;
   },

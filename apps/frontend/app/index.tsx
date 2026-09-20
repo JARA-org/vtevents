@@ -34,6 +34,7 @@ import { Button, Chip, Field, Gobbler, Pressable } from "../components/ui";
 import { useError } from "../components/ErrorModal";
 import { SignInCard } from "../components/SignInCard";
 import { Landing } from "../components/Landing";
+import { ClubGuide } from "../components/ClubGuide";
 import { EventCover } from "../components/EventCover";
 import { deadlineText } from "../components/event-presentation";
 // Blank UI form state only; domain defaults are returned by bootstrap.
@@ -55,7 +56,8 @@ type Page =
   | "gobbler"
   | "settings"
   | "onboarding"
-  | "auth";
+  | "auth"
+  | "club-setup";
 const eventTime = (e: CampusEvent) =>
   e.timeTBD
     ? date(e.start, "ccc, LLL d") + " · Time TBD"
@@ -151,7 +153,9 @@ export default function Home() {
       ? new URLSearchParams(location.search).get("page")
       : null;
   const [page, setPage] = useState<Page>(
-      requestedPage === "auth" ? "auth" : "landing",
+      requestedPage === "auth" || requestedPage === "club-setup"
+        ? requestedPage
+        : "landing",
     ),
     [user, setUser] = useState<UserSummary | null>(null),
     [profile, setProfile] = useState<Profile>(blankProfile),
@@ -227,7 +231,10 @@ export default function Home() {
     scroll.current?.scrollTo({ y: 0, animated: false });
   }, [page, selected]);
   useEffect(() => {
-    if (!user && page !== "landing" && page !== "auth") setPage("auth");
+    // The club guide is public: a representative reads it before they have an
+    // account, so it must not bounce to sign-in.
+    if (!user && !["landing", "auth", "club-setup"].includes(page))
+      setPage("auth");
   }, [user, page]);
   const loadMe = async () => {
     const me = await backend.getAccount(undefined);
@@ -261,7 +268,9 @@ export default function Home() {
         setSaved(me.saved);
         setFeedback(me.feedback);
         setPage(
-          requestedPage === "landing" || requestedPage === "auth"
+          requestedPage === "landing" ||
+            requestedPage === "auth" ||
+            requestedPage === "club-setup"
             ? requestedPage
             : me.profile.onboarded
               ? Platform.OS === "web" &&
@@ -667,23 +676,46 @@ export default function Home() {
         stickyHeaderIndices={[0]}
       >
         <View style={[s.header, { paddingHorizontal: mobile ? 24 : 56 }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="My Gobbler home"
-            style={s.brand}
-            onPress={() => go("landing")}
-          >
-            <Gobbler head size={46} decorative />
-            <Text
-              style={[
-                s.brandText,
-                mobile && { fontFamily: font, fontSize: 17 },
-              ]}
+          <View style={[s.brandGroup, mobile && { gap: 10 }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="My Gobbler home"
+              style={[s.brand, mobile && { flexShrink: 1 }]}
+              onPress={() => go("landing")}
             >
-              My Gobbler
-            </Text>
-          </Pressable>
-          {!mobile && page !== "landing" && page !== "auth" && (
+              <Gobbler head size={mobile ? 38 : 46} decorative />
+              <Text
+                numberOfLines={1}
+                style={[
+                  s.brandText,
+                  mobile && { fontFamily: font, fontSize: 17, flexShrink: 1 },
+                ]}
+              >
+                My Gobbler
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Discord setup guide for clubs"
+              style={[s.bannerLink, mobile && { paddingHorizontal: 10 }]}
+              onPress={() => go("club-setup")}
+            >
+              <Ionicons
+                accessible={false}
+                name="logo-discord"
+                size={mobile ? 18 : 16}
+                color={C.maroon}
+              />
+              {/* The label is dropped on a phone so the wordmark still fits;
+                  the control keeps its accessible name either way. */}
+              {!mobile && (
+                <Text numberOfLines={1} style={s.bannerLinkText}>
+                  For clubs
+                </Text>
+              )}
+            </Pressable>
+          </View>
+          {!mobile && !!user && page !== "landing" && page !== "auth" && (
             <View style={s.row}>
               {(["discover", "saved", "schedule", "gobbler"] as Page[]).map(
                 (p) => (
@@ -740,7 +772,7 @@ export default function Home() {
           )}
         </View>
 
-        {mobile && page !== "landing" && page !== "auth" && (
+        {mobile && !!user && page !== "landing" && page !== "auth" && (
           <View
             style={[
               s.wrap,
@@ -802,6 +834,12 @@ export default function Home() {
                 setSignUp(false);
                 go("auth");
               }}
+            />
+          )}
+          {page === "club-setup" && (
+            <ClubGuide
+              onBack={() => go("landing")}
+              onWorkspace={() => router.push("/clubs")}
             />
           )}
           {page === "auth" && (
@@ -1786,7 +1824,25 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     gap: 20,
   },
+  brandGroup: { flexDirection: "row", alignItems: "center", gap: 16, flexShrink: 1 },
   brand: { flexDirection: "row", alignItems: "center", gap: 8 },
+  bannerLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: C.line,
+    backgroundColor: C.cream,
+  },
+  bannerLinkText: {
+    fontFamily: font,
+    fontSize: 14,
+    fontWeight: "800",
+    color: C.maroon,
+  },
   brandText: {
     fontFamily: font,
     fontSize: 25,
