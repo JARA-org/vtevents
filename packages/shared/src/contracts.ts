@@ -935,6 +935,8 @@ export interface DiscordExtractionLimits {
   messageDaily: number;
 }
 export interface DiscordCollectionInspection {
+  /** Operator-only server override. Absent/false means configured spending caps apply. */
+  capsDisabled?: boolean;
   listenerStatus?:
     "connected" | "starting" | "disconnected" | "disabled" | "error";
   guildId: Id;

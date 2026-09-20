@@ -289,6 +289,12 @@ export const discordCollectionRepository: DiscordCollectionRepository = {
     const session = mongoClient.startSession();
     try {
       return await session.withTransaction(async () => {
+        // Operator-owned storage only; no HTTP/model input may grant this override.
+        // Continue recording usage and enforcing revision idempotency. Removing the
+        // override immediately restores caps against the accumulated counters.
+        const capsDisabled = input.limits.serverOnly && !!(await database()
+          .collection("discord_extraction_overrides")
+          .findOne({ _id: input.guildId as never, capsDisabled: true }, { session }));
         if (
           !input.limits.serverOnly &&
           ((await global.findOne({ day }, { session }))?.count || 0) >=
@@ -297,6 +303,7 @@ export const discordCollectionRepository: DiscordCollectionRepository = {
           return false;
         for (const scope of scopes)
           if (
+            !(capsDisabled && scope.id.startsWith(`guild:${input.guildId}:`)) &&
             ((await counters.findOne({ _id: scope.id }, { session }))?.count ||
               0) >= scope.limit
           )
@@ -386,6 +393,8 @@ export const discordInspection: DiscordInspectionService = {
         process.env.DISCORD_AI_ENABLED === "true" &&
         !!process.env.GEMINI_API_KEY,
       limits: discordExtractionLimits(),
+      capsDisabled: !!(await db.collection("discord_extraction_overrides")
+        .findOne({ _id: input.guildId as never, capsDisabled: true })),
       usage: {
         globalDaily: global?.count || 0,
         guildDaily: guildDay?.count || 0,

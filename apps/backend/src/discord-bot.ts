@@ -272,7 +272,9 @@ export async function handleDiscordInteraction(
           `Server ID: ${result.guildId}`,
           `Channel watched: ${result.watching ? "yes" : "no"}`,
           `Collection: ${result.collectionEnabled ? "enabled" : "disabled"}; AI: ${result.aiEnabled ? "enabled" : "disabled"}`,
-          `Server AI attempts (posts + edits): ${result.usage.guildDaily}/${result.limits.guildDaily} per UTC day, ${result.usage.guildHourly}/${result.limits.guildHourly} per UTC hour.`,
+          result.capsDisabled
+            ? `Server AI caps temporarily disabled by the operator. Usage: ${result.usage.guildDaily} today, ${result.usage.guildHourly} this hour. Provider limits still apply.`
+            : `Server AI attempts (posts + edits): ${result.usage.guildDaily}/${result.limits.guildDaily} per UTC day, ${result.usage.guildHourly}/${result.limits.guildHourly} per UTC hour.`,
           `Live message listener: ${result.listenerStatus || "disconnected"}. Posts and edits queue extraction after a short settling delay. Each content revision is attempted once.`,
           ...(!result.aiEnabled
             ? [

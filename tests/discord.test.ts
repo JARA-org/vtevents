@@ -454,6 +454,15 @@ test("signed bot HTTP commands persist isolated policy with atomic replay protec
       false,
       "posts and edits share server cap",
     );
+    const overrides = store.database().collection("discord_extraction_overrides");
+    await overrides.insertOne({ _id: "500" as never, capsDisabled: true });
+    assert.equal(await collection.reserveExtraction({ ...serverOnly, fingerprint: "e" }), true);
+    assert.equal(await collection.reserveExtraction({ ...serverOnly, fingerprint: "e" }), false,
+      "operator override must not bypass revision idempotency");
+    assert.equal(await collection.reserveExtraction({ ...serverOnly, fingerprint: "f" }), true);
+    await overrides.deleteOne({ _id: "500" as never });
+    assert.equal(await collection.reserveExtraction({ ...serverOnly, fingerprint: "g" }), false,
+      "removing the override restores caps against usage counted during the demo");
     assert.equal(
       await collection.reserveExtraction({ ...serverOnly, guildId: "501" }),
       true,
