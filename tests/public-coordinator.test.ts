@@ -9,7 +9,21 @@ test("public source commits retain other sources, deadline precision and unchang
   const store=await import("../apps/backend/src/store.js");await store.connectDB();
   const coordinator=await import("../apps/backend/src/coordinator.js");
   try{
+    const { publicSources } = await import("../apps/backend/src/public-source-registry.js");
+    await store.database().collection("public_source_health").insertMany(publicSources.map(source => ({
+      source: source.id, health: { status: "cached" }, nextCheck: Date.now() + 86400000,
+    })));
     await coordinator.restoreSources();
+    const database = store.database(), collection = database.collection;
+    let snapshotReads = 0;
+    database.collection = function(name: string, ...args: any[]) {
+      if (name === "events" || name === "source_snapshots") snapshotReads++;
+      return collection.call(this, name, ...args);
+    } as typeof collection;
+    try {
+      await coordinator.refreshSources();
+      assert.equal(snapshotReads, 0, "idle minute ticks must not reload full catalog snapshots");
+    } finally { database.collection = collection; }
     const event={...e,id:"campus-one",sources:[{...e.sources[0],source:"vt-events" as const,sourceId:"one",providerId:"vt-events"}]};
     await coordinator.replaceSourceSnapshot("vt-events",[event]);
     const date={id:"due-one",title:"Apply",description:"Application deadline",dueDate:"2027-01-22",timezone:"America/New_York",sources:[{...event.sources[0],sourceId:"due-one",providerId:"registrar"}],updatedAt:"2026-09-19T00:00:00Z",status:"active" as const};

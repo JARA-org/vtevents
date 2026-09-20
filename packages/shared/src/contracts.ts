@@ -181,12 +181,19 @@ export interface EventList extends Extensible {
   generatedAt?: Instant;
 }
 export interface DiscoveryRequest {
+  /** Optional 1–100 result cap for recommendations/filtered; omitted keeps legacy full results. Saved/schedule are never truncated. */
+  limit?: number;
   mode?: Mode;
   search?: string;
   category?: Category | "All interests";
   dateFilter?: "Any day" | "Today" | "This week" | "Weekend";
 }
 export interface DiscoveryView extends Extensible {
+  /** Counts before the optional limit; absent on older servers. */
+  totalAvailable?: number;
+  totalMatches?: number;
+  /** Saved IDs absent from the current catalog; computed by the backend. */
+  unavailableSavedIds?: Id[];
   sportsTicker?: CampusEvent[];
   recommendations: Recommendation[];
   filtered: Recommendation[];

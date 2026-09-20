@@ -155,7 +155,8 @@ export default function Home() {
     [profile, setProfile] = useState<Profile>(blankProfile),
     [emptyProfile, setEmptyProfile] = useState<Profile>(blankProfile),
     [categories, setCategories] = useState<Category[]>([]),
-    [events, setEvents] = useState<CampusEvent[]>([]),
+    [refreshVersion, setRefreshVersion] = useState(0),
+    [discoveryLoading, setDiscoveryLoading] = useState(false),
     [saved, setSaved] = useState<string[]>([]),
     [feedback, setFeedback] = useState<Record<string, number>>({}),
     [search, setSearch] = useState(""),
@@ -226,11 +227,6 @@ export default function Home() {
   useEffect(() => {
     if (!user && page !== "landing" && page !== "auth") setPage("auth");
   }, [user, page]);
-  const loadEvents = async () => {
-    const data = await backend.listEvents({ mode: "live" });
-    setEvents(data.events);
-    setSources(data.sources);
-  };
   const loadMe = async () => {
     const me = await backend.getAccount(undefined);
     setUser(me.user);
@@ -276,10 +272,6 @@ export default function Home() {
       .catch(() => {});
   }, []);
   useEffect(() => {
-    if (user && page !== "landing" && page !== "auth")
-      void run(() => loadEvents());
-  }, [user, page === "landing", page === "auth"]);
-  useEffect(() => {
     if (!user) { setDeadlines([]); return; }
     if (page !== "discover") return;
     let active = true;
@@ -293,10 +285,14 @@ export default function Home() {
       if (active) { setDeadlines([]); setDeadlineStatus("Deadlines are unavailable. Please try again later."); }
     });
     return () => { active = false; };
-  }, [user, page, events]);
+  }, [user, page, refreshVersion]);
   useEffect(() => {
-    if (!user) return;
+    if (!user || !["discover", "saved", "schedule"].includes(page)) {
+      setDiscoveryLoading(false);
+      return;
+    }
     let active = true;
+    setDiscoveryLoading(true);
     setDiscovery({
       recommendations: [],
       filtered: [],
@@ -306,6 +302,7 @@ export default function Home() {
     const timer = setTimeout(() => {
       backend
         .discover({
+          limit: 60,
           search,
           category: category as Category | "All interests",
           dateFilter: dateFilter as
@@ -324,7 +321,8 @@ export default function Home() {
             });
             setError(e.message);
           }
-        });
+        })
+        .finally(() => { if (active) setDiscoveryLoading(false); });
     }, 150);
     return () => {
       active = false;
@@ -336,7 +334,7 @@ export default function Home() {
     saved,
     feedback,
     user,
-    events,
+    refreshVersion,
     search,
     category,
     dateFilter,
@@ -790,7 +788,7 @@ export default function Home() {
               <Text style={s.body}>{toast}</Text>
             </View>
           )}
-          {loading && (
+          {(loading || discoveryLoading) && (
             <View style={s.row}>
               <ActivityIndicator color={C.maroon} />
               <Text style={s.meta}>Gobbler’s on it…</Text>
@@ -941,7 +939,7 @@ export default function Home() {
                   </Text>
                 </View>
                 <Text style={s.meta}>
-                  {filtered.length} {filtered.length === 1 ? "event" : "events"}{" "}
+                  {discovery.totalMatches ?? filtered.length} {(discovery.totalMatches ?? filtered.length) === 1 ? "event" : "events"}{" "}
                   · Eastern time
                 </Text>
               </View>
@@ -1004,22 +1002,22 @@ export default function Home() {
                   />
                 ))}
               </View>
-              {!filtered.length && !loading && (
+              {!filtered.length && !loading && !discoveryLoading && (
                 <View style={s.panel}>
                   <Text style={s.sectionTitle}>
-                    {events.length
+                    {discovery.totalAvailable
                       ? "No events match just yet."
                       : "No current listings are available."}
                   </Text>
                   <Text style={s.body}>
-                    {events.length
+                    {discovery.totalAvailable
                       ? "Try another interest or a wider date range."
                       : "The campus feed may still be refreshing. Try again in a moment."}
                   </Text>
                   <Button
                     secondary
                     label="Refresh events"
-                    onPress={() => run(() => loadEvents())}
+                    onPress={() => setRefreshVersion((version) => version + 1)}
                   />
                 </View>
               )}
@@ -1028,7 +1026,7 @@ export default function Home() {
                   <EventCard key={item.event.id} item={item} />
                 ))}
               </View>
-              {filtered.length > 60 && (
+              {(discovery.totalMatches ?? filtered.length) > 60 && (
                 <Text style={s.meta}>
                   Showing the first 60 matches. Use search or filters to narrow
                   your results.
@@ -1294,7 +1292,7 @@ export default function Home() {
                   <EventCard key={item.event.id} item={item} />
                 ))}
               </View>
-              {saved.some((id) => !events.some((e) => e.id === id)) && (
+              {!!discovery.unavailableSavedIds?.length && (
                 <Text style={s.meta}>
                   Some saved events have ended or are no longer listed by the
                   source.
@@ -1699,7 +1697,6 @@ export default function Home() {
                               await backend.signOut({});
                               setUser(null);
                               setSelected(null);
-                              setEvents([]);
                               setConnections([]);
                               setPrivateContext([]);
                               setFeedback({});
@@ -1732,7 +1729,6 @@ export default function Home() {
                               });
                               setUser(null);
                               setSelected(null);
-                              setEvents([]);
                               setConnections([]);
                               setPrivateContext([]);
                               setFeedback({});

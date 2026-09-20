@@ -31,6 +31,35 @@ function event(id: string, patch: Partial<CampusEvent> = {}): CampusEvent {
     ...patch,
   };
 }
+
+test("large catalogs use indexed previous identities instead of all-pairs scans", () => {
+  const count = 2600;
+  const rows = Array.from({ length: count }, (_, i) => event(`event-${i}`, {
+    title: `Distinct activity ${i}`,
+  }));
+  let sourceReads = 0;
+  const previous = rows.map((row) => ({ ...row, get sources() {
+    sourceReads++;
+    return row.sources;
+  } }));
+  const result = consolidateEvents(rows, previous);
+  assert.equal(result.length, count);
+  assert.deepEqual(result.map((row) => row.id), rows.map((row) => row.id));
+  assert.ok(sourceReads < count * 10, `Previous identity reads grew to ${sourceReads}`);
+});
+
+test("candidate indexes retain complete-link grouping and replace withdrawn revision keys", () => {
+  const a = event("a", { clubId: "club-a" });
+  const b = event("b");
+  const c = event("c", { clubId: "club-c" });
+  assert.equal(consolidateEvents([a, b, c]).length, 2, "shared intermediary cannot merge incompatible clubs");
+  const old = event("old", { sources: [...a.sources, ...b.sources] });
+  const newer = event("newer", { title: "Changed", sources: a.sources, updatedAt: "2026-09-21T00:00:00Z" });
+  const former = event("former", { title: "Former source", sources: b.sources });
+  const result = consolidateEvents([old, newer, former]);
+  assert.equal(result.length, 2);
+  assert.deepEqual(result.map((row) => row.title), ["Changed", "Former source"]);
+});
 test("consolidation combines complementary metadata and provenance without changing input", () => {
   const a = event("a"),
     b = event("b", {

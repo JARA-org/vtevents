@@ -18,6 +18,7 @@ import { HttpError } from "./config.js";
 
 export const discoverySchema = z
   .object({
+    limit: z.number().int().min(1).max(100).optional(),
     mode: z.literal("live").optional(),
     search: z.string().max(300).optional(),
     category: z
@@ -60,9 +61,33 @@ export function discoverEvents(
     saved.includes(event.id),
   );
   return {
-    sportsTicker: input.category === "Sports" ? events.filter(e=>e.sports && e.status!=="cancelled" && (e.sports.state==="live" || DateTime.fromISO(e.start)>=today.startOf("day"))).sort((a,b)=>Number(b.sports?.state==="live")-Number(a.sports?.state==="live")||a.start.localeCompare(b.start)).slice(0,8) : [],
-    recommendations: ranked,
-    filtered,
+    totalAvailable: events.length,
+    totalMatches: filtered.length,
+    unavailableSavedIds: saved.filter(
+      (id) => !events.some((event) => event.id === id),
+    ),
+    sportsTicker:
+      input.category === "Sports"
+        ? events
+            .filter(
+              (e) =>
+                e.sports &&
+                e.status !== "cancelled" &&
+                (e.sports.state === "live" ||
+                  DateTime.fromISO(e.start) >= today.startOf("day")),
+            )
+            .sort(
+              (a, b) =>
+                Number(b.sports?.state === "live") -
+                  Number(a.sports?.state === "live") ||
+                a.start.localeCompare(b.start),
+            )
+            .slice(0, 8)
+        : [],
+    recommendations:
+      input.limit === undefined ? ranked : ranked.slice(0, input.limit),
+    filtered:
+      input.limit === undefined ? filtered : filtered.slice(0, input.limit),
     savedRecommendations,
     schedule: [...savedRecommendations].sort((a, b) =>
       a.event.start.localeCompare(b.event.start),

@@ -12,9 +12,10 @@ const normalized = (value: string | null | undefined) =>
     .replace(/[^\p{L}\p{N}]/gu, "");
 const sourceKeys = (event: CampusEvent) =>
   event.sources.map((s) => `${s.source}:${s.sourceId}`);
+const scopeKey = (event: CampusEvent) =>
+  JSON.stringify(event.visibility || { kind: "public" });
 const sameScope = (a: CampusEvent, b: CampusEvent) =>
-  JSON.stringify(a.visibility || { kind: "public" }) ===
-  JSON.stringify(b.visibility || { kind: "public" });
+  scopeKey(a) === scopeKey(b);
 const nativeMatch = (a: CampusEvent, b: CampusEvent) =>
   sourceKeys(a).some((key) => sourceKeys(b).includes(key));
 const discord = (event: CampusEvent) =>
@@ -30,10 +31,10 @@ function localDate(event: CampusEvent): string {
     let formatter = dateFormatters.get(event.timezone);
     if (!formatter) {
       formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: event.timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
+        timeZone: event.timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
       });
       dateFormatters.set(event.timezone, formatter);
     }
@@ -102,6 +103,62 @@ function compatible(a: CampusEvent, b: CampusEvent): boolean {
 const unique = <T>(items: T[], key: (item: T) => string): T[] => [
   ...new Map(items.map((item) => [key(item), item])).values(),
 ];
+
+// Candidate indexes only narrow the search. The original predicates still
+// decide identity, and ascending positions preserve first-match precedence.
+// Indexes live for one reconciliation; no stale or private cross-request cache.
+class CandidateIndex {
+  private rows = new Map<string, Set<number>>();
+  add(keys: string[], position: number) {
+    for (const key of keys) {
+      let positions = this.rows.get(key);
+      if (!positions) this.rows.set(key, (positions = new Set()));
+      positions.add(position);
+    }
+  }
+  remove(keys: string[], position: number) {
+    for (const key of keys) {
+      const positions = this.rows.get(key);
+      positions?.delete(position);
+      if (!positions?.size) this.rows.delete(key);
+    }
+  }
+  candidates(keys: string[]) {
+    const positions = new Set<number>();
+    for (const key of keys)
+      for (const position of this.rows.get(key) || []) positions.add(position);
+    return [...positions].sort((a, b) => a - b);
+  }
+}
+const nativeKeys = (event: CampusEvent) =>
+  sourceKeys(event).map((key) =>
+    JSON.stringify([scopeKey(event), "native", key]),
+  );
+function matchKeys(event: CampusEvent) {
+  const scope = scopeKey(event),
+    date = localDate(event);
+  const keys = [
+    ...nativeKeys(event),
+    ...eventUrls(event).map((url) => JSON.stringify([scope, "url", date, url])),
+  ];
+  if (
+    !event.timeTBD &&
+    !event.allDay &&
+    normalized(event.title) &&
+    normalized(event.location)
+  )
+    keys.push(
+      JSON.stringify([
+        scope,
+        "occurrence",
+        date,
+        normalized(event.title),
+        Date.parse(event.start),
+        normalized(event.location),
+      ]),
+    );
+  return keys;
+}
 function evidence(
   event: CampusEvent,
   field: string,
@@ -284,12 +341,18 @@ export function consolidateEvents(
   previous: CampusEvent[] = [],
 ): CampusEvent[] {
   const revisions: CampusEvent[] = [];
+  const revisionIndex = new CandidateIndex();
   for (const item of raw) {
-    const index = revisions.findIndex(
-      (old) => sameScope(old, item) && nativeMatch(old, item),
-    );
-    if (index < 0) revisions.push(structuredClone(item));
-    else {
+    const keys = nativeKeys(item);
+    const index = revisionIndex
+      .candidates(keys)
+      .find(
+        (i) => sameScope(revisions[i], item) && nativeMatch(revisions[i], item),
+      );
+    if (index === undefined) {
+      revisionIndex.add(keys, revisions.length);
+      revisions.push(structuredClone(item));
+    } else {
       const old = revisions[index];
       const revisionTime = (event: CampusEvent) =>
         Math.max(
@@ -298,35 +361,52 @@ export function consolidateEvents(
             .filter(Number.isFinite),
           0,
         );
-      if (revisionTime(item) > revisionTime(old))
+      if (revisionTime(item) > revisionTime(old)) {
+        revisionIndex.remove(nativeKeys(old), index);
+        revisionIndex.add(keys, index);
         revisions[index] = structuredClone({
           ...item,
           // Legacy optional attendance fields may be omitted by older adapters.
           // Absence means unknown, while explicit null/false still withdraws a value.
-          ...(item.onlineUrl===undefined && old.onlineUrl!==undefined ? {onlineUrl:old.onlineUrl} : {}),
-          ...(item.isOnline===undefined && old.isOnline!==undefined ? {isOnline:old.isOnline} : {}),
+          ...(item.onlineUrl === undefined && old.onlineUrl !== undefined
+            ? { onlineUrl: old.onlineUrl }
+            : {}),
+          ...(item.isOnline === undefined && old.isOnline !== undefined
+            ? { isOnline: old.isOnline }
+            : {}),
         });
+      }
     }
   }
   const groups: CampusEvent[][] = [];
+  const groupIndex = new CandidateIndex();
   for (const event of revisions) {
     // Complete-link grouping prevents A~B~C chains from merging A with an
     // incompatible C (for example, two different venues/occurrences).
-    const group = groups.find((items) =>
-      items.every((item) => compatible(item, event)),
-    );
-    if (group) group.push(event);
-    else groups.push([event]);
+    const keys = matchKeys(event);
+    const position = groupIndex
+      .candidates(keys)
+      .find((i) => groups[i].every((item) => compatible(item, event)));
+    if (position !== undefined) groups[position].push(event);
+    else {
+      groupIndex.add(keys, groups.length);
+      groups.push([event]);
+    }
   }
   const used = new Set<string>();
+  const previousIndex = new CandidateIndex();
+  previous.forEach((event, i) => previousIndex.add(nativeKeys(event), i));
   return groups.map((group) => {
     const event = group.slice(1).reduce(merge, group[0]);
-    const old = previous.find(
-      (candidate) =>
-        sameScope(candidate, event) &&
-        nativeMatch(candidate, event) &&
-        !used.has(candidate.id),
-    );
+    const old = previousIndex
+      .candidates(nativeKeys(event))
+      .map((i) => previous[i])
+      .find(
+        (candidate) =>
+          sameScope(candidate, event) &&
+          nativeMatch(candidate, event) &&
+          !used.has(candidate.id),
+      );
     let id =
       event.ownerCorrected && discord(event) ? event.id : old?.id || event.id;
     if (used.has(id))

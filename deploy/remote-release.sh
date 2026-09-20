@@ -19,6 +19,11 @@ release="/opt/gobbler-releases/$release_id"
 mapfile -t containers < <(docker ps -q --filter "label=com.docker.compose.project=$project" --filter 'label=com.docker.compose.service=app')
 [[ ${#containers[@]} == 1 ]] || { echo 'Expected exactly one running production app; initial setup is required' >&2; exit 1; }
 previous=${containers[0]}
+echo 'Pre-deploy host capacity (no application configuration):'
+uptime || true
+free -m || true
+df -h / || true
+docker stats --no-stream "$previous" || true
 previous_image=$(docker inspect --format '{{.Config.Image}}' "$previous")
 previous_compose=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$previous")
 [[ "$previous_compose" != *,* && -f "$previous_compose" ]] || { echo 'Expected one existing Compose file' >&2; exit 1; }
@@ -58,6 +63,9 @@ for check in {1..20}; do
   state=$(docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.RestartCount}} {{.State.OOMKilled}}' "$candidate")
   [[ "$state" == 'running healthy 0 false' ]] || { echo 'Release became unhealthy or restarted during stabilization.' >&2; false; }
 done
+echo 'Post-deploy application capacity:'
+docker stats --no-stream "$candidate" || true
+docker logs --since 6m "$candidate" 2>/dev/null | grep '^runtime_performance ' | tail -5 || true
 docker run --rm --network host --read-only --cap-drop ALL --security-opt no-new-privileges:true \
   -v "$release/deploy:/checks:ro" --entrypoint node "$GOBBLER_IMAGE" /checks/smoke.mjs "https://$GOBBLER_DOMAIN"
 trap - ERR

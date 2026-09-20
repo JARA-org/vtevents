@@ -161,6 +161,15 @@ export async function refreshSources() {
   if (running) return running;
   running = (async () => {
     await restoreSources();
+    // Minute scheduler ticks must not reload every snapshot from Atlas when
+    // no source is due. Restore once on startup; refresh from storage only
+    // after acquiring a lease for actual collection work.
+    if (
+      publicSources.every(
+        (source) => (nextChecks.get(source.id) || 0) > Date.now(),
+      )
+    )
+      return;
     const owner = randomUUID();
     let leased = false;
     if (db) {
@@ -247,19 +256,17 @@ export async function refreshSources() {
         }
         nextChecks.set(source.id, Date.now() + delay);
         if (db)
-          await db
-            .collection("public_source_health")
-            .updateOne(
-              { source: source.id },
-              {
-                $set: {
-                  source: source.id,
-                  health: sourceStatus[source.id],
-                  nextCheck: nextChecks.get(source.id),
-                },
+          await db.collection("public_source_health").updateOne(
+            { source: source.id },
+            {
+              $set: {
+                source: source.id,
+                health: sourceStatus[source.id],
+                nextCheck: nextChecks.get(source.id),
               },
-              { upsert: true },
-            );
+            },
+            { upsert: true },
+          );
       }
       const currentMemoryHash = semanticHash([cachedEvents, cachedDeadlines]);
       if (db && memoryHash !== currentMemoryHash) {
@@ -286,12 +293,17 @@ export async function refreshSources() {
 /** Read-only current public projection; date-only activities remain eligible through their campus date. */
 export function liveEvents(now = Date.now()) {
   const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   }).format(new Date(now));
   return cachedEvents
-    .filter((e) => e.timeDetails?.precision === "date_only" && e.timeDetails.startDate
-      ? (e.timeDetails.endDate || e.timeDetails.startDate) >= today
-      : Date.parse(e.end || e.start) >= now - 3600000)
+    .filter((e) =>
+      e.timeDetails?.precision === "date_only" && e.timeDetails.startDate
+        ? (e.timeDetails.endDate || e.timeDetails.startDate) >= today
+        : Date.parse(e.end || e.start) >= now - 3600000,
+    )
     .map((e) => ({
       ...e,
       stale: e.sources.every((s) => {

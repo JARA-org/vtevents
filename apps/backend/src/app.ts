@@ -205,10 +205,13 @@ export function createApp() {
       }),
     );
   });
-  const currentEvents = async () => consolidateEvents([
-    ...liveEvents(),
-    ...(await discordPublication.list()).map((row) => row.event),
-  ]);
+  const currentEvents = async () => {
+    const published = (await discordPublication.list()).map((row) => row.event);
+    const publicEvents = liveEvents();
+    // Website records were already reconciled by the coordinator. Discord
+    // eligibility is rechecked on every read so withdrawals never use a cache.
+    return published.length ? consolidateEvents([...publicEvents, ...published]) : publicEvents;
+  };
   const currentEvent = async (id: string) => {
     const e = (await currentEvents()).find((e) => e.id === id || e.aliases?.includes(id));
     if (!e)

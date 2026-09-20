@@ -5,6 +5,24 @@ import { runJobs } from "./jobs.js";
 import { flushAnalytics } from "./analytics.js";
 import { flushAccountEmail } from "./account-email.js";
 import { startDiscordCollection } from "./discord-jobs.js";
+import { monitorEventLoopDelay } from "node:perf_hooks";
+// Numeric process metrics only: no URLs, user context, credentials or event text.
+const lag = monitorEventLoopDelay({ resolution: 20 });
+lag.enable();
+let previousCpu = process.cpuUsage(), previousTime = Date.now();
+setInterval(() => {
+  const now = Date.now(), cpu = process.cpuUsage(), memory = process.memoryUsage();
+  console.log("runtime_performance", JSON.stringify({
+    rssMB: Math.round(memory.rss / 1048576),
+    heapMB: Math.round(memory.heapUsed / 1048576),
+    cpuPercent: Math.round((cpu.user + cpu.system - previousCpu.user - previousCpu.system) / ((now - previousTime) * 10)),
+    eventLoopP99Ms: Math.round(lag.percentile(99) / 1e6),
+    eventLoopMaxMs: Math.round(lag.max / 1e6),
+  }));
+  previousCpu = cpu;
+  previousTime = now;
+  lag.reset();
+}, 60000).unref();
 await connectDB();
 createApp().listen(config.port, "0.0.0.0", () =>
   console.log(`My Gobbler listening on ${config.port}`),

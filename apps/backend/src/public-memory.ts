@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Document } from "mongodb";
+import type { Document, AnyBulkWriteOperation } from "mongodb";
 import type {
   CampusEvent,
   CampusDeadline,
@@ -286,49 +286,65 @@ export async function recordPublicMemory(
   const now = new Date().toISOString();
   try {
     await session.withTransaction(async () => {
+      type Row = Document & { _id: string };
+      const heads = db.collection<Row>("public_memory_heads");
+      // One indexed read and at most three bulk writes per bounded coordinator
+      // batch, instead of four network round trips for every event. Keep all
+      // collections in the same transaction and ordered per-record semantics.
+      const current = new Map(
+        (
+          await heads
+            .find(
+              {
+                _id: {
+                  $in: items.map(({ kind, value }) => `${kind}:${value.id}`),
+                },
+              },
+              { projection: { revision: 1 }, session },
+            )
+            .toArray()
+        ).map((row) => [row._id, row.revision]),
+      );
+      const revisionWrites: AnyBulkWriteOperation<Row>[] = [];
+      const headWrites: AnyBulkWriteOperation<Row>[] = [];
+      const clubWrites: AnyBulkWriteOperation<Row>[] = [];
       for (const { kind, value } of items) {
         const headId = `${kind}:${value.id}`,
           revision = publicMemoryRevision(value);
-        const revisions = db.collection<Document & { _id: string }>(
-          "public_memory_revisions",
-        );
-        const heads = db.collection<Document & { _id: string }>(
-          "public_memory_heads",
-        );
-        const current = await heads.findOne(
-          { _id: headId },
-          { projection: { revision: 1 }, session },
-        );
-        if (current?.revision === revision) continue;
-        await revisions.updateOne(
-          { _id: `${headId}:${revision}` },
-          {
-            $setOnInsert: {
-              kind,
-              recordId: value.id,
-              revision,
-              value,
-              recordedAt: now,
+        if (current.get(headId) === revision) continue;
+        current.set(headId, revision);
+        revisionWrites.push({
+          updateOne: {
+            filter: { _id: `${headId}:${revision}` },
+            update: {
+              $setOnInsert: {
+                kind,
+                recordId: value.id,
+                revision,
+                value,
+                recordedAt: now,
+              },
             },
+            upsert: true,
           },
-          { upsert: true, session },
-        );
-        await heads.updateOne(
-          { _id: headId },
-          {
-            $set: { kind, revision, value, lastSeenAt: now },
-            $setOnInsert: { firstSeenAt: now },
+        });
+        headWrites.push({
+          updateOne: {
+            filter: { _id: headId },
+            update: {
+              $set: { kind, revision, value, lastSeenAt: now },
+              $setOnInsert: { firstSeenAt: now },
+            },
+            upsert: true,
           },
-          { upsert: true, session },
-        );
+        });
         if (kind === "event") {
           const club = publicOrganizerMemory(value as CampusEvent, now);
           if (club)
-            await db
-              .collection<Document & { _id: string }>("public_memory_clubs")
-              .updateOne(
-                { _id: club.id },
-                {
+            clubWrites.push({
+              updateOne: {
+                filter: { _id: club.id },
+                update: {
                   $set: {
                     name: club.name,
                     description: club.description,
@@ -342,10 +358,21 @@ export async function recordPublicMemory(
                     sourceUrls: { $each: club.sourceUrls },
                   },
                 },
-                { upsert: true, session },
-              );
+                upsert: true,
+              },
+            });
         }
       }
+      if (revisionWrites.length)
+        await db
+          .collection<Row>("public_memory_revisions")
+          .bulkWrite(revisionWrites, { session, ordered: true });
+      if (headWrites.length)
+        await heads.bulkWrite(headWrites, { session, ordered: true });
+      if (clubWrites.length)
+        await db
+          .collection<Row>("public_memory_clubs")
+          .bulkWrite(clubWrites, { session, ordered: true });
     });
   } finally {
     await session.endSession();
@@ -398,9 +425,7 @@ export async function withdrawPublicMemory(eventIds: string[]): Promise<void> {
 /** Authenticated route/assistant read-only query; no refresh, spending or writes. Literal bounded query
  * searches only public history (including cancellations), max 40 events/40 deadlines/20 organizers.
  * Throws on >200-character query or unavailable Mongo. No caller-selected private scope exists. */
-export async function searchPublicMemory(
-  query: string,
-): Promise<{
+export async function searchPublicMemory(query: string): Promise<{
   events: CampusEvent[];
   deadlines: CampusDeadline[];
   clubs: PublicClubMemory[];
