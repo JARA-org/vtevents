@@ -133,3 +133,13 @@ it verifies UI wiring and errors without spending production quota or reading re
 profiles. A live-provider smoke test and deployed release verification still require
 the real backend credentials and verified free-tier configuration. Do not call a
 mocked provider test a successful production Gemini call.
+
+## Operator activation through GitHub Actions
+
+The manual **Activate free-tier Gemini** workflow uses the existing production SSH
+secrets. Run it on `main` with `free_tier_confirmed=true` only after the production
+key owner confirms Free Tier with billing disabled. It changes only the server's
+assistant activation flag, keeps the currently deployed image, recreates the app,
+and verifies health and the effective setting. It shares the deployment lock and
+workflow concurrency group; failures restore the previous environment. Keys never
+leave the server. Each user still enables personalized chat in Settings.

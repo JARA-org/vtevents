@@ -1,0 +1,47 @@
+name: Activate free-tier Gemini
+on:
+  workflow_dispatch:
+    inputs:
+      free_tier_confirmed:
+        description: The production key owner confirms Free Tier with billing disabled
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: vultr-production
+  cancel-in-progress: false
+jobs:
+  activate:
+    if: github.ref == 'refs/heads/main' && inputs.free_tier_confirmed
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Activate using existing production credentials
+        env:
+          VULTR_SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
+          VULTR_SSH_KNOWN_HOSTS: ${{ secrets.VULTR_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          bash -n deploy/configure-gemini.sh
+          test -n "$VULTR_SSH_PRIVATE_KEY"
+          test -n "$VULTR_SSH_KNOWN_HOSTS"
+          umask 077
+          ssh_dir=$(mktemp -d)
+          trap 'rm -rf "$ssh_dir"' EXIT
+          printf '%s\n' "$VULTR_SSH_PRIVATE_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$VULTR_SSH_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          unset VULTR_SSH_PRIVATE_KEY VULTR_SSH_KNOWN_HOSTS
+          options=(-i "$ssh_dir/key" -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$ssh_dir/known_hosts" -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+          target=root@45.77.222.255
+          remote_dir="/opt/gobbler-incoming/assistant-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          ssh "${options[@]}" "$target" "umask 077; mkdir -p '$remote_dir'"
+          scp "${options[@]}" deploy/configure-gemini.sh deploy/lib/gemini-config.mjs "$target:$remote_dir/"
+          ssh "${options[@]}" "$target" "bash '$remote_dir/configure-gemini.sh'"
+      - name: Check public HTTPS
+        run: node deploy/smoke.mjs https://vtevents.us
