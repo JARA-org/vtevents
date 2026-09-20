@@ -49,6 +49,15 @@ rollback() {
 }
 trap 'rollback' ERR
 docker compose --project-name "$project" -f "$release/deploy/compose.yaml" up -d --no-deps --no-build --wait --wait-timeout 180 app
+# Startup jobs can exhaust memory after the first successful health check.
+# Keep rollback armed for five minutes and reject any container restart.
+candidate=$(docker compose --project-name "$project" -f "$release/deploy/compose.yaml" ps -q app)
+[[ -n "$candidate" ]]
+for check in {1..20}; do
+  sleep 15
+  state=$(docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.RestartCount}} {{.State.OOMKilled}}' "$candidate")
+  [[ "$state" == 'running healthy 0 false' ]] || { echo 'Release became unhealthy or restarted during stabilization.' >&2; false; }
+done
 docker run --rm --network host --read-only --cap-drop ALL --security-opt no-new-privileges:true \
   -v "$release/deploy:/checks:ro" --entrypoint node "$GOBBLER_IMAGE" /checks/smoke.mjs "https://$GOBBLER_DOMAIN"
 trap - ERR

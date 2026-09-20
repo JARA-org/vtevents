@@ -43,12 +43,19 @@ jobs:
           docker save "my-little-gobbler-app:$RELEASE" | gzip > "$RUNNER_TEMP/release/image.tar.gz"
           tar -czf "$RUNNER_TEMP/release.tar.gz" -C "$RUNNER_TEMP/release" .
       - name: Deploy verified image
+        id: deploy
         env:
+          EXPECTED_SHA: ${{ github.sha }}
           RELEASE: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           VULTR_SSH_PRIVATE_KEY: ${{ secrets.VULTR_SSH_PRIVATE_KEY }}
           VULTR_SSH_KNOWN_HOSTS: ${{ secrets.VULTR_SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
+          latest=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [[ "$latest" != "$EXPECTED_SHA" ]]; then
+            echo 'Skipping superseded commit; a newer push owns deployment.'
+            exit 0
+          fi
           test -n "$VULTR_SSH_PRIVATE_KEY" || { echo 'Missing VULTR_SSH_PRIVATE_KEY secret'; exit 1; }
           test -n "$VULTR_SSH_KNOWN_HOSTS" || { echo 'Missing VULTR_SSH_KNOWN_HOSTS secret'; exit 1; }
           umask 077
@@ -67,5 +74,7 @@ jobs:
           # Bootstrap script comes from the same checked-out commit as the image.
           scp "${options[@]}" deploy/remote-release.sh "$target:/opt/gobbler-incoming/$RELEASE/deploy.sh"
           ssh "${options[@]}" "$target" "bash /opt/gobbler-incoming/$RELEASE/deploy.sh $RELEASE"
+          echo 'deployed=true' >> "$GITHUB_OUTPUT"
       - name: Check public HTTPS
+        if: steps.deploy.outputs.deployed == 'true'
         run: node deploy/smoke.mjs https://vtevents.us
