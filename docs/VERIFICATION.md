@@ -1,3 +1,30 @@
+## Verified live hardening release — 2026-09-19 23:57 UTC
+
+Production now runs **3fc68ee** from `/opt/gobbler-releases/3fc68ee`.
+Both app and Caddy Compose services use this directory; Caddy's identical config
+was remounted from the valid new path, retaining existing TLS certificate volumes.
+Teammate checkout `/opt/vtevents` remains untouched. Old image55e3420 remains for
+rollback; run Compose from the NEW directory with GOBBLER_DOMAIN=vtevents.us and
+GOBBLER_IMAGE=my-little-gobbler-app:55e3420 to roll back the app only.
+The old /opt/vtevents/releases and /opt/vtevents/current paths DO NOT exist.
+Production secrets were recovered privately from the running container into a
+mode0600 .env.production in the new release, preserving identity/encryption keys.
+
+59/59 tests, typechecks, contracts, local build and actual-host Docker build pass;
+production dependency audit reports zero vulnerabilities. All seven HTTPS smoke
+checks pass after app AND Caddy replacement. Fresh signup/preferences/discovery/
+save/ICS/real Gemini/grounding/account deletion passed against production, with
+1,513 current events. Temporary QA account deleted. Browser visual recheck was
+unavailable (CUA browser session disconnected); no new UI was authored here.
+
+User supplied Downloads/env has new Discord settings plus different auth,
+encryption and analytics secrets. It has NOT been applied. Explicit question
+pending: apply Discord settings only while retaining production secrets, or leave
+Discord disabled. Never copy that file wholesale. Current Discord remains disabled.
+Keep teammate Discord implementation intact. Google/Canvas live calendar consent,
+mail delivery/account recovery, Databricks, club deletion cleanup and Vultr spending
+protection/API-key rotation remain unfinished. This release is hardening, not full V1.
+
 # Verification and hackathon walkthrough
 
 ## Final release update — 2026-09-19
@@ -96,3 +123,12 @@ Source checkpoint ace873f was pushed to JARA-org/vtevents/main; local and remote
 - Existing Vultr VM was found in the owner console; no new VM was created. Server access and Atlas allowlist entries are prepared, awaiting browser-required confirmations. Its hard spending cap remains unverified. Docker Desktop's engine is unavailable on this Windows checkout; the prior container validation above was performed elsewhere.
 
 Follow-up verification: the complete 44-test suite passed. Browser inspection found stale one-hour-cached landing HTML from the retired frontend; HTML now revalidates while static assets retain their existing cache duration. A build-independent HTTP fixture verifies this header. Updated API/deployment tests (5/5), architecture/contracts/typechecks and production build passed after that fix. Current landing was visually inspected at390x844 and1280x800 with no horizontal overflow; Gobbler branding/favicon remain present. No production HTTPS claim.
+# Calendar and readiness hardening (2026-09-19, not yet deployed)
+
+Regression tests use isolated Mongo replica sets and synthetic provider responses.
+They verify malformed/missing availability does not erase prior busy data, valid
+empty availability succeeds, disconnect wins over in-flight calendar sync and
+OAuth exchange, other users remain connected, missing refreshed access tokens fail
+closed, and stale refresh failures cannot expire replacement credentials. Public
+health tests verify live database probes, no-store, redacted outage response and
+HTTP503. Production live-provider sync/write still needs owner consent.

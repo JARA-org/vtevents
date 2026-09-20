@@ -40,6 +40,10 @@ export async function connectDB() {
   }
   await Promise.all([
     db
+      .collection("account_email_outbox")
+      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection("account_email_outbox").createIndex({ nextAttempt: 1 }),
+    db
       .collection("discord_message_jobs")
       .createIndex({ dueAt: 1, leaseUntil: 1 }),
     db

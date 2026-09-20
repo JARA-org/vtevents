@@ -46,6 +46,7 @@ import {
 import { registerDiscordBotRoutes } from "./discord-bot-http.js";
 import { discordPublication } from "./discord-publication.js";
 import { clubAccounts } from "./club-accounts.js";
+import { accountEmailReady, queueAccountEmail } from "./account-email.js";
 import { runJobs } from "./jobs.js";
 import { unseal, pseudonym } from "./security.js";
 export function createApp() {
@@ -87,7 +88,42 @@ export function createApp() {
           baseURL: config.origin,
           secret: process.env.BETTER_AUTH_SECRET,
           database: mongodbAdapter(db, { client: mongoClient }),
-          emailAndPassword: { enabled: true, minPasswordLength: 12 },
+          emailAndPassword: {
+            enabled: true,
+            minPasswordLength: 12,
+            resetPasswordTokenExpiresIn: 3600,
+            revokeSessionsOnPasswordReset: true,
+            ...(accountEmailReady()
+              ? {
+                  sendResetPassword: async ({
+                    user,
+                    url,
+                  }: {
+                    user: { id: string; email: string };
+                    url: string;
+                  }) => {
+                    await queueAccountEmail(user.email, url, "reset", user.id);
+                  },
+                }
+              : {}),
+          },
+          ...(accountEmailReady()
+            ? {
+                emailVerification: {
+                  sendOnSignUp: true,
+                  expiresIn: 3600,
+                  sendVerificationEmail: async ({
+                    user,
+                    url,
+                  }: {
+                    user: { id: string; email: string };
+                    url: string;
+                  }) => {
+                    await queueAccountEmail(user.email, url, "verify", user.id);
+                  },
+                },
+              }
+            : {}),
           session: { expiresIn: 604800, updateAge: 86400 },
           advanced: { useSecureCookies: config.production },
           trustedOrigins: [config.origin],
@@ -95,6 +131,11 @@ export function createApp() {
           user: { deleteUser: { enabled: false } },
         })
       : null;
+  app.get("/api/account-email", (_req, res) =>
+    res
+      .set("Cache-Control", "no-store")
+      .json({ available: accountEmailReady() }),
+  );
   if (auth) app.all("/api/auth/*splat", toNodeHandler(auth));
   else
     app.all("/api/auth/*splat", (_q, r) =>
@@ -210,17 +251,30 @@ export function createApp() {
       ),
     );
   });
-  app.get("/api/health", (_req, res) =>
-    res.json({
-      ok: true,
-      name: "My Gobbler",
-      database: !!db,
-      accounts: !!auth,
-      gemini: !!process.env.GEMINI_API_KEY,
-      voice: voiceReady(),
-      sources: sourceStatus,
-    }),
-  );
+  // Anonymous read-only readiness probe. No provider calls, writes or retries;
+  // bounded Mongo ping fails closed with redacted 503 when storage is unavailable.
+  app.get("/api/health", async (_req, res) => {
+    let databaseReady = false;
+    try {
+      databaseReady =
+        !!db && (await db.command({ ping: 1 }, { timeoutMS: 2000 })).ok === 1;
+    } catch {
+      /* Never expose connection details in a public health response. */
+    }
+    const ready = databaseReady && !!auth;
+    res
+      .set("Cache-Control", "no-store")
+      .status(ready ? 200 : 503)
+      .json({
+        ok: ready,
+        name: "My Gobbler",
+        database: databaseReady,
+        accounts: !!auth,
+        gemini: !!process.env.GEMINI_API_KEY,
+        voice: voiceReady(),
+        sources: sourceStatus,
+      });
+  });
   app.get("/api/events", protect, async (req, res) => {
     if (req.query.mode && req.query.mode !== "live")
       throw new HttpError(400, "Unsupported event mode.");
@@ -482,6 +536,7 @@ export function createApp() {
     await eraseAnalytics(id);
     for (const p of ["google", "canvas"] as const) await disconnect(id, p);
     for (const name of [
+      "account_email_outbox",
       "profiles",
       "discord_guilds",
       "saved",

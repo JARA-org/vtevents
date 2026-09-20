@@ -1,4 +1,63 @@
+## Verified live hardening release — 2026-09-19 23:57 UTC
+
+Production now runs **3fc68ee** from `/opt/gobbler-releases/3fc68ee`.
+Both app and Caddy Compose services use this directory; Caddy's identical config
+was remounted from the valid new path, retaining existing TLS certificate volumes.
+Teammate checkout `/opt/vtevents` remains untouched. Old image55e3420 remains for
+rollback; run Compose from the NEW directory with GOBBLER_DOMAIN=vtevents.us and
+GOBBLER_IMAGE=my-little-gobbler-app:55e3420 to roll back the app only.
+The old /opt/vtevents/releases and /opt/vtevents/current paths DO NOT exist.
+Production secrets were recovered privately from the running container into a
+mode0600 .env.production in the new release, preserving identity/encryption keys.
+
+59/59 tests, typechecks, contracts, local build and actual-host Docker build pass;
+production dependency audit reports zero vulnerabilities. All seven HTTPS smoke
+checks pass after app AND Caddy replacement. Fresh signup/preferences/discovery/
+save/ICS/real Gemini/grounding/account deletion passed against production, with
+1,513 current events. Temporary QA account deleted. Browser visual recheck was
+unavailable (CUA browser session disconnected); no new UI was authored here.
+
+User supplied Downloads/env has new Discord settings plus different auth,
+encryption and analytics secrets. It has NOT been applied. Explicit question
+pending: apply Discord settings only while retaining production secrets, or leave
+Discord disabled. Never copy that file wholesale. Current Discord remains disabled.
+Keep teammate Discord implementation intact. Google/Canvas live calendar consent,
+mail delivery/account recovery, Databricks, club deletion cleanup and Vultr spending
+protection/API-key rotation remain unfinished. This release is hardening, not full V1.
+
 # Resume My Gobbler production work
+
+## Latest hardening checkpoint (supersedes deployment paths below)
+
+Fetched and fast-forwarded team main through 2694d4f. User explicitly wants the
+teammate's Discord work left alone. No Discord modules/settings changed here.
+Calendar hardening adds transactional disconnect/sync/OAuth-callback fencing,
+provider response validation, refresh compare-and-set, and invalid-token status.
+Health now probes MongoDB with a two-second bound and returns redacted HTTP503
+when unavailable. Regression coverage includes disconnect during an in-flight
+read/exchange, preservation of prior context on malformed responses, isolation,
+and protection of replacement credentials from failed old refreshes.
+
+Deployment coordination is REQUIRED: read-only SSH inspection found the app still
+running image my-little-gobbler-app:55e3420, but /opt/vtevents/current and the entire
+/opt/vtevents/releases directory are now absent. /opt/vtevents exists and was
+modified by other work. Do not assume the older runbook paths/env backups exist.
+User approved deployment after inspecting teammate setup. Teammate checkout at
+/opt/vtevents is clean2694d4f; preserve it. New release is prepared separately at
+/opt/gobbler-releases/3fc68ee with mode0600 configuration recovered directly from
+the running container (never printed). Production image build is in progress.
+User supplied C:/Users/Outsi/Downloads/env: it adds Discord credentials/enables
+collection but changes auth/encryption/analytics secrets and APP_ORIGIN. Asked to
+confirm applying only Discord fields while preserving production identity secrets;
+answer pending. Do not copy the supplied file wholesale or commit it.
+
+Still unfinished: auth email verification/recovery (no mail delivery provider
+configured), live Google consent/sync/write, Canvas institutional key, Databricks
+authorization/dashboard, club-owned account deletion review (coordinate with
+teammate), Vultr exposed API-key rotation and credit protection. Google Cloud trial
+billing page reports prepayment required; $0 limit still applies. No trial payment
+or Gemini backend migration performed. Do not confuse Google Cloud trial credits
+with the excluded AI Studio Gemini API.
 
 Continue the existing private **https://github.com/JARA-org/vtevents**, branch main. Do not create another repository or discard team work. Read AGENTS.md, Master.md, MAKEOVER_HANDOFF.md and packages/shared/src/contracts.ts before interface work. Latest upstream makeover uses **My Gobbler**, supplied turkey assets and a Gobbler favicon. Keep cloud/database identifiers unchanged. Current v2 requires authentication; anonymous demo retirement is intentional. Frontend is UI/transport only; all domain logic stays in the Node backend. Discord is strictly read-only toward server resources.
 

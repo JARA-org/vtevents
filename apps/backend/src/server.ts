@@ -3,6 +3,7 @@ import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { runJobs } from "./jobs.js";
 import { flushAnalytics } from "./analytics.js";
+import { flushAccountEmail } from "./account-email.js";
 import { startDiscordCollection } from "./discord-jobs.js";
 await connectDB();
 createApp().listen(config.port, "0.0.0.0", () =>
@@ -18,3 +19,7 @@ process.once("SIGTERM", () => {
 });
 setInterval(() => background(runJobs, "refresh"), 60000).unref();
 setInterval(() => background(flushAnalytics, "analytics"), 60000).unref();
+setInterval(
+  () => background(flushAccountEmail, "account-email"),
+  10000,
+).unref();

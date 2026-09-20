@@ -1,4 +1,45 @@
-# Final live release — 2026-09-19
+## Verified live hardening release — 2026-09-19 23:57 UTC
+
+Production now runs **3fc68ee** from `/opt/gobbler-releases/3fc68ee`.
+Both app and Caddy Compose services use this directory; Caddy's identical config
+was remounted from the valid new path, retaining existing TLS certificate volumes.
+Teammate checkout `/opt/vtevents` remains untouched. Old image55e3420 remains for
+rollback; run Compose from the NEW directory with GOBBLER_DOMAIN=vtevents.us and
+GOBBLER_IMAGE=my-little-gobbler-app:55e3420 to roll back the app only.
+The old /opt/vtevents/releases and /opt/vtevents/current paths DO NOT exist.
+Production secrets were recovered privately from the running container into a
+mode0600 .env.production in the new release, preserving identity/encryption keys.
+
+59/59 tests, typechecks, contracts, local build and actual-host Docker build pass;
+production dependency audit reports zero vulnerabilities. All seven HTTPS smoke
+checks pass after app AND Caddy replacement. Fresh signup/preferences/discovery/
+save/ICS/real Gemini/grounding/account deletion passed against production, with
+1,513 current events. Temporary QA account deleted. Browser visual recheck was
+unavailable (CUA browser session disconnected); no new UI was authored here.
+
+User supplied Downloads/env has new Discord settings plus different auth,
+encryption and analytics secrets. It has NOT been applied. Explicit question
+pending: apply Discord settings only while retaining production secrets, or leave
+Discord disabled. Never copy that file wholesale. Current Discord remains disabled.
+Keep teammate Discord implementation intact. Google/Canvas live calendar consent,
+mail delivery/account recovery, Databricks, club deletion cleanup and Vultr spending
+protection/API-key rotation remain unfinished. This release is hardening, not full V1.
+
+# Production hardening — 2026-09-19 (awaiting coordinated deployment)
+
+Integrated team main through 2694d4f without changing Discord. Calendar sync and
+OAuth callbacks now cannot restore disconnected context/connections after their
+remote reads complete. Invalid Google availability preserves prior context;
+empty valid busy arrays still work. Refresh writes use credential revision checks
+and reject missing access tokens. Disconnect clears pending OAuth claims and
+private context atomically, even when remote revocation fails. Health checks now
+probe MongoDB, fail with a redacted 503 and prohibit caching.
+
+Read-only server inspection found old image55e3420 healthy but previous release
+directories and current symlink absent. Teammate deployment coordination pending;
+do not overwrite current server files. See NEXT_AGENT_PROMPT.md.
+
+# Previous live release — 2026-09-19
 
 Live source **55e3420** at https://vtevents.us, integrating team main7bbfbf9. 50/50tests, typechecks/contracts, actual-host production build and production dependency audit pass (0 vulnerabilities). Fixed API test fixture isolation from local Google credentials. Core live HTTP flow/Gemini/OAuth initiation and HTTPS smoke pass after update; 1,519 current events. Previous3b003bb release retained. All synthetic QA accounts deleted.
 
@@ -94,3 +135,15 @@ Deployment QA also found and fixed one-hour stale HTML caching. Current v2 mobil
 Owner explicitly requested generating/installing a replacement deployment key without replacing the server. Generated Ed25519 key in ignored owner-only work/my-little-gobbler-deploy and prepared an idempotent public-key installation script. Saved and verified cloud firewall SSH22 from current workstation73.171.46.27/32, preserving existing rules. TCP22 became reachable after propagation; existing root password authentication is disabled (public keys only). No remote login or key installation has succeeded yet.
 
 Vultr View Console opens no usable popup in this in-app browser, including after fresh-page retry. Official docs confirm Reinstall SSH Keys wipes the server; it was not used. Prepared narrow API allowlist entry73.171.46.27/32 and requested at-action confirmation to obtain the supported instance console link. No API grant saved yet. A temporary read-only inspection of another existing key exposed a Delete confirmation; it was cancelled without mutation. Existing root recovery password appeared in a copy-residue accessibility field; owner informed and rotation required after access recovery. No password/secret added to source.
+
+### 2026-09-20 account email and Discord checkpoint
+- Discord-only supplied env merged; existing production keys preserved. Gateway
+  connected, production interaction endpoint verified by Discord, test guild
+  commands registered. Server owner must select public channels; no code edits.
+- Implemented recovery/verification UI, Better Auth lifecycle hooks, encrypted
+  expiring leased retry outbox and optional deployment configuration pair.
+- All 60 tests passed, including verification, password reset single-use/session
+  revocation, non-enumerating reset response, encryption and retry idempotency.
+- Local Expo/backend build and typechecks passed. Resend signup consent is pending;
+  provider delivery, Google personal consent and Databricks authorization remain
+  external dependencies. Do not call this a fully completed public launch.

@@ -42,6 +42,23 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
     b = request.agent(app),
     origin = "http://localhost:3000";
   try {
+    const health = await request(app).get("/api/health");
+    assert.equal(health.status, 200);
+    assert.equal(health.body.database, true);
+    assert.equal(health.headers["cache-control"], "no-store");
+    const originalCommand = store.database().command;
+    store.database().command = async () => {
+      throw new Error("synthetic-private-db-uri");
+    };
+    try {
+      const unavailable = await request(app).get("/api/health");
+      assert.equal(unavailable.status, 503);
+      assert.equal(unavailable.body.ok, false);
+      assert.equal(unavailable.body.database, false);
+      assert.doesNotMatch(unavailable.text, /synthetic-private-db-uri/);
+    } finally {
+      store.database().command = originalCommand;
+    }
     const landing = await request(app).get("/");
     assert.equal(landing.status, 200);
     assert.match(landing.headers["cache-control"], /no-cache|max-age=0/);
