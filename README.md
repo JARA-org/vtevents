@@ -93,7 +93,7 @@ otherwise `/recover` clearly reports unavailable. See docs/INTEGRATIONS.md for
 free-plan setup dependencies and verification limits.
 
 The authenticated For you page opens a seven-day timeline selector. Its entrance
-plays once per browser tab session (and is skipped for reduced motion). Drag from
+plays on every fresh page load (and is skipped for reduced motion). Drag from
 any day to another, or use the day buttons with the keyboard, then confirm. The
 backend selects up to ten upcoming events, weights the first day twice as heavily,
 prioritizes explicit interests and otherwise varies categories, organizers and

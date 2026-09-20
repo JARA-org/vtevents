@@ -9,7 +9,6 @@ import { Button } from "./ui";
 type Phase =
   "intro" | "select" | "collapse" | "expand" | "populating" | "ready";
 type Range = { anchor: number; end: number };
-const INTRO_KEY = "gobbler.timeline.intro.v1";
 const formatDay = (day: string, fmt = "ccc, LLL d") =>
   DateTime.fromISO(day).toFormat(fmt);
 const timeLabel = (item: TimelineItem, timezone: string) => {
@@ -23,8 +22,7 @@ const timeLabel = (item: TimelineItem, timezone: string) => {
 const initialPhase = (): Phase => {
   if (Platform.OS !== "web") return "select";
   try {
-    return sessionStorage.getItem(INTRO_KEY) ||
-      matchMedia("(prefers-reduced-motion: reduce)").matches
+    return matchMedia("(prefers-reduced-motion: reduce)").matches
       ? "select"
       : "intro";
   } catch {
@@ -109,11 +107,6 @@ export function TimelineExperience({
       return;
     }
     introStarted.current = true;
-    try {
-      sessionStorage.setItem(INTRO_KEY, "seen");
-    } catch {
-      /* Storage is optional UI state. */
-    }
     const timer = setTimeout(() => setPhase("select"), reduced ? 0 : 1950);
     return () => clearTimeout(timer);
   }, [active, phase, reduced]);

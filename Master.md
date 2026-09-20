@@ -391,7 +391,7 @@ Delivery requires server-owned `RESEND_API_KEY`, `AUTH_EMAIL_FROM` for a verifie
 ## Cinematic timeline entry (September 20, 2026)
 
 The signed-in For you entry uses a minimal seven-day selector: center dot, pause,
-line expansion once per browser tab session, then day-to-day drag selection with a
+line expansion on every fresh page load, then day-to-day drag selection with a
 small confirmation button. Any inclusive part of the next seven campus days is
 selectable; Today, day 3 and day 7 are the main ticks. Confirmation collapses the
 unselected span, recenters/extends the selection and reveals about ten evenly

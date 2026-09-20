@@ -7,9 +7,10 @@ system typography. No external animation library, model or generated media is us
 ## Interaction
 
 - Entrance: a central dot appears, pauses, then extends into a seven-day line.
-  The selector and prompt appear after the roughly two-second entrance. A
-  sessionStorage flag suppresses later entrances in that tab's browser session;
-  blocked storage and reduced-motion preferences skip the entrance.
+  The selector and prompt appear after the roughly two-second entrance. The
+  entrance replays on every fresh page load, including reloads in the same tab.
+  Reduced-motion preferences skip the entrance. Returning from event details or
+  changing dates preserves the current interaction without replaying the entrance.
 - Every campus day is an interval; Today, day 3 and day 7 are emphasized. Drag in
   either direction from any day. Release leaves a draft; Show my timeline commits
   the selection. Single days are supported. Keyboard users can select endpoints
