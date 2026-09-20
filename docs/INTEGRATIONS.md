@@ -7,8 +7,6 @@
 | Better Auth     | **Live HTTPS tested:** accounts, preferences, saves, deletion and restart persistence                                | Email verification/recovery                                                                     |
 | MongoDB Atlas   | **Live and tested:** M0 cluster `my-little-gobbler`, narrow user/database permissions and workstation/server `/32` entries               | None for production connectivity; retain narrow network entries                                                                |
 | Gemini          | **Live and tested:** `gemini-3.5-flash-lite`, real grounded responses from stored event IDs                               | Production replacement key tested; old exposed setup key deleted                                                                 |
-| Google Calendar | **Production configured:** OAuth+PKCE initiation verified; free/busy/write/revoke implemented; duplicate writes tested with mocks                         | Owner personal consent and live sync/write test; external/testing restricted to sole owner test user; public verification/publishing pending                        |
-| Canvas          | Scoped OAuth, paginated courses/calendar/announcements, refresh/revoke and guarded writes implemented                     | Virginia Tech must issue/enable an OAuth developer key with permitted scopes; user consent; write permission for writes  |
 | Discord         | Read-only signed commands, Gateway-triggered durable queue, server budgets, club linking and automatic qualified-event publication implemented; disabled in production | Endpoint is online; bot token/public key, message-content intent, server installation and command registration remain pending |
 | ElevenLabs      | **Live and tested:** Free plan, TTS-only key capped8,000credits/refresh; realMP3, cache and authenticated endpoint passed | Secret deployed; final audible browser playback QA                                                                             |
 | Vultr           | **Live and tested:** https://vtevents.us on existing VM `45.77.222.255`, Docker/Caddy, source revision `55e3420` | Hard spending cap still unverified; no additional paid resources. Exposed Vultr API key requires rotation |
@@ -29,22 +27,6 @@ It redirects to the observed CampusGroups CDN at `static-prod-us-east-1.campusgr
 
 The official all-sports page links to sport schedules such as https://hokiesports.com/sports/football/schedule. These contain public JSON-LD Event/SportsEvent metadata. The adapter follows official same-host schedule links with bounded concurrency, retains provenance, and validates each record. It does not call guessed internal APIs. Official robots.txt permits public crawling. Missing end times and TBD starts are surfaced honestly.
 
-## Google Calendar
-
-Dashboard: https://console.cloud.google.com/apis/credentials
-
-Redirect: `https://vtevents.us/api/connections/google/callback`
-
-Scopes: `https://www.googleapis.com/auth/calendar.freebusy` and `https://www.googleapis.com/auth/calendar.events.owned`. Reads primary-calendar busy intervals for 60 days; creates only explicitly confirmed events in the primary calendar. Consent testing/verification requirements may limit who can connect; test-mode refresh tokens may expire. Reconnect states are handled in Settings.
-
-## Canvas
-
-Host is restricted to `https://canvas.vt.edu`; user-supplied arbitrary hosts are rejected. Redirect: `https://vtevents.us/api/connections/canvas/callback`.
-
-Developer key scopes: GET user profile, courses, calendar_events, announcements; optional POST calendar_events only when `CANVAS_WRITES_ENABLED=true`. Scope paths follow Canvas's official API scope format. University administrators must approve the key. Do not ask students to bypass university restrictions or paste private access tokens into the public demo.
-
-Personal calendar writes use `user_<authenticated Canvas ID>`. The connected user’s real permission is enforced by Canvas. Reads paginate with a bounded maximum; an incomplete read fails rather than replacing existing context with a partial schedule.
-
 ## Discord
 
 The current design is a read-only server-installed bot, with no app-user account
@@ -64,15 +46,10 @@ channel settings or permissions are changed. The latest team implementation uses
 - https://www.mongodb.com/docs/atlas/tutorial/deploy-free-tier-cluster/
 - https://ai.google.dev/gemini-api/docs/pricing
 - https://ai.google.dev/gemini-api/docs/structured-output
-- https://developers.google.com/identity/protocols/oauth2/web-server
-- https://developers.google.com/workspace/calendar/api/v3/reference/events/insert
-- https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query
-- https://developerdocs.instructure.com/services/canvas/oauth2/file.oauth_endpoints
 - https://docs.discord.com/developers/resources/channel
 - https://render.com/docs/free
 - https://render.com/docs/blueprint-spec
 
-Google setup checkpoint: owner approved Cloud terms, API User Data Policy, web-client creation, Calendar API activation and the sole test user `surlezrulez@gmail.com`. External/testing consent, production web client, exact callback and the two scopes above are configured. Secrets stored only in ignored local/production env; app recreated and HTTPS smoke passed. Backend initiation verified correct callback, PKCE S256, state and scopes. **Personal consent, live sync and calendar writes are not yet verified.** Billing/trial not enabled. [Google Calendar standard usage is free](https://developers.google.com/workspace/calendar/api/guides/quota); paid quota increases are not authorized. [Testing-mode refresh tokens expire after seven days](https://developers.google.com/identity/protocols/oauth2#expiration), so test users may need to reconnect. Public OAuth verification/publishing remains separate from website deployment.
 
 ## Account email delivery (2026-09-20)
 

@@ -9,15 +9,12 @@ import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { emptyProfile } from "../apps/backend/src/domain.js";
 
-test("authenticated API isolation, CSRF, persistence, connection failure and authenticated discovery", async () => {
+test("authenticated API isolation, CSRF, persistence, connection retirement and authenticated discovery", async () => {
   const mongo = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   process.env.MONGODB_URI = mongo.getUri();
   process.env.BETTER_AUTH_SECRET = randomBytes(32).toString("hex");
   process.env.TOKEN_ENCRYPTION_KEY = randomBytes(32).toString("hex");
   process.env.APP_ORIGIN = "http://localhost:3000";
-  // This test exercises unavailable connector configuration, independent of local .env.
-  process.env.GOOGLE_CLIENT_ID = "";
-  process.env.GOOGLE_CLIENT_SECRET = "";
   const store = await import("../apps/backend/src/store.js");
   await store.connectDB();
   const { createApp } = await import("../apps/backend/src/app.js");
@@ -142,7 +139,7 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
     assert.equal(live.status, 200);
     assert.ok(live.body.events.every((e: any) => e.mode === "live"));
     const bootstrap = await request(app).get("/api/bootstrap");
-    assert.equal(bootstrap.body.contractVersion, 2);
+    assert.equal(bootstrap.body.contractVersion, 5);
     assert.equal("demoProfile" in bootstrap.body, false);
     assert.ok(bootstrap.body.categories.includes("Sports"));
     const forged = await a
@@ -172,7 +169,7 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
             },
           })
       ).status,
-      400,
+      410,
     );
     assert.equal(
       (
@@ -182,20 +179,6 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
           .send({ saved: true })
       ).status,
       404,
-    );
-    assert.equal(
-      (
-        await a
-          .post("/api/connections/google/connect")
-          .set("Origin", origin)
-          .send({})
-      ).status,
-      503,
-    );
-    assert.equal(
-      (await a.get("/api/connections/google/callback?state=forged&code=bogus"))
-        .status,
-      400,
     );
     const me = (await a.get("/api/me")).body;
     assert.equal(
@@ -271,14 +254,17 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
       }),
       syncedAt: new Date(),
     });
-    assert.equal((await b.get("/api/private-context")).body.length, 0);
-    assert.equal(
-      (await a.get("/api/private-context")).body[0].courses[0].name,
-      "Private course",
-    );
+    assert.equal((await b.get("/api/private-context")).status, 410);
+    assert.equal((await a.get("/api/private-context")).status, 410);
+    const exportEffectsBefore = await db.collection("outbox").countDocuments();
     const ics = await a.get("/api/events/live-test-1/ics");
-    assert.equal(ics.status, 200);
-    assert.match(ics.text, /BEGIN:VCALENDAR/);
+    assert.equal(ics.status, 410);
+    assert.equal(ics.body.code, "FEATURE_RETIRED");
+    assert.equal(ics.headers["content-disposition"], undefined);
+    assert.doesNotMatch(ics.text, /BEGIN:VCALENDAR/);
+    assert.equal((await a.get("/api/events/missing/ics")).status, 410);
+    assert.equal((await a.post("/api/analytics").set("Origin", origin).send({ kind: "calendar_addition", eventId: "live-test-1" })).status, 400);
+    assert.equal(await db.collection("outbox").countDocuments(), exportEffectsBefore);
     const discover = await a
       .post("/api/discovery")
       .set("Origin", origin)
@@ -369,40 +355,50 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
         (r: any) => r.event.id === "live-test-1",
       ),
     );
-    const { addCalendar } = await import("../apps/backend/src/integrations.js");
-    const { seal } = await import("../apps/backend/src/security.js");
-    await db.collection("connections").insertOne({
-      userId: me.user.id,
-      provider: "google",
-      status: "connected",
-      encrypted: seal({
-        access_token: "test-token",
-        expiresAt: Date.now() + 3600000,
-      }),
-    });
     const savedFetch = globalThis.fetch;
-    let writes = 0;
-    globalThis.fetch = async () => {
-      writes++;
-      return new Response(JSON.stringify({ id: "confirmed" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    };
+    // Even installed credentials and stale clients cannot reach a retired provider.
+    await db.collection("connections").insertOne({ userId: me.user.id,
+      provider: "google", status: "connected", encrypted: "retired-secret" });
+    let providerCalls = 0;
+    globalThis.fetch = async () => { providerCalls++; throw new Error("Unexpected provider call"); };
     try {
-      const event = {
-        ...testEvents()[0],
-        id: "live-test-1",
-        mode: "live" as const,
-      };
-      const one = await addCalendar(me.user.id, "google", event);
-      const two = await addCalendar(me.user.id, "google", event);
-      assert.equal(writes, 1);
-      assert.equal(one.duplicate, false);
-      assert.equal(two.duplicate, true);
-    } finally {
-      globalThis.fetch = savedFetch;
-    }
+      const routes = [
+        ["get", "/api/connections"], ["get", "/api/private-context"],
+        ["post", "/api/calendar"],
+        ...["google", "canvas"].flatMap(provider => [
+          ["post", `/api/connections/${provider}/connect`],
+          ["get", `/api/connections/${provider}/callback?state=forged&code=bogus`],
+          ["post", `/api/connections/${provider}/sync`],
+          ["delete", `/api/connections/${provider}`],
+        ]),
+      ];
+      for (const [method, path] of routes) {
+        const invoke = (agent: any) => agent[method](path).set("Origin", origin)
+          .send(method === "get" ? undefined : { destination: "google", eventId: event.id, confirmed: true });
+        assert.equal((await invoke(request(app))).status, 401);
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const retired = await invoke(a);
+          assert.equal(retired.status, 410, path);
+          assert.doesNotMatch(retired.text, /retired-secret|Private course/);
+        }
+      }
+      assert.equal(providerCalls, 0);
+      assert.equal(await db.collection("calendar_writes").countDocuments(), 0);
+      assert.equal(await db.collection("oauth_states").countDocuments(), 0);
+      const oldBusy = { id: "retired-busy", start: event.start,
+        end: event.end, source: "google" };
+      await db.collection("profiles").updateOne({ userId: me.user.id }, { $set: { busy: [oldBusy] } });
+      assert.equal("busy" in (await a.get("/api/me")).body.profile, false);
+      const clean = await a.post("/api/discovery").set("Origin", origin).send({});
+      assert.equal(clean.status, 200);
+      assert.equal("fit" in clean.body.savedRecommendations[0], false);
+      assert.equal("schedule" in clean.body, false);
+      assert.equal((await a.put("/api/profile").set("Origin", origin)
+        .send({ ...pa, busy: [oldBusy], recurring: [{ kind: "free" }] })).status, 200);
+      const stored = await db.collection("profiles").findOne({ userId: me.user.id });
+      assert.deepEqual(stored!.busy, []);
+      assert.deepEqual(stored!.recurring, []);
+    } finally { globalThis.fetch = savedFetch; }
     const { askGobbler } = await import("../apps/backend/src/assistant.js");
     process.env.GEMINI_API_KEY = "synthetic-test-key";
     const aiProfile = { ...emptyProfile, aiEnabled: true };
@@ -500,33 +496,6 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
       delete process.env.GEMINI_API_KEY;
       delete process.env.GEMINI_DAILY_LIMIT;
     }
-    globalThis.fetch = async () => new Response("expired", { status: 401 });
-    try {
-      const failedSync = await a
-        .post("/api/connections/google/sync")
-        .set("Origin", origin)
-        .send({});
-      assert.equal(failedSync.status, 409);
-      assert.equal(
-        (
-          await db
-            .collection("connections")
-            .findOne({ userId: me.user.id, provider: "google" })
-        )?.status,
-        "error",
-      );
-      assert.equal(
-        (await b.get("/api/connections")).body.connections.find(
-          (c: any) => c.provider === "google",
-        ).status,
-        undefined,
-      );
-    } finally {
-      globalThis.fetch = savedFetch;
-    }
-    await db
-      .collection("connections")
-      .deleteOne({ userId: me.user.id, provider: "google" });
     assert.equal(
       (
         await a

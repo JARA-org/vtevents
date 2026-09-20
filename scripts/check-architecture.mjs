@@ -60,7 +60,6 @@ const edges = {
     "coordinator",
     "assistant",
     "analytics",
-    "integrations",
     "jobs",
     "security",
     "narration",
@@ -93,7 +92,6 @@ const edges = {
   // so it reads public history, verified club identities and the caller's own memory
   // through their owning modules rather than querying storage itself.
   "assistant.ts": ["domain", "store", "agent-policy", "public-memory", "club-accounts", "user-memory"],
-  "integrations.ts": ["domain", "config", "store", "security", "analytics", "agent-policy"],
   "discord-limits.ts": [],
   "discord-gateway.ts": [],
   "discord-trigger-store.ts": ["store", "discord-bot-store"],
@@ -138,7 +136,7 @@ const edges = {
   ],
   "narration.ts": ["domain", "store", "config"],
   "analytics.ts": ["store", "security"],
-  "jobs.ts": ["store", "integrations", "coordinator"],
+  "jobs.ts": ["coordinator"],
   "contract-check.ts": [
     "narration",
     "domain",
@@ -146,7 +144,6 @@ const edges = {
     "sources",
     "assistant",
     "discovery",
-    "integrations",
     "analytics",
     "jobs",
   ],

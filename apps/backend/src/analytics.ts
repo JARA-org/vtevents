@@ -5,7 +5,6 @@ export const analyticsKinds = [
   "recommendation_impression",
   "event_view",
   "save",
-  "calendar_addition",
   "recommendation_feedback",
 ] as const;
 /** Session-derived identity and validated interaction input. Writes a local pseudonymous

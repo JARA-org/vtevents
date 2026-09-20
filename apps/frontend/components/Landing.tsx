@@ -162,9 +162,9 @@ export function Landing({
               ],
               [
                 "03",
-                "calendar-outline",
+                "bookmark-outline",
                 "Make it a plan.",
-                "Save a favorite. Check your schedule. Go make a memory.",
+                "Save a favorite. Bring a friend. Go make a memory.",
                 "#EAF0E5",
               ],
             ] as const
@@ -217,8 +217,8 @@ export function Landing({
         />
       </View>
       <Text style={[l.note, { textAlign: "center" }]}>
-        Discover listings from GobblerConnect and VT Sports. Connect your
-        calendar when you’re ready.
+        Discover listings from GobblerConnect and VT Sports. Save your favorites
+        for later.
       </Text>
     </View>
   );

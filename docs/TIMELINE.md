@@ -23,10 +23,12 @@ system typography. No external animation library, model or generated media is us
   at the verified sizes. Portrait has a vertical, draggable/native-scroll rail.
   Expanding a bubble scrolls its controls into view in portrait.
 - Hover or keyboard focus reveals a small thumbnail, location, explanation and
-  Save/Details/Calendar. Click/tap pins expansion; a second click/tap opens details.
-  Outside interaction or Escape dismisses expansion. Existing calendar confirmation
-  and idempotency are unchanged; expanding never writes a calendar.
-- Change dates refreshes the current seven-day selector without the entrance.
+  Save/Details. Click/tap pins expansion; a second click/tap opens details.
+  Horizontal top-row details open upward and bottom-row details open downward;
+  short viewports scroll the details within the available space. Outside interaction
+  or Escape dismisses expansion. Expanding only changes the visible details.
+- Change dates sits beside the selected range in a bordered button and refreshes
+  the current seven-day selector without the entrance.
   Discover more restores the original discovery grid with all upcoming events and
   its existing search/category/day filters. It does not inherit selected dates.
 - Empty selected ranges show an honest empty state. Failed reads show unavailable
@@ -58,7 +60,7 @@ Ties favor less represented categories, organizers and source families across th
 selected set, then existing recommendation score and start time. Without expressed
 interests this yields a diverse set including academic/career categories when
 available. Popularity and "major event" significance are not fabricated from titles.
-Returned items retain authoritative availability/reason and matched-interest tags;
+Returned items retain evidence-backed explanations and matched-interest tags;
 the client only renders them. Existing event/recommendation DTO meanings and the
 legacy discovery endpoint are unchanged. The grid's existing 60-result cap remains.
 

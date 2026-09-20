@@ -100,9 +100,7 @@ export function checkProductionConfig(text, domain) {
       errors.push(`${key}: use an independent secret.`);
   }
   for (const pair of [
-    ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
     ["RESEND_API_KEY", "AUTH_EMAIL_FROM"],
-    ["CANVAS_CLIENT_ID", "CANVAS_CLIENT_SECRET"],
     ["DISCORD_CLIENT_ID", "DISCORD_PUBLIC_KEY", "DISCORD_BOT_TOKEN"],
     ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"],
   ]) {

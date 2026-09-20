@@ -400,8 +400,9 @@ when available. First-day weighting gives 4/2/2/2 for four adequately populated 
 Selection and ranking remain deterministic backend queries, never browser logic.
 
 Bubbles start with title, time and a small interest indicator. Hover/focus/tap reveals
-location, small thumbnail and existing Save/Details/Calendar actions. Change dates
-sits above a subdued Discover more link. Discover more opens the original two-column
+location, small thumbnail and existing Save/Details/Calendar actions. Top-row details
+expand upward; bottom-row details expand downward. Change dates sits beside the
+selected date range in a visible bordered button. Discover more opens the original two-column
 grid with all upcoming events, preserving search/category/day controls. Keep VT
 colors with a creamier, restrained surface. Respect reduced motion and keyboard
 access; maintain sign-in, permissions and explicit calendar-write confirmation.
@@ -422,3 +423,41 @@ Existing MongoDB and deterministic backend queries serve the current memory and 
 ## Local analytics only (September 20, 2026)
 
 External analytics export and its setup/provisioning workflow are removed. Interaction metadata stays in MongoDB with the existing 30-day TTL and user-deletion suppression. Recommendation scoring and attendance memory remain independent of an analytics vendor. Distilled conversational memory remains a proposal; no implementation was added in the cancelled chatbot task. Presentation notes are in presentation.md.
+
+## Provider retirement and simpler setup (September 20, 2026 — latest)
+
+Google Calendar, Canvas and the campus connections feature are removed from the
+product. This supersedes all earlier provider integration, private course/context,
+OAuth, sync and remote calendar-write plans in this document. Do not restore them
+as planned features or configure their credentials. Contract v3 removes their
+active types and ports; v1/v2 definitions are historical references only.
+
+Initial setup asks for interests, without the schedule editor. Manual availability
+remains available later on the schedule and preferences pages. Calendar-file
+export remains available; it has no connection to a provider account.
+
+Campus listing status presents friendly labels: Up to date, Listings available,
+More listings on the way, or Coming soon. Raw technical errors are not displayed
+in this panel. Backend health and logs retain accurate diagnostic information.
+
+
+## Complete personal schedule retirement (September 20, 2026 — latest)
+
+Remove ALL personal schedule features throughout the app and backend. This
+supersedes the earlier decision to retain manual availability. Remove navigation,
+forms, busy/free blocks, conflict/unknown-availability badges, fit scoring,
+schedule-derived recommendations and assistant claims. Adding an event to a
+calendar remains available through ICS download. Event dates and date-based
+discovery remain. Background ingestion/queue timing is infrastructure, not a
+personal schedule feature. Contract v4 and its migration govern this retirement.
+
+
+## Calendar action retirement (September 20, 2026 — latest)
+
+Remove Add to calendar everywhere, including the timeline's Calendar + action,
+event-details button, download panel, native share flow and promotional/assistant
+copy. Retire the export implementation and calendar-addition analytics. This
+supersedes the earlier requirement to preserve ICS downloads. Preserve saving
+favorites, viewing event details, event dates/date filters and public source
+collectors. Contract v5 freezes v4 as history and keeps a no-effect authenticated
+410 guard for stale clients requesting the old download route.

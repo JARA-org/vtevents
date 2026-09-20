@@ -22,6 +22,13 @@ export async function connectDB() {
   });
   await mongoClient.connect();
   db = mongoClient.db(config.db);
+  // v4 retirement migration: trusted startup only; removes obsolete personal
+  // blocks; empty legacy columns keep rollback compatible. Atomic per profile, idempotent
+  // across retries/restarts; storage failure aborts startup. No provider/model I/O.
+  await db.collection("profiles").updateMany(
+    { $or: [{ recurring: { $exists: true, $ne: [] } }, { busy: { $exists: true, $ne: [] } }] },
+    { $set: { recurring: [], busy: [] } },
+  );
   // One-time migration: existing watches start at their original activation time,
   // never at the beginning of channel history. Missing timestamps start now.
   const legacyWatches = db
@@ -107,18 +114,6 @@ export async function connectDB() {
     db
       .collection("saved")
       .createIndex({ userId: 1, eventId: 1 }, { unique: true }),
-    db
-      .collection("connections")
-      .createIndex({ userId: 1, provider: 1 }, { unique: true }),
-    db
-      .collection("oauth_states")
-      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-    db
-      .collection("calendar_writes")
-      .createIndex({ userId: 1, eventId: 1, destination: 1 }, { unique: true }),
-    db
-      .collection("private_context")
-      .createIndex({ userId: 1, provider: 1 }, { unique: true }),
     db
       .collection("feedback")
       .createIndex({ userId: 1, eventId: 1 }, { unique: true }),

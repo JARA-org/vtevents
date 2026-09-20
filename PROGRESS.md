@@ -1,3 +1,5 @@
+> Current scope, September 20, 2026: provider account connections and remote calendar writes are retired. All personal scheduling is removed; interests, event discovery and ICS export remain. Older deployment/checkpoint notes below are historical and must not be used to resume provider setup. See [v4 migration](docs/BACKEND_CONTRACTS.md#active-v4-migration). Check the GitHub Actions deployment run for the release status of this source revision.
+
 ## Verified live hardening release — 2026-09-19 23:57 UTC
 
 Production now runs **3fc68ee** from `/opt/gobbler-releases/3fc68ee`.

@@ -1,8 +1,6 @@
 import { DateTime } from "luxon";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type {
-  AvailabilityInput,
   CampusEvent,
   DiscoveryRequest,
   DiscoveryView,
@@ -14,7 +12,6 @@ import type {
 import {
   CAMPUS_TZ,
   categories,
-  profileSchema,
   recommendations,
   curateTimelineRecommendations,
 } from "./domain.js";
@@ -93,82 +90,8 @@ export function discoverEvents(
     filtered:
       input.limit === undefined ? filtered : filtered.slice(0, input.limit),
     savedRecommendations,
-    schedule: [...savedRecommendations].sort((a, b) =>
-      a.event.start.localeCompare(b.event.start),
-    ),
   };
 }
-
-const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
-export const availabilitySchema = z.object({
-  profile: profileSchema,
-  block: z.discriminatedUnion("kind", [
-    z.object({
-      kind: z.literal("recurring"),
-      weekday: z.number().int().min(1).max(7),
-      start: time,
-      end: time,
-      availability: z.enum(["free", "busy"]),
-    }),
-    z.object({
-      kind: z.literal("dated"),
-      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      start: time,
-      end: time,
-    }),
-  ]),
-});
-
-/** Validate a draft; no database or provider effects. */
-export function previewAvailability(input: AvailabilityInput): Profile {
-  const { profile, block } = availabilitySchema.parse(input);
-  if (block.kind === "recurring")
-    return profileSchema.parse({
-      ...profile,
-      recurring: [
-        ...profile.recurring,
-        {
-          id: randomUUID(),
-          weekday: block.weekday,
-          start: block.start,
-          end: block.end,
-          kind: block.availability,
-        },
-      ],
-    });
-  const start = DateTime.fromISO(`${block.date}T${block.start}`, {
-    zone: CAMPUS_TZ,
-  });
-  const end = DateTime.fromISO(`${block.date}T${block.end}`, {
-    zone: CAMPUS_TZ,
-  });
-  if (
-    !start.isValid ||
-    !end.isValid ||
-    end <= start ||
-    start.toFormat("HH:mm") !== block.start ||
-    end.toFormat("HH:mm") !== block.end ||
-    start.getPossibleOffsets().length > 1 ||
-    end.getPossibleOffsets().length > 1
-  )
-    throw new HttpError(
-      400,
-      "Enter an unambiguous date and time range with the end after the start.",
-    );
-  return profileSchema.parse({
-    ...profile,
-    busy: [
-      ...profile.busy,
-      {
-        id: randomUUID(),
-        start: start.toUTC().toISO(),
-        end: end.toUTC().toISO(),
-        source: "manual",
-      },
-    ],
-  });
-}
-
 
 export const timelineSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

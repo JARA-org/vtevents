@@ -21,16 +21,6 @@ export const agentHandoffPolicy: AgentHandoffPolicy = {
           input.recipient === "assistant"))
     )
       return;
-    if (
-      input.kind === "private_context" &&
-      input.visibility === "user" &&
-      ["canvas", "google-calendar"].includes(input.sender) &&
-      input.recipient === "assistant" &&
-      typeof input.userId === "string" &&
-      input.userId.length > 0 &&
-      input.userId === receivingUserId
-    )
-      return;
     throw new Error("Agent handoff is not authorized");
   },
 };

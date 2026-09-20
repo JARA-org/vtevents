@@ -101,7 +101,7 @@ Acceptance criteria: evidence-backed dates, correct record type, stable identiti
 - Evaluate alumni, Extension, satellite-campus and community calendars only for VT-relevant events/deadlines; these were not exhaustively audited.
 - Confirm source terms and collection limits before enabling adapters. No permission requests or other messages were sent during the research.
 
-ANS identity verification does not prove a date is correct or grant publication rights. Existing private Canvas/calendar integrations remain separate from this public event/deadline roadmap.
+ANS identity verification does not prove a date is correct or grant publication rights. Personal provider integrations have been retired; public ingestion cannot read historical private context.
 
 ## Implementation status (supersedes roadmap-only descriptions above)
 

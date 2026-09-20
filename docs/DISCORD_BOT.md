@@ -20,7 +20,7 @@ Message context menu → Apps → **Submit to Gobbler (public)** designates only
 The bot never alters Discord settings, permissions, roles, or messages. Watch/unwatch only change our database selection. Only selected channels or explicitly submitted messages qualify. Granting the bot general server access
 does not opt in every channel. Text channels are supported as well as Discord's
 dedicated announcement channels. All command replies are private/ephemeral and
-disable mentions. The bot cannot write to Canvas or calendars.
+disable mentions. The bot cannot write to personal calendars.
 
 ## Setup (not performed automatically)
 
@@ -59,7 +59,7 @@ These modules cannot import private connectors or model clients under the checke
 dependency graph.
 
 Old Discord OAuth code and its UI are removed. Old channel-management endpoints
-return 410; generic connection routes accept Google/Canvas only. Historical
+return 410; generic connection routes also return 410. Historical
 contract declarations remain for compatibility/reference, not as active features.
 Old Discord private snapshots and credentials are not read by the bot, jobs, or
 private-context responses and are never converted into public input. They remain

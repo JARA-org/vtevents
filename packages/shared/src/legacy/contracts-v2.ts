@@ -1,5 +1,5 @@
 /**
- * My Gobbler boundary contracts, version 5 (calendar actions retired).
+ * My Gobbler boundary contracts, version 2 (authenticated app).
  * This file contains wire data and interfaces ONLY: no validation, fetching,
  * matching, storage, SDK imports, secrets, fixtures, or business implementation.
  * Dates on the wire are ISO strings, never Date/Luxon/Mongo objects.
@@ -28,8 +28,10 @@ export type Category =
   | "Community"
   | "Career"
   | "Food & fun";
+export type Provider = "google" | "canvas" | "discord";
+export type CalendarProvider = "google" | "canvas";
 export type SourceName =
-  "gobblerconnect" | "vt-sports" | "vt-events" | "discord";
+  "gobblerconnect" | "vt-sports" | "vt-events" | "canvas" | "discord";
 export interface SourceReference extends Extensible {
   providerId?: string;
   label?: string;
@@ -107,14 +109,34 @@ export interface EventLink extends Extensible {
   kind: "source" | "tickets" | "stream" | "stats" | "recap" | "other";
   embeddable?: boolean;
 }
+export interface RecurringBlock extends Extensible {
+  id: Id;
+  weekday: number;
+  start: LocalTime;
+  end: LocalTime;
+  kind: "free" | "busy";
+}
+export interface BusyBlock extends Extensible {
+  id: Id;
+  start: Instant;
+  end: Instant;
+  source: "manual" | "google" | "canvas";
+}
 export interface Profile extends Extensible {
   name: string;
   interests: Category[];
+  recurring: RecurringBlock[];
+  busy: BusyBlock[];
   onboarded: boolean;
   aiEnabled: boolean;
 }
+export interface Fit extends Extensible {
+  status: "free" | "conflict" | "unknown";
+  reason: string;
+}
 export interface Recommendation extends Extensible {
   event: CampusEvent;
+  fit: Fit;
   score: number;
   reason: string;
 }
@@ -153,7 +175,7 @@ export interface BootstrapView extends Extensible {
   categories: Category[];
   timezone: string;
   emptyProfile: Profile;
-  contractVersion: 5;
+  contractVersion: 2;
 }
 export interface EventList extends Extensible {
   mode: Mode;
@@ -163,7 +185,7 @@ export interface EventList extends Extensible {
   generatedAt?: Instant;
 }
 export interface DiscoveryRequest {
-  /** Optional 1–100 result cap for recommendations/filtered; omitted keeps legacy full results. Saved events are never truncated. */
+  /** Optional 1–100 result cap for recommendations/filtered; omitted keeps legacy full results. Saved/schedule are never truncated. */
   limit?: number;
   mode?: Mode;
   search?: string;
@@ -180,6 +202,7 @@ export interface DiscoveryView extends Extensible {
   recommendations: Recommendation[];
   filtered: Recommendation[];
   savedRecommendations: Recommendation[];
+  schedule: Recommendation[];
 }
 /** Read-only, authenticated seven-day timeline. Dates are campus-local and inclusive. */
 export interface TimelineRequest {
@@ -201,13 +224,6 @@ export interface TimelineView {
 }
 export interface AssistantReply extends Extensible {
   publicMemory?: PublicMemoryView;
-  /** Past activity the backend retrieved for this question, with its own source links
-   * and dates. Absent when the question named no club or organizer. Render it as
-   * history: it is never a current plan or an upcoming event. */
-  clubHistory?: ClubHistoryView;
-  /** True when the model was given the caller's own memory under their AI setting.
-   * Diagnostics for the person, never an authorization signal. */
-  usedMemory?: boolean;
   engine: string;
   notice: string;
   answer: string;
@@ -216,6 +232,19 @@ export interface AssistantReply extends Extensible {
   messageId?: Id;
   citations?: Citation[];
   suggestedActions?: SuggestedAction[];
+}
+export interface ConnectionView extends Extensible {
+  provider: Provider;
+  configured: boolean;
+  blocker: string;
+  status?: string;
+  lastSync?: Instant | null;
+  channels?: Id[];
+}
+export interface ConnectionsView extends Extensible {
+  connections: ConnectionView[];
+  sources: Record<string, SourceHealth>;
+  analytics: string;
 }
 export interface DiscordChannel extends Extensible {
   id: Id;
@@ -230,6 +259,26 @@ export interface Announcement extends Extensible {
   channel?: string;
   timestamp?: Instant;
 }
+export interface PrivateContextView extends Extensible {
+  provider: Provider;
+  syncedAt: Instant;
+  busy?: BusyBlock[];
+  announcements?: Announcement[];
+  courses?: { id: string | number; name: string }[];
+  coverageStart?: Instant;
+  coverageEnd?: Instant;
+}
+export interface SyncResult extends Extensible {
+  busyCount?: number;
+  courseCount?: number;
+  announcementCount?: number;
+  announcements?: number;
+  coverageEnd?: Instant;
+}
+export interface CalendarWriteResult extends Extensible {
+  id: Id;
+  duplicate: boolean;
+}
 export interface ApiError extends Extensible {
   message: string;
   code?: string;
@@ -241,23 +290,26 @@ export type AnalyticsKind =
   | "recommendation_impression"
   | "event_view"
   | "save"
+  | "calendar_addition"
   | "recommendation_feedback";
+export interface AvailabilityInput {
+  profile: Profile;
+  block:
+    | {
+        kind: "recurring";
+        weekday: number;
+        start: LocalTime;
+        end: LocalTime;
+        availability: "free" | "busy";
+      }
+    | { kind: "dated"; date: LocalDate; start: LocalTime; end: LocalTime };
+}
 /** Actual HTTP contract. Body/query types are transport inputs, NOT authorization. */
 export interface Operation<Input, Output> {
   input: Input;
   output: Output;
 }
 export interface HttpApi {
-  /** GET /api/memory. The caller's own memory, derived from the authenticated
-   * session. No model spending, no writes, never another user's data. */
-  getMemory: Operation<void, UserMemoryView>;
-  /** PUT /api/memory/attendance/:eventId. Explicit confirmation by the caller for one
-   * event they can currently see and that has already started. Idempotent; returns the
-   * resulting memory. Saving or viewing an event never reaches this operation. */
-  setAttendance: Operation<{ eventId: Id; attended: boolean }, UserMemoryView>;
-  /** DELETE /api/memory. Removes the caller's derived memory in the requested scope
-   * and returns what remains. Stated profile interests are edited through the profile. */
-  forgetMemory: Operation<{ scope: "attendance" | "all" }, UserMemoryView>;
   /** GET /api/public-memory?q=... Authenticated public history query. No model/refresh effects, no private context. */
   searchPublicMemory: Operation<{ query: string }, PublicMemoryView>;
   /** GET /api/deadlines. Authenticated public deadline query; no refresh/model effects. */
@@ -292,13 +344,17 @@ export interface HttpApi {
   bootstrap: Operation<void, BootstrapView>;
   /** GET /api/events?mode=. Authenticated listings; no writes. */
   listEvents: Operation<{ mode: Mode }, EventList>;
+  /** GET /api/events/:id/ics?mode=. Returns calendar text; does NOT write any calendar. */
+  exportCalendar: Operation<{ eventId: Id }, string>;
   /** GET /api/me. Session-scoped profile/saves/feedback; no writes. */
   getAccount: Operation<void, AccountView>;
   /** PUT /api/profile. Validates/replaces the caller's profile; returns persisted profile. */
   updateProfile: Operation<Profile, Profile>;
   /** POST /api/profile/validate. Validates a form draft; no persistence. */
   validateProfile: Operation<Profile, Profile>;
-  /** GET /api/recommendations. Session-scoped ranking by interests and feedback; no writes. */
+  /** POST /api/availability/preview. Validates/appends a block to a draft; no persistence. */
+  previewAvailability: Operation<AvailabilityInput, Profile>;
+  /** GET /api/recommendations. Session-scoped ranking with private busy context; no writes. */
   getRecommendations: Operation<void, { recommendations: Recommendation[] }>;
   /** POST /api/discovery. Session-scoped read-only search/ranking; submitted identity/preferences are not accepted. */
   discover: Operation<DiscoveryRequest, DiscoveryView>;
@@ -316,13 +372,37 @@ export interface HttpApi {
   askAssistant: Operation<{ query: string }, AssistantReply>;
   /** POST /api/analytics. Queues pseudonymous event; delivery is eventual. */
   track: Operation<{ kind: AnalyticsKind; eventId: Id }, { ok: boolean }>;
+  /** GET /api/connections. Session-scoped readiness/status; excludes credentials. */
+  listConnections: Operation<void, ConnectionsView>;
+  /** POST /api/connections/:provider/connect. Persists expiring OAuth state; returns redirect URL. */
+  connect: Operation<{ provider: Provider }, { url: string }>;
+  /** GET /api/connections/:provider/callback. Consumes state, stores encrypted credentials, redirects. */
+  finishConnection: Operation<
+    { provider: Provider; state: string; code: string },
+    { redirectUrl: string }
+  >;
+  /** POST /api/connections/:provider/sync. Reads provider, replaces private snapshot/status. */
+  syncConnection: Operation<{ provider: Provider }, SyncResult>;
+  /** DELETE /api/connections/:provider. Deletes local context/tokens; attempts remote revocation. */
+  disconnect: Operation<
+    { provider: Provider },
+    { disconnected: boolean; revoked: boolean }
+  >;
   /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. GET /api/discord/channels. Provider reads; returns only authorized announcement channels. */
   listDiscordChannels: Operation<void, { channels: DiscordChannel[] }>;
   /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. PUT /api/discord/channels. Validates access and persists selected channels. */
   selectDiscordChannels: Operation<{ channels: Id[] }, { ok: boolean }>;
+  /** GET /api/private-context. Decrypts ONLY caller's context; no writes. */
+  getPrivateContext: Operation<void, PrivateContextView[]>;
+  /** POST /api/calendar. Requires confirmation; creates remote entry + idempotency record/analytics.
+   * Ambiguous Canvas writes stay locked; do not blindly retry. */
+  addCalendar: Operation<
+    { eventId: Id; destination: CalendarProvider; confirmed: true },
+    CalendarWriteResult
+  >;
   /** DELETE /api/account. Recent session + DELETE required; local deletion/remote cleanup, irreversible. */
   deleteAccount: Operation<{ confirmation: "DELETE" }, { deleted: boolean }>;
-  /** POST /api/jobs. Server credential only; refreshes public snapshots and drains outbox. */
+  /** POST /api/jobs. Server credential only; refreshes snapshots/context and drains outbox. */
   runJobs: Operation<void, { ok: boolean }>;
   /** Better Auth endpoints: create session/account; cookies managed by server. */
   signUp: Operation<
@@ -351,7 +431,7 @@ export interface AuthResult extends Extensible {
   url?: string;
 }
 export type BackendClient = {
-  [K in Exclude<keyof HttpApi, "runJobs">]: (
+  [K in Exclude<keyof HttpApi, "runJobs" | "finishConnection">]: (
     input: HttpApi[K]["input"],
   ) => Promise<HttpApi[K]["output"]>;
 };
@@ -366,7 +446,7 @@ export interface Page<T> extends Extensible {
   nextCursor: string | null;
 }
 export interface Capabilities extends Extensible {
-  contractVersion: 5;
+  contractVersion: 2;
   availableOperations: string[];
 }
 export type Visibility =
@@ -395,7 +475,7 @@ export interface FieldConflict extends Extensible {
   reason: string;
 }
 export interface SuggestedAction extends Extensible {
-  kind: "view_event" | "save_event" | "open_source";
+  kind: "view_event" | "save_event" | "prepare_calendar" | "open_source";
   label: string;
   eventId?: Id;
   url?: string;
@@ -443,6 +523,21 @@ export interface Memory extends Extensible {
   createdAt: Instant;
   updatedAt: Instant;
   expiresAt: Instant | null;
+}
+export interface CalendarDraft extends Extensible {
+  id: Id;
+  eventId: Id;
+  destination: CalendarProvider;
+  title: string;
+  description: string;
+  location: string | null;
+  start: Instant | null;
+  end: Instant | null;
+  allDay: boolean;
+  timezone: string;
+  warnings: string[];
+  canSubmit: boolean;
+  revision: string;
 }
 export interface JobReceipt extends Extensible {
   id: Id;
@@ -505,6 +600,29 @@ export interface PlannedBackendServices {
   }): Promise<Memory>;
   /** Delete caller's memory and derived retrieval entries. */
   forget(input: { memoryId: Id }): Promise<{ deleted: boolean }>;
+  /** Store editable draft with incomplete times; never writes to provider. */
+  prepareCalendar(input: {
+    eventId: Id;
+    destination: CalendarProvider;
+  }): Promise<CalendarDraft>;
+  /** Update draft using optimistic revision; validates provider requirements, no external write. */
+  editCalendarDraft(input: {
+    draftId: Id;
+    revision: string;
+    changes: Partial<
+      Pick<
+        CalendarDraft,
+        "title" | "description" | "location" | "start" | "end" | "allDay"
+      >
+    >;
+  }): Promise<CalendarDraft>;
+  /** Confirm validated draft; idempotent external write, receipt persisted; ambiguous writes remain pending. */
+  commitCalendarDraft(input: {
+    draftId: Id;
+    revision: string;
+    requestId: Id;
+    confirmed: true;
+  }): Promise<JobReceipt>;
   /** Read caller's operation status; no repeat external write. */
   getOperation(input: { operationId: Id }): Promise<JobReceipt>;
   /** Queue caller's export; persists job and scoped export artifact. */
@@ -608,6 +726,15 @@ export interface ExtractionService {
     context: RequestContext,
   ): Promise<MergeProposal[]>;
 }
+export interface SchedulingService {
+  /** Pure interval evaluation; unknown data never becomes confirmed availability. */
+  evaluate(input: {
+    events: CampusEvent[];
+    profile: Profile;
+  }): { eventId: Id; fit: Fit }[];
+  /** Pure draft normalization/validation; no persistence. */
+  preview(input: AvailabilityInput): Profile;
+}
 export interface RecommendationService {
   /** Pure scoring/filtering over validated records and explicit time. No provider reads or writes. */
   rank(input: {
@@ -617,6 +744,20 @@ export interface RecommendationService {
     feedback: Record<Id, number>;
     now: Instant;
   }): Recommendation[];
+}
+export interface PrivateContextService {
+  /** Reads caller-authorized context; may decrypt internally, never returns tokens. */
+  read(context: RequestContext): Promise<PrivateContextView[]>;
+  /** Reads provider and replaces scoped context; no writes to public event store. */
+  sync(
+    input: { provider: Provider },
+    context: RequestContext,
+  ): Promise<SyncResult>;
+  /** Deletes scoped local context; caller coordinates remote revocation separately. */
+  remove(
+    input: { provider: Provider },
+    context: RequestContext,
+  ): Promise<{ deleted: boolean }>;
 }
 export interface AssistantService {
   /** Reads authorized evidence, may call AI/store conversation; NEVER mutates event facts or external calendars. */
@@ -647,12 +788,16 @@ export interface BackendModules {
   events: EventRepository;
   coordinator: CoordinatorService;
   extraction: ExtractionService;
+  scheduling: SchedulingService;
   recommendations: RecommendationService;
+  privateContext: PrivateContextService;
   assistant: AssistantService;
   analytics: AnalyticsService;
   profiles: ProfileRepository;
   preferences: PreferenceRepository;
   identity: IdentityService;
+  connections: ConnectionService;
+  calendar: CalendarService;
   conversations: ConversationRepository;
   clubs: ClubService;
   news: NewsService;
@@ -696,6 +841,44 @@ export interface IdentityService {
     input: { confirmation: "DELETE" },
     context: RequestContext,
   ): Promise<{ deleted: boolean; remoteCleanupPending: boolean }>;
+}
+export interface ConnectionService {
+  /** Reads scoped status, excludes credentials. */
+  list(context: RequestContext): Promise<ConnectionView[]>;
+  /** Persists expiring state/PKCE; no connection established until callback. */
+  begin(
+    input: { provider: Provider },
+    context: RequestContext,
+  ): Promise<{ url: string }>;
+  /** Atomically consumes state, exchanges code, encrypts tokens. Never returns tokens. */
+  finish(
+    input: { provider: Provider; state: string; code: string },
+    context: RequestContext,
+  ): Promise<ConnectionView>;
+  /** Deletes local connection/context, attempts remote revocation, reports outcome. */
+  disconnect(
+    input: { provider: Provider },
+    context: RequestContext,
+  ): Promise<{ disconnected: boolean; revoked: boolean }>;
+}
+export interface CalendarService {
+  /** Pure export serialization; no external writes. */
+  export(input: { event: CampusEvent }): string;
+  /** Stores draft; preserves unknown times and returns validation warnings. */
+  prepare(
+    input: { eventId: Id; destination: CalendarProvider },
+    context: RequestContext,
+  ): Promise<CalendarDraft>;
+  /** Validates/revises draft under optimistic concurrency; no provider write. */
+  revise(
+    input: { draft: CalendarDraft; expectedRevision: string },
+    context: RequestContext,
+  ): Promise<CalendarDraft>;
+  /** Explicit confirmation + idempotency key; persists receipt and provider write outcome. */
+  commit(
+    input: { draftId: Id; revision: string; confirmed: true; requestId: Id },
+    context: RequestContext,
+  ): Promise<JobReceipt>;
 }
 export interface ConversationRepository {
   /** Scoped read; no writes. */
@@ -1040,17 +1223,12 @@ export interface ClubWorkspace {
 export interface CreateManagedClubInput {
   name: string;
   requestId: string;
-  /** Required by backend policy for new workspaces; optional only for historical request replay. */
   discordTicket?: string;
 }
 export interface ClubAccountService {
   /** Session-derived user only. Reads owned clubs; no provider, AI or writes. */
   list(userId: Id): Promise<{ clubs: ManagedClub[]; canCreate?: boolean }>;
-  /** Bounded read of verified workspace identities (id and name only) for matching a
-   * name in a question. Not user-scoped because a club name is already public, and it
-   * carries no ownership, membership or contact data. No writes or model calls. */
-  identities?(limit?: number): Promise<{ clubId: Id; name: string }[]>;
-  /** Validates name/ticket. Atomically creates new identity and owner membership, requires a Discord ticket for new workspaces, binds guild and consumes ticket. Idempotent by user/requestId. Never claims imported clubs. Invalid/expired/used tickets fail without creating a club. */
+  /** Validates name/ticket. Atomically creates new identity and owner membership, optionally binds guild and consumes ticket. Idempotent by user/requestId. Never claims imported clubs. Invalid/expired/used tickets fail without creating a club. */
   create(userId: Id, input: CreateManagedClubInput): Promise<ManagedClub>;
   /** Owner-scoped event/candidate read; forbidden for other users. No refresh or model calls. */
   workspace(userId: Id, clubId: Id): Promise<ClubWorkspace>;
@@ -1121,7 +1299,7 @@ export interface DiscordTriggerQueue {
 }
 
 /** Backend-only agent identity. A role is operator policy, never an LLM assertion. */
-export type AgentRole = "vt-events" | "gobblerconnect" | "vt-sports" | "discord" | "coordinator" | "assistant";
+export type AgentRole = "vt-events" | "gobblerconnect" | "vt-sports" | "discord" | "canvas" | "google-calendar" | "coordinator" | "assistant";
 export interface AnsPeerPin {
   role: AgentRole;
   agentId: string;
@@ -1206,94 +1384,6 @@ export interface AgentTrustEvaluation {
   verificationTier?: "BRONZE" | "SILVER" | "GOLD";
 }
 
-/** One event the authenticated user confirmed attending. Saving, viewing, being
- * recommended or adding an event to a calendar NEVER creates one of these: only an
- * explicit confirmation by that user, or a future authorized attendance record, does.
- * Private to its owner and never merged into shared club or event records. */
-export interface AttendanceRecord extends Extensible {
-  eventId: Id;
-  /** Snapshot taken at confirmation so the user's own record stays readable. */
-  title: string;
-  start: Instant;
-  timezone: string;
-  organizer: string | null;
-  sourceUrl?: string;
-  categories: Category[];
-  confirmedAt: Instant;
-  /** How attendance was established. Only explicit user confirmation exists today. */
-  source: "user";
-  /** False when the public source has since been withdrawn or is unavailable. The
-   * record is kept for its owner but withheld from model context and explanations. */
-  available?: boolean;
-}
-/** A past event this person saved and has not answered about yet. Offering it is not
- * a claim that they attended: only their own explicit confirmation establishes that,
- * and ignoring it leaves no record at all. */
-export interface AttendanceCandidate extends Extensible {
-  eventId: Id;
-  title: string;
-  start: Instant;
-  timezone: string;
-  organizer: string | null;
-  sourceUrl?: string;
-  categories: Category[];
-}
-/** A derived interest, kept separate from the interests the user stated themselves.
- * Presentation and model context must keep the distinction; it never edits the profile. */
-export interface InferredInterest extends Extensible {
-  category: Category;
-  /** Confirmed attendances supporting it. Evidence count, not a score or a ranking. */
-  fromAttendance: number;
-}
-/** The caller's own memory. Session-scoped: it can never contain another user's
- * preferences, attendance or history, and is not shared with club records. */
-export interface UserMemoryView extends Extensible {
-  statedInterests: Category[];
-  inferredInterests: InferredInterest[];
-  attendance: AttendanceRecord[];
-  /** Past events the caller saved that they have not answered about. Absent when the
-   * server does not offer them. Never used as evidence of attendance by itself. */
-  confirmable?: AttendanceCandidate[];
-  /** Whether the user has opted this context in to the model at all. */
-  aiEnabled: boolean;
-}
-/** One past public activity, retained with its source link and date. Never presented
- * as upcoming and never evidence of a current plan. */
-export interface ClubHistoryEntry extends Extensible {
-  eventId: Id;
-  title: string;
-  start: Instant;
-  timezone: string;
-  sourceUrl: string;
-  categories: Category[];
-}
-/** Deterministically matched public history. An observed organizer name is NOT an
- * identity claim: only a verified club workspace carries clubId. */
-export interface ClubHistoryView extends Extensible {
-  matched: {
-    kind: "club" | "observed-organizer";
-    name: string;
-    clubId?: Id;
-  } | null;
-  entries: ClubHistoryEntry[];
-  /** True when no history was found, so an answer must say so instead of inventing. */
-  missing: boolean;
-}
-/** Backend-only port. Retrieval, permissions and bounded selection live here; a model
- * never chooses what context it receives. */
-export interface UserMemoryService {
-  /** Session-scoped read of the caller's own memory. No writes, model or provider calls. */
-  view(userId: Id, events?: CampusEvent[]): Promise<UserMemoryView>;
-  /** Explicit confirmation for one event the caller can currently see. Rejects events
-   * that have not started. Idempotent per user and event; returns the resulting state. */
-  confirm(userId: Id, eventId: Id, attended: boolean, events: CampusEvent[]): Promise<UserMemoryView>;
-  /** Removes the caller's derived memory. "attendance" clears confirmations and the
-   * inferred interests that depend on them; "all" additionally clears stated context
-   * this service owns. Stated profile interests remain the profile's own data. */
-  forget(userId: Id, scope: "attendance" | "all"): Promise<UserMemoryView>;
-  /** Irreversible removal for account deletion. No receipts retained. */
-  erase(userId: Id): Promise<void>;
-}
 /** Public source media references only; backend validates URLs, no binary data or automatic embedding. */
 export interface EventMedia {
   url: string;

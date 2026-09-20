@@ -2,6 +2,8 @@
 
 Prepared September 20, 2026. This is a speaker reference, demo guide, and technical appendix, not a slide deck.
 
+**Merged v5 scope update (September 20, 2026):** Provider connections and remote calendar writes, all personal scheduling and conflict checks, and Add to calendar/ICS downloads have been retired. Event dates, date filters, public ICS ingestion, Save/Details, attendance memory, and Discord setup-based club creation remain. References below to the retired capabilities describe earlier designs and must not be presented or demonstrated as current features. The detailed notes are retained for historical context; use the v3–v5 migration sections in [backend contracts](docs/BACKEND_CONTRACTS.md) for current scope. Local merge verification passed architecture checks, all five contract compatibility checks, type checks, the production build, and **118 tests with zero failures**. The earlier 130-test result describes the pre-retirement suite, not the current suite or production deployment.
+
 **Scope of this document:** explain the working project and its design decisions without confusing implemented code, previously verified deployment, and future ideas. The proposed conversational-memory implementation was cancelled before any chatbot code was changed. Earlier attendance-memory work remains in the local workspace. This document does not authorize deployment or new services.
 
 ## 1. The main story
@@ -577,13 +579,13 @@ Use this section for a metrics slide and supporting speaker notes. **Measured re
 
 | Metric | Recorded value | What it demonstrates | Qualification |
 | --- | --- | --- | --- |
-| Local regression suite | **130 tests passed; 0 failed** | Automated coverage of implemented behaviors, including isolation, identity checks, memory, and deletion | Latest recorded run: September 20, 2026. This is not a code-coverage percentage or a guarantee of no bugs. |
+| Local regression suite | **118 tests passed; 0 failed** | Automated coverage of implemented behaviors, including isolation, identity checks, memory, deletion, and retired API behavior | Post-merge local run: September 20, 2026. This is not a code-coverage percentage or a guarantee of no bugs. |
 | Event reconciliation benchmark | **6,137 ms → 94 ms** for **2,600 synthetic records** | Candidate indexing substantially reduced CPU time in this workload | Historical local benchmark in [performance notes](docs/PERFORMANCE.md); not end-to-end website latency. |
 | Derived benchmark improvement | **About 65.3× faster**, or **98.5% less elapsed time** | Quantifies the same before/after benchmark | Calculated as 6,137 ÷ 94 and (6,137 − 94) ÷ 6,137. These are two descriptions of one result, not independent measurements. |
 | Historical public-source volume | **2,242 GobblerConnect records + 349 sports records** | Shows the scale of two previously tested source feeds | September 19, 2026 observation in [integration notes](docs/INTEGRATIONS.md). Includes past records and is before cross-source deduplication; not today's available-event count. |
 | Student timeline | **7-day selection window; up to 10 event suggestions** | Keeps the main discovery experience bounded and usable | Implemented product limits, not measured engagement outcomes. |
 
-**Suggested slide wording:** “130 automated tests passing. A recorded 2,600-event reconciliation benchmark improved from 6.14 seconds to 0.094 seconds. Two public feeds previously returned more than 2,500 records, including history.”
+**Suggested slide wording:** “118 automated tests passing. A recorded 2,600-event reconciliation benchmark improved from 6.14 seconds to 0.094 seconds. Two public feeds previously returned more than 2,500 records, including history.”
 
 **Speaker qualification:** “The performance number is a local synthetic reconciliation benchmark. The feed counts are dated observations. We are not claiming the entire app is 65 times faster or that all of those records are upcoming unique events.”
 

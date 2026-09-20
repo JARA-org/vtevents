@@ -6,7 +6,7 @@ Implementation reviewed 2026-09-19. See Master.md for product policy.
 
 `ans-verification.ts` verifies incoming caller identity using operator-pinned identities, live DNS discovery and HTTPS transparency badges. `ans-handoff.ts` binds this to an actual mutual-TLS socket before executing a callback. `agent-policy.ts` separately enforces role and user boundaries. All contracts are type-only additions in `packages/shared/src/contracts.ts`; the browser has no verification logic or credentials.
 
-The optional `ans-runtime.ts` connects Discord reconciliation and signed-in assistant requests through authenticated loopback HTTPS. `ANS_DIRECTORY` enables it; registration alone does not. The public Express listener never accepts ANS identity claims through headers. On 2026-09-20 the coordinator, Discord and assistant identities under mygobbler.us became ACTIVE, with separate issued server and identity certificates. See Master.md for registration IDs, runtime data flow and deployment status. Canvas is excluded from the intended integration scope.
+The optional `ans-runtime.ts` connects Discord reconciliation and signed-in assistant requests through authenticated loopback HTTPS. `ANS_DIRECTORY` enables it; registration alone does not. The public Express listener never accepts ANS identity claims through headers. On 2026-09-20 the coordinator, Discord and assistant identities under mygobbler.us became ACTIVE, with separate issued server and identity certificates. See Master.md for registration IDs, runtime data flow and deployment status.
 
 ## Operations and effects
 
