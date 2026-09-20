@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import ts from "typescript";
 import { discordBotCommands } from "../apps/backend/src/discord-bot.js";
 
 // The guide is a React Native component, so it is inspected as source rather than
@@ -8,6 +9,33 @@ import { discordBotCommands } from "../apps/backend/src/discord-bot.js";
 // from the commands and behaviour the backend actually implements.
 const guide = readFileSync("apps/frontend/components/ClubGuide.tsx", "utf8");
 const index = readFileSync("apps/frontend/app/index.tsx", "utf8");
+
+// Read only command entries. Navigation/invitation labels are not bot commands.
+function commandLabels(source: string): string[] {
+  const file = ts.createSourceFile("guide.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const labels: string[] = [];
+  const visit = (node: ts.Node) => {
+    if (ts.isPropertyAssignment(node) && node.name.getText(file) === "commands") {
+      assert.ok(ts.isArrayLiteralExpression(node.initializer), "commands must be a static array");
+      for (const entry of node.initializer.elements) {
+        assert.ok(ts.isObjectLiteralExpression(entry), "command entries must be static objects");
+        const label = entry.properties.find(p => ts.isPropertyAssignment(p) && p.name.getText(file) === "label");
+        assert.ok(label && ts.isPropertyAssignment(label) && ts.isStringLiteral(label.initializer), "commands must have literal labels");
+        labels.push(label.initializer.text);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return labels;
+}
+
+test("guide command detection ignores links but retains unknown commands for validation", () => {
+  assert.deepEqual(commandLabels(`const steps = [{
+    link: { label: "Add Gobbler to your Discord server", href: "https://discord.com" },
+    commands: [{ label: "/gobbler unknown", note: "test" }, { label: "Unknown menu", note: "test" }]
+  }];`), ["/gobbler unknown", "Unknown menu"]);
+});
 
 test("every command the club guide documents is one the bot registers", () => {
   const root = discordBotCommands.find((c) => c.name === "gobbler");
@@ -17,7 +45,7 @@ test("every command the club guide documents is one the bot registers", () => {
     discordBotCommands.filter((c) => c.type === 3).map((c) => c.name),
   );
 
-  const documented = [...guide.matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
+  const documented = commandLabels(guide);
   assert.ok(documented.length >= 6, "the guide must document the commands");
   for (const label of documented) {
     if (label.startsWith("/gobbler ")) {
