@@ -22,6 +22,8 @@ import type {
 import {
   discoverySchema,
   discoverEvents,
+  timelineSchema,
+  discoverTimeline,
   availabilitySchema,
   previewAvailability,
 } from "./discovery.js";
@@ -257,6 +259,21 @@ export function createApp() {
         Object.fromEntries(feedback.map((r) => [r.eventId, r.value])),
       ),
     );
+  });
+  app.post("/api/timeline", protect, async (req, res) => {
+    const input = timelineSchema.parse(req.body);
+    if (input.startDate === undefined && input.endDate === undefined) {
+      res.json(discoverTimeline(input, [], emptyProfile, [], {}));
+      return;
+    }
+    const id = res.locals.user.id;
+    const [p, saved, feedback] = await Promise.all([
+      withPrivateContext(id, await profile(id)),
+      database().collection("saved").find({ userId: id }).toArray(),
+      database().collection("feedback").find({ userId: id }).toArray(),
+    ]);
+    res.json(discoverTimeline(input, await currentEvents(), p,
+      saved.map(r => r.eventId), Object.fromEntries(feedback.map(r => [r.eventId, r.value]))));
   });
   // Anonymous read-only readiness probe. No provider calls, writes or retries;
   // bounded Mongo ping fails closed with redacted 503 when storage is unavailable.

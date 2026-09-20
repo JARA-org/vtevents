@@ -91,3 +91,18 @@ Account recovery UI and encrypted mail outbox are implemented. Configure backend
 `RESEND_API_KEY` and verified `AUTH_EMAIL_FROM` together to enable delivery;
 otherwise `/recover` clearly reports unavailable. See docs/INTEGRATIONS.md for
 free-plan setup dependencies and verification limits.
+
+The authenticated For you page opens a seven-day timeline selector. Its entrance
+plays once per browser tab session (and is skipped for reduced motion). Drag from
+any day to another, or use the day buttons with the keyboard, then confirm. The
+backend selects up to ten upcoming events, weights the first day twice as heavily,
+prioritizes explicit interests and otherwise varies categories, organizers and
+source families. No model calls or invented popularity signals are used.
+
+Desktop/landscape displays about five bubbles above and five below the rail.
+Portrait mobile uses a draggable/scrollable vertical rail. Hover, focus or tap a
+bubble to expand its location, small thumbnail and existing actions. Change dates
+returns to the selector; Discover more opens the original two-column discovery
+grid with all date/category/search filters reset. See docs/TIMELINE.md for behavior,
+API scope and verification details. Native app builds retain the discovery grid;
+the cinematic interaction is implemented for the Expo website.

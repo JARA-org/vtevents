@@ -34,6 +34,7 @@ import { Button, Chip, Field, Gobbler, Pressable } from "../components/ui";
 import { useError } from "../components/ErrorModal";
 import { SignInCard } from "../components/SignInCard";
 import { Landing } from "../components/Landing";
+import { TimelineExperience } from "../components/TimelineExperience";
 import { EventCover } from "../components/EventCover";
 import { deadlineText } from "../components/event-presentation";
 // Blank UI form state only; domain defaults are returned by bootstrap.
@@ -49,6 +50,7 @@ const CAMPUS_TZ = "America/New_York"; // presentation formatting only
 import { DateTime } from "luxon";
 type Page =
   | "landing"
+  | "timeline"
   | "discover"
   | "saved"
   | "schedule"
@@ -165,6 +167,7 @@ export default function Home() {
     [category, setCategory] = useState("All interests"),
     [dateFilter, setDateFilter] = useState("Any day"),
     [selected, setSelected] = useState<CampusEvent | null>(null),
+    [selectedReason, setSelectedReason] = useState(""),
     [calendar, setCalendar] = useState(false),
     [destination, setDestination] = useState("ics"),
     [loading, setLoading] = useState(false),
@@ -267,7 +270,7 @@ export default function Home() {
               ? Platform.OS === "web" &&
                 new URLSearchParams(location.search).get("page") === "settings"
                 ? "settings"
-                : "discover"
+                : "timeline"
               : "onboarding",
         );
       })
@@ -393,7 +396,8 @@ export default function Home() {
         next ? "Added to your saved plans." : "Removed from saved events.",
       );
     });
-  const viewEvent = (e: CampusEvent) => {
+  const viewEvent = (e: CampusEvent, reason = "") => {
+    setSelectedReason(reason);
     setSelected(e);
     setCalendar(false);
     if (user)
@@ -659,14 +663,14 @@ export default function Home() {
     </View>
   );
   return (
-    <View style={s.root}>
+    <View testID={page === "timeline" && !selected ? "timeline-home" : undefined} style={s.root}>
       <ScrollView
         ref={scroll}
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
         stickyHeaderIndices={[0]}
       >
-        <View style={[s.header, { paddingHorizontal: mobile ? 24 : 56 }]}>
+        <View testID="app-header" style={[s.header, { paddingHorizontal: mobile ? 24 : 56 }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="My Gobbler home"
@@ -685,11 +689,12 @@ export default function Home() {
           </Pressable>
           {!mobile && page !== "landing" && page !== "auth" && (
             <View style={s.row}>
-              {(["discover", "saved", "schedule", "gobbler"] as Page[]).map(
+              {(["timeline", "discover", "saved", "schedule", "gobbler"] as Page[]).map(
                 (p) => (
                   <Pressable
                     accessibilityRole="button"
                     key={p}
+                    testID="app-nav-item"
                     onPress={() => go(p)}
                     style={[
                       s.navItem,
@@ -705,7 +710,7 @@ export default function Home() {
                         page === p && { color: C.maroon, fontWeight: "700" },
                       ]}
                     >
-                      {p === "gobbler"
+                      {p === "timeline" ? "For you" : p === "gobbler"
                         ? "Ask Gobbler"
                         : p[0].toUpperCase() + p.slice(1)}
                     </Text>
@@ -741,7 +746,7 @@ export default function Home() {
         </View>
 
         {mobile && page !== "landing" && page !== "auth" && (
-          <View
+          <View testID="mobile-nav"
             style={[
               s.wrap,
               {
@@ -751,7 +756,7 @@ export default function Home() {
               },
             ]}
           >
-            {(["discover", "saved", "schedule", "gobbler"] as Page[]).map(
+            {(["timeline", "discover", "saved", "schedule", "gobbler"] as Page[]).map(
               (p) => (
                 <Pressable
                   key={p}
@@ -767,8 +772,8 @@ export default function Home() {
                       },
                     ]}
                   >
-                    {p === "gobbler"
-                      ? "Ask Gobbler"
+                    {p === "timeline" ? "For you" : p === "gobbler"
+                      ? "Gobbler"
                       : p[0].toUpperCase() + p.slice(1)}
                   </Text>
                 </Pressable>
@@ -776,7 +781,7 @@ export default function Home() {
             )}
           </View>
         )}
-        <View style={[s.main, { paddingHorizontal: mobile ? 24 : 56 }]}>
+        <View style={[s.main, { paddingHorizontal: mobile ? 24 : 56 }, page === "discover" && !selected && { gap: 14, paddingVertical: 24 }, page === "timeline" && !selected && { paddingHorizontal: mobile ? 12 : 24, paddingVertical: 0, maxWidth: 1600 }]}>
           {!!toast && (
             <View accessibilityLiveRegion="polite" style={s.toast}>
               <Text style={s.body}>{toast}</Text>
@@ -792,7 +797,7 @@ export default function Home() {
             <Landing
               signedIn={!!user}
               onStart={() => {
-                if (user) go("discover");
+                if (user) go("timeline");
                 else {
                   setSignUp(true);
                   go("auth");
@@ -829,7 +834,7 @@ export default function Home() {
                     });
                     setPassword("");
                     const me = await loadMe();
-                    go(me.profile.onboarded ? "discover" : "onboarding");
+                    go(me.profile.onboarded ? "timeline" : "onboarding");
                   });
               }}
             />
@@ -875,68 +880,30 @@ export default function Home() {
                     let p = { ...profile, onboarded: true };
                     p = await backend.updateProfile(p);
                     setProfile(p);
-                    go("discover");
+                    go("timeline");
                   })
                 }
               />
             </View>
           )}
+          {user && <View style={page === "timeline" && !selected ? undefined : { display: "none" }}>
+            <TimelineExperience key={user.id} active={page === "timeline" && !selected}
+              saved={saved} busy={loading} onSave={toggleSave} onDetails={viewEvent}
+              onCalendar={(event, reason) => { viewEvent(event, reason); setCalendar(true); }}
+              onDiscover={() => { setSearch(""); setCategory("All interests"); setDateFilter("Any day"); go("discover"); }} />
+          </View>}
           {user && page === "discover" && !selected && (
             <>
-              <View style={[s.welcome, mobile && { padding: 22 }]}>
-                <View style={{ flex: 1, gap: 12 }}>
-                  <Text style={s.eyebrowText}>
-                    {"YOUR CAMPUS, YOUR KIND OF DAY"}
-                  </Text>
-                  <Text
-                    accessibilityRole="header"
-                    style={[
-                      s.pageTitle,
-                      mobile && { fontFamily: font, fontSize: 30 },
-                    ]}
-                  >
-                    {profile.onboarded
-                      ? `Hey, ${profile.name}. Find your kind of day.`
-                      : "Find your corner of campus."}
-                  </Text>
-                  <Text style={s.body}>
-                    Good company. New interests. A reason to close your laptop.
-                  </Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => go(user ? "onboarding" : "auth")}
-                  >
-                    <Text style={s.linkText}>
-                      {profile.onboarded
-                        ? "Fine-tune your interests →"
-                        : "Make it personal →"}
-                    </Text>
-                  </Pressable>
+              <View style={[s.row, { justifyContent: "space-between", flexWrap: "wrap" }]}>
+                <View style={{ gap: 4 }}>
+                  <Text accessibilityRole="header" style={s.sectionTitle}>Discover campus</Text>
+                  <Text style={s.meta}>All upcoming events. Find your next reason to head out.</Text>
                 </View>
-                {!mobile && <Gobbler size={160} />}
+                <Pressable accessibilityRole="button" onPress={() => go("onboarding")}>
+                  <Text style={s.linkText}>Edit interests →</Text>
+                </Pressable>
               </View>
-              <View
-                style={[
-                  s.row,
-                  {
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
-                    gap: 16,
-                  },
-                ]}
-              >
-                <View>
-                  <Text style={s.sectionTitle}>Campus Events</Text>
-                  <View style={{ marginTop: 16 }}><Button secondary label="Clubs" icon="people-outline" onPress={() => router.push("/clubs")} /></View>
-                  <Text style={[s.meta, { marginTop: 7 }]}>
-                    {"Real campus listings, with room to explore."}
-                  </Text>
-                </View>
-                <Text style={s.meta}>
-                  {discovery.totalMatches ?? filtered.length} {(discovery.totalMatches ?? filtered.length) === 1 ? "event" : "events"}{" "}
-                  · Eastern time
-                </Text>
-              </View>
+              <View testID="discovery-filters" style={{ gap: 10 }}>
               <View style={[s.row, s.searchBar]}>
                 <Ionicons name="search-outline" size={23} color={C.muted} />
                 <TextInput
@@ -968,33 +935,23 @@ export default function Home() {
                   />
                 ))}
               </ScrollView>
-              {!!discovery.sportsTicker?.length && (
-                <View style={{ gap: 10 }}>
-                  <Text style={s.sectionTitle}>HokieSports — latest source schedule</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ gap: 12 }}>
-                    {discovery.sportsTicker.map(event => (
-                      <Pressable key={event.id} accessibilityRole="button" accessibilityLabel={`View ${event.title}`} onPress={() => viewEvent(event)} style={[s.panel, { width: 290, gap: 8 }]}>
-                        <Text style={s.eyebrowText}>{event.sports?.sport || "HokieSports"}</Text>
-                        <Text style={s.eventTitle}>{event.title}</Text>
-                        {!!event.sports?.opponent && <Text style={s.meta}>Opponent: {event.sports.opponent}</Text>}
-                        <Text style={s.body}>{eventTime(event)} ET</Text>
-                        {!!event.sports?.state && <Text style={s.meta}>{event.sports.state}</Text>}
-                        {(event.sports?.homeScore != null || event.sports?.awayScore != null) && <Text style={s.body}>Home: {event.sports?.homeScore ?? "—"} · Away: {event.sports?.awayScore ?? "—"}</Text>}
-                        {!!event.sports?.checkedAt && <Text style={s.meta}>Source checked {date(event.sports.checkedAt)}</Text>}
-                      </Pressable>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-              <View style={s.wrap}>
+              <View style={[s.row, { gap: 6 }]}>
                 {["Any day", "Today", "This week", "Weekend"].map((d) => (
-                  <Chip
-                    key={d}
-                    label={d}
-                    active={dateFilter === d}
-                    onPress={() => setDateFilter(d)}
-                  />
+                  <Pressable key={d} accessibilityRole="button" accessibilityState={{ selected: dateFilter === d }}
+                    onPress={() => setDateFilter(d)} style={{ paddingHorizontal: 10, borderWidth: 2, borderRadius: 12,
+                      backgroundColor: dateFilter === d ? C.pink : "white", borderColor: dateFilter === d ? C.maroon : C.line }}>
+                    <Text style={[s.small, { fontWeight: "800", color: dateFilter === d ? C.maroon : C.muted }]}>{d}</Text>
+                  </Pressable>
                 ))}
+              </View>
+              </View>
+              <View style={[s.row, { justifyContent: "space-between", flexWrap: "wrap" }]}>
+                <Text style={s.meta} accessibilityLiveRegion="polite">
+                  {discovery.totalMatches ?? filtered.length} events · Eastern time
+                </Text>
+                <Pressable accessibilityRole="button" onPress={() => router.push("/clubs")}>
+                  <Text style={s.linkText}>Explore clubs →</Text>
+                </Pressable>
               </View>
               {!filtered.length && !loading && !discoveryLoading && (
                 <View style={s.panel}>
@@ -1016,15 +973,28 @@ export default function Home() {
                 </View>
               )}
               <View style={s.eventGrid}>
-                {filtered.slice(0, 60).map((item) => (
-                  <EventCard key={item.event.id} item={item} />
-                ))}
+                {filtered.map(item => <EventCard key={item.event.id} item={item} />)}
               </View>
               {(discovery.totalMatches ?? filtered.length) > 60 && (
-                <Text style={s.meta}>
-                  Showing the first 60 matches. Use search or filters to narrow
-                  your results.
-                </Text>
+                <Text style={s.meta}>Showing the first 60 matches. Use search or filters to narrow your results.</Text>
+              )}
+              {!!discovery.sportsTicker?.length && (
+                <View style={{ gap: 10 }}>
+                  <Text style={s.sectionTitle}>HokieSports — latest source schedule</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ gap: 12 }}>
+                    {discovery.sportsTicker.map(event => (
+                      <Pressable key={event.id} accessibilityRole="button" accessibilityLabel={`View ${event.title}`} onPress={() => viewEvent(event)} style={[s.panel, { width: 290, gap: 8 }]}>
+                        <Text style={s.eyebrowText}>{event.sports?.sport || "HokieSports"}</Text>
+                        <Text style={s.eventTitle}>{event.title}</Text>
+                        {!!event.sports?.opponent && <Text style={s.meta}>Opponent: {event.sports.opponent}</Text>}
+                        <Text style={s.body}>{eventTime(event)} ET</Text>
+                        {!!event.sports?.state && <Text style={s.meta}>{event.sports.state}</Text>}
+                        {(event.sports?.homeScore != null || event.sports?.awayScore != null) && <Text style={s.body}>Home: {event.sports?.homeScore ?? "—"} · Away: {event.sports?.awayScore ?? "—"}</Text>}
+                        {!!event.sports?.checkedAt && <Text style={s.meta}>Source checked {date(event.sports.checkedAt)}</Text>}
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
               )}
               <View style={s.panel}>
                 <Text accessibilityRole="header" style={s.sectionTitle}>Dates to remember</Text>
@@ -1126,7 +1096,7 @@ export default function Home() {
                 </View>
                 <View style={s.fit}>
                   <Text style={s.body}>
-                    {ranked.find((x) => x.event.id === selected.id)?.reason ||
+                    {selectedReason || ranked.find((x) => x.event.id === selected.id)?.reason ||
                       "Schedule information is unavailable. Please refresh."}
                   </Text>
                 </View>
@@ -1748,7 +1718,7 @@ export default function Home() {
             </>
           )}
         </View>
-        <View style={s.footer}>
+        {(page !== "timeline" || !!selected) && <View style={s.footer}>
           <View style={[s.brand, { gap: 12 }]}>
             <Gobbler head size={46} decorative />
             <Text style={[s.brandText, { color: "#FFF8F2" }]}>My Gobbler</Text>
@@ -1768,7 +1738,7 @@ export default function Home() {
           <Text style={[s.small, { color: "#F6D9C6" }]}>
             © {new Date().getFullYear()} My Gobbler
           </Text>
-        </View>
+        </View>}
       </ScrollView>
     </View>
   );

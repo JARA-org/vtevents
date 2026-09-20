@@ -1,4 +1,5 @@
 // Add Expo single-page export metadata without changing routing or server behavior.
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +7,11 @@ const path = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../apps/frontend/dist/index.html",
 );
+const themeVersion = createHash("sha256")
+  .update(readFileSync(resolve(dirname(path), "theme.css")))
+  .update(readFileSync(resolve(dirname(path), "timeline.css")))
+  .digest("hex")
+  .slice(0, 12);
 let html = readFileSync(path, "utf8");
 html = html.replace(/<title>.*?<\/title>/s, "<title>My Gobbler</title>");
 html = html.replace(/<html(?:\s[^>]*)?>/, '<html lang="en">');
@@ -23,7 +29,8 @@ html = html.replace(
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <link rel="manifest" href="/manifest.webmanifest" />
 <link rel="preload" as="font" href="/fonts/Nunito.ttf" type="font/ttf" crossorigin />
-<link rel="stylesheet" href="/theme.css" />
+<link rel="stylesheet" href="/theme.css?v=${themeVersion}" />
+<link rel="stylesheet" href="/timeline.css?v=${themeVersion}" />
 </head>`,
 );
 writeFileSync(path, html);
