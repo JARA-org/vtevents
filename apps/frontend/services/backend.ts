@@ -101,6 +101,7 @@ export const backend: BackendClient = {
   previewAvailability: (input) =>
     request<"previewAvailability">("/availability/preview", "POST", input),
   getRecommendations: () => request<"getRecommendations">("/recommendations"),
+  timeline: (input) => request<"timeline">("/timeline", "POST", input),
   discover: (input) => request<"discover">("/discovery", "POST", input),
   setSaved: ({ eventId, saved }) =>
     request<"setSaved">(`/saved/${id(eventId)}`, "PUT", { saved }),

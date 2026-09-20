@@ -387,3 +387,24 @@ The club workspace opens automatically after sign-in and uses the site's shared 
 Publication and its notification marker commit together. The ordinary backend email worker checks pending markers every ten seconds, revalidates publication and current ownership, and delivers through the existing Resend integration. Delivery snapshots are encrypted; retries use identical payloads and provider idempotency keys, with at most five attempts within one hour of queue preparation. Receipt identifiers prevent duplicate delivery after restarts; terminal/expired snapshots have their encrypted content removed. Withdrawal is checked immediately before sending, but already delivered email cannot be recalled. Email failure never prevents event publication. No AI calls or new ANS identities are involved.
 
 Delivery requires server-owned `RESEND_API_KEY`, `AUTH_EMAIL_FROM` for a verified sender, and `TOKEN_ENCRYPTION_KEY`. On 2026-09-20, mygobbler.us was verified in Resend and production was configured with a domain-restricted sending-only key and notifications@mygobbler.us. The app restarted healthy. Resend confirmed delivery of the fencing notification after the approved account email correction. Keys remain outside Git and temporary transfer copies were removed. The worker records provider acceptance; delivery and bounce status are currently checked in Resend.
+
+## Cinematic timeline entry (September 20, 2026)
+
+The signed-in For you entry uses a minimal seven-day selector: center dot, pause,
+line expansion on every fresh page load, then day-to-day drag selection with a
+small confirmation button. Any inclusive part of the next seven campus days is
+selectable; Today, day 3 and day 7 are the main ticks. Confirmation collapses the
+unselected span, recenters/extends the selection and reveals about ten evenly
+spaced bubbles in an alternating zigzag. Desktop/landscape fits on one screen;
+portrait is vertical and draggable. Explicit interests take priority; without them,
+show varied categories/organizers/source families, including academic offerings
+when available. First-day weighting gives 4/2/2/2 for four adequately populated days.
+Selection and ranking remain deterministic backend queries, never browser logic.
+
+Bubbles start with title, time and a small interest indicator. Hover/focus/tap reveals
+location, small thumbnail and existing Save/Details/Calendar actions. Change dates
+sits above a subdued Discover more link. Discover more opens the original two-column
+grid with all upcoming events, preserving search/category/day controls. Keep VT
+colors with a creamier, restrained surface. Respect reduced motion and keyboard
+access; maintain sign-in, permissions and explicit calendar-write confirmation.
+See docs/TIMELINE.md for implementation scope, including web/native distinction.

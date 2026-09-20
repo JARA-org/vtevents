@@ -204,6 +204,24 @@ export interface DiscoveryView extends Extensible {
   savedRecommendations: Recommendation[];
   schedule: Recommendation[];
 }
+/** Read-only, authenticated seven-day timeline. Dates are campus-local and inclusive. */
+export interface TimelineRequest {
+  /** Omit both dates to request only the current seven-day selector. */
+  startDate?: LocalDate;
+  endDate?: LocalDate;
+}
+export interface TimelineItem {
+  recommendation: Recommendation;
+  /** Computed by the backend. Empty means discovery rather than an interest match. */
+  matchedInterests: Category[];
+}
+export interface TimelineView {
+  timezone: string;
+  days: LocalDate[];
+  selection: { startDate: LocalDate; endDate: LocalDate } | null;
+  items: TimelineItem[];
+  totalMatches: number;
+}
 export interface AssistantReply extends Extensible {
   publicMemory?: PublicMemoryView;
   engine: string;
@@ -340,6 +358,12 @@ export interface HttpApi {
   getRecommendations: Operation<void, { recommendations: Recommendation[] }>;
   /** POST /api/discovery. Session-scoped read-only search/ranking; submitted identity/preferences are not accepted. */
   discover: Operation<DiscoveryRequest, DiscoveryView>;
+  /** POST /api/timeline. Session-scoped read of the next seven campus days and up to
+   * ten curated events for an inclusive range. No refresh, models or writes.
+   * 400 for invalid/out-of-window dates or extra fields; 401 without a session;
+   * 500 on storage failure, 503 when account services are unconfigured.
+   * Safe to retry; no write transaction. */
+  timeline: Operation<TimelineRequest, TimelineView>;
   /** PUT /api/saved/:id. Idempotent desired state; saving may enqueue analytics. */
   setSaved: Operation<{ eventId: Id; saved: boolean }, { saved: boolean }>;
   /** POST /api/feedback. Upserts caller feedback; enqueues analytics. */

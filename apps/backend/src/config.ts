@@ -1,7 +1,12 @@
 import "dotenv/config";
 export const config = {
   port: Number(process.env.PORT || 3000),
-  origin: process.env.APP_ORIGIN || "http://localhost:3000",
+  // Browsers send an Origin header with no trailing slash, and this value is
+  // compared to it exactly. A configured "http://host/" would otherwise reject
+  // every state-changing request with no hint as to why, so normalize it once
+  // here. It is also the auth base URL and the base for generated links, where
+  // the trailing slash is equally unwanted.
+  origin: (process.env.APP_ORIGIN || "http://localhost:3000").replace(/\/+$/, ""),
   mongo: process.env.MONGODB_URI,
   db: process.env.MONGODB_DB || "my_little_gobbler",
   production: process.env.NODE_ENV === "production",

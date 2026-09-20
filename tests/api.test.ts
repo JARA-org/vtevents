@@ -119,6 +119,7 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
     }
     for (const path of [
       "/api/discovery",
+      "/api/timeline",
       "/api/profile/validate",
       "/api/availability/preview",
     ]) {
@@ -289,6 +290,24 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
       .set("Origin", origin)
       .send({});
     assert.deepEqual(otherDiscovery.body.savedRecommendations, []);
+    const timelineEffectCollections = ["saved", "feedback", "outbox", "calendar_writes", "oauth_states"];
+    const beforeTimeline = await Promise.all(timelineEffectCollections.map(name => db.collection(name).countDocuments()));
+    const week = await a.post("/api/timeline").set("Origin", origin).send({});
+    assert.equal(week.status, 200);
+    assert.equal(week.body.days.length, 7);
+    assert.deepEqual(week.body.items, []);
+    const range = { startDate: week.body.days[0], endDate: week.body.days[6] };
+    const timelineA = await a.post("/api/timeline").set("Origin", origin).send(range);
+    const timelineB = await b.post("/api/timeline").set("Origin", origin).send(range);
+    assert.equal(timelineA.status, 200);
+    assert.equal(timelineB.status, 200);
+    assert.deepEqual(timelineA.body.items[0].matchedInterests, ["Outdoors"]);
+    assert.deepEqual(timelineB.body.items[0].matchedInterests, []);
+    assert.equal(JSON.stringify(timelineB.body).includes("Private course"), false);
+    assert.equal((await a.post("/api/timeline").set("Origin", origin).send({ ...range, userId: "forged" })).status, 400);
+    assert.equal((await a.post("/api/timeline").set("Origin", "https://evil.example").send(range)).status, 403);
+    assert.equal((await a.post("/api/timeline").set("Origin", origin).send({ startDate: range.endDate, endDate: range.startDate })).status, 400);
+    assert.deepEqual(await Promise.all(timelineEffectCollections.map(name => db.collection(name).countDocuments())), beforeTimeline, "timeline queries have no domain writes");
     const assistant = await a
       .post("/api/assistant")
       .set("Origin", origin)

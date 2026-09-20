@@ -3,6 +3,8 @@ import type {
   CampusDeadline,
   Profile,
   Fit,
+  Recommendation,
+  TimelineItem,
 } from "../../../packages/shared/src/contracts.js";
 export type {
   CampusEvent,
@@ -335,6 +337,42 @@ export function recommendations(
       (a, b) => b.score - a.score || a.event.start.localeCompare(b.event.start),
     );
 }
+/** Select up to limit recommendations from one day, given the session profile
+ * and already selected items. Stronger explicit interest overlap wins first;
+ * ties explore less represented categories, organizers and source families.
+ * Pure backend ranking, no I/O/auth effects, no transaction. Trusted route owns
+ * session scope; deterministic and safe to repeat with the same inputs. */
+export function curateTimelineRecommendations(
+  candidates: Recommendation[], profile: Profile, previous: TimelineItem[], limit: number,
+): TimelineItem[] {
+  const pool = candidates.map(recommendation => ({ recommendation,
+    matchedInterests: recommendation.event.categories.filter(c => profile.interests.includes(c)),
+  }));
+  const picked: TimelineItem[] = [];
+  const representation = (item: TimelineItem) => {
+    const event = item.recommendation.event;
+    let penalty = 0;
+    for (const prior of [...previous, ...picked]) {
+      const other = prior.recommendation.event;
+      // Category diversity includes academic/career and campus-wide source families;
+      // do not fabricate popularity, attendance or "major event" significance.
+      penalty += event.categories.filter(c => other.categories.includes(c)).length * 4;
+      if (event.organizer && event.organizer === other.organizer) penalty += 3;
+      if (event.sources[0]?.source === other.sources[0]?.source) penalty += 1;
+    }
+    return penalty;
+  };
+  while (picked.length < limit && pool.length) {
+    pool.sort((a, b) => b.matchedInterests.length - a.matchedInterests.length ||
+      representation(a) - representation(b) ||
+      b.recommendation.score - a.recommendation.score ||
+      Date.parse(a.recommendation.event.start) - Date.parse(b.recommendation.event.start) ||
+      a.recommendation.event.id.localeCompare(b.recommendation.event.id));
+    picked.push(pool.shift()!);
+  }
+  return picked;
+}
+
 export function eventICS(e: CampusEvent) {
   const esc = (v: string) =>
     v

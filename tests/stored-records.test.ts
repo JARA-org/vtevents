@@ -157,6 +157,28 @@ test("agent reconciliation accepts repaired records and reports internal faults 
   assert.throws(() => validateAnsEvents([storedEvent("p", { visibility: { kind: "user", userId: "u" } })]));
 });
 
+test("a configured origin with a trailing slash still matches the browser's Origin header", async () => {
+  const configModule = "../apps/backend/src/config.js";
+  const original = process.env.APP_ORIGIN;
+  try {
+    for (const [configured, expected] of [
+      ["http://localhost:3000/", "http://localhost:3000"],
+      ["https://vtevents.us//", "https://vtevents.us"],
+      ["https://vtevents.us", "https://vtevents.us"],
+      [undefined, "http://localhost:3000"],
+    ] as const) {
+      if (configured === undefined) delete process.env.APP_ORIGIN;
+      else process.env.APP_ORIGIN = configured;
+      // A fresh module instance re-reads the environment.
+      const fresh = await import(`${configModule}?origin=${encodeURIComponent(String(configured))}`);
+      assert.equal(fresh.config.origin, expected);
+    }
+  } finally {
+    if (original === undefined) delete process.env.APP_ORIGIN;
+    else process.env.APP_ORIGIN = original;
+  }
+});
+
 test("queue backoff starts fast, escalates and stays bounded at the previous ceiling", () => {
   assert.equal(retryDelay({ attempts: 1 }), 3000);
   assert.equal(retryDelay({ attempts: 2 }), 6000);
