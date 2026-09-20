@@ -77,4 +77,4 @@ jobs:
           echo 'deployed=true' >> "$GITHUB_OUTPUT"
       - name: Check public HTTPS
         if: steps.deploy.outputs.deployed == 'true'
-        run: node deploy/smoke.mjs https://vtevents.us
+        run: node deploy/smoke.mjs https://mygobbler.us

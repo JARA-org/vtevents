@@ -10,7 +10,7 @@ release_id=${1:-}
 exec 9>/var/lock/gobbler-deploy.lock
 flock -w 1800 9
 
-export GOBBLER_DOMAIN=vtevents.us
+export GOBBLER_DOMAIN=mygobbler.us
 export GOBBLER_IMAGE="my-little-gobbler-app:$release_id"
 project=my-little-gobbler
 incoming="/opt/gobbler-incoming/$release_id"
