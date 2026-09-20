@@ -1213,6 +1213,13 @@ export interface DiscordClubSetupService {
 }
 
 export interface ClubEventValues {
+  /** End calendar date in campus timezone; null uses the start date. Omitted on edits preserves the current value; absent in older records means the start date. */
+  endDate?: LocalDate | null;
+  /** Campus-local 24-hour times. Omitted preserves source/previous value; null clears it. */
+  startTime?: string | null;
+  endTime?: string | null;
+  /** Owner-selected discovery categories; omitted preserves existing categories. */
+  categories?: CampusEvent["categories"];
   title: string;
   description: string;
   date: LocalDate;

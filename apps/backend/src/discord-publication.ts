@@ -9,7 +9,7 @@ import type {
 } from "../../../packages/shared/src/contracts.js";
 import { database, db, mongoClient } from "./store.js";
 import { HttpError } from "./config.js";
-import { CAMPUS_TZ, eventSchema } from "./domain.js";
+import { CAMPUS_TZ, eventSchema, categories } from "./domain.js";
 import {
   validateDiscordCandidate,
   explicitDiscordDate,
@@ -21,6 +21,23 @@ const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const eventId = (key: string) => "discord-" + hash(key).slice(0, 32);
 const valuesSchema = z
   .object({
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .refine((v) => explicitDiscordDate(v) === v)
+      .nullable()
+      .optional(),
+    startTime: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .nullable()
+      .optional(),
+    endTime: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+      .nullable()
+      .optional(),
+    categories: z.array(z.enum(categories)).min(1).max(7).optional(),
     title: z.string().trim().min(1).max(300),
     description: z.string().max(12000),
     date: z
@@ -61,7 +78,12 @@ const corrections = () =>
   database().collection<Override>("discord_event_corrections");
 export const discordPublication: DiscordPublicationService = {
   async list(input) {
-    agentHandoffPolicy.authorize({sender:"discord",recipient:"coordinator",kind:"public_events",visibility:"public"});
+    agentHandoffPolicy.authorize({
+      sender: "discord",
+      recipient: "coordinator",
+      kind: "public_events",
+      visibility: "public",
+    });
     if (!db) return [];
     const result: Awaited<ReturnType<DiscordPublicationService["list"]>> = [];
     const rows = database()
@@ -96,20 +118,36 @@ export const discordPublication: DiscordPublicationService = {
       if (!club) continue;
       const id = eventId(row.key),
         override = await corrections().findOne({ _id: id });
-      const values: ClubEventValues = override?.values || {
+      const values: ClubEventValues = {
         title: candidate.title,
         description: candidate.description,
         date: candidate.date,
         location: candidate.location,
         onlineUrl: candidate.onlineUrl,
         isOnline: candidate.isOnline,
+        startTime: candidate.startTime || null,
+        endTime: candidate.endTime || null,
+        endDate: null,
+        categories: ["Community"],
+        ...override?.values,
       };
-      const day = DateTime.fromISO(values.date, { zone: CAMPUS_TZ }).startOf("day");
-      const start = candidate.startTime ? DateTime.fromISO(`${values.date}T${candidate.startTime}`, {zone:CAMPUS_TZ}) : day;
-      const end = candidate.endTime ? DateTime.fromISO(`${values.date}T${candidate.endTime}`, {zone:CAMPUS_TZ}) : null;
+      const day = DateTime.fromISO(values.date, { zone: CAMPUS_TZ }).startOf(
+        "day",
+      );
+      const start = values.startTime
+        ? DateTime.fromISO(`${values.date}T${values.startTime}`, {
+            zone: CAMPUS_TZ,
+          })
+        : day;
+      const end = values.endTime
+        ? DateTime.fromISO(
+            `${values.endDate || values.date}T${values.endTime}`,
+            { zone: CAMPUS_TZ },
+          )
+        : null;
       if (
         !input?.includePast &&
-        day.plus({ days: 1 }).toMillis() <= Date.now()
+        (end || day).plus({ days: 1 }).toMillis() <= Date.now()
       )
         continue;
       const revision = hash(
@@ -128,7 +166,7 @@ export const discordPublication: DiscordPublicationService = {
           onlineUrl: values.onlineUrl,
           isOnline: values.isOnline,
           organizer: club.name,
-          categories: ["Community"],
+          categories: values.categories,
           sources: [
             {
               source: "discord",
@@ -140,7 +178,7 @@ export const discordPublication: DiscordPublicationService = {
           updatedAt,
           status: "scheduled",
           mode: "live",
-          timeTBD: !candidate.startTime,
+          timeTBD: !values.startTime,
           allDay: false,
           endEstimated: false,
         }),
@@ -148,9 +186,14 @@ export const discordPublication: DiscordPublicationService = {
         ownerCorrected: !!override,
         revision,
         timeDetails: {
-          precision: candidate.startTime ? "confirmed" as const : "date_only" as const,
+          precision: values.startTime
+            ? values.endTime
+              ? ("confirmed" as const)
+              : ("start_only" as const)
+            : ("date_only" as const),
           startDate: values.date,
-          confirmedStart: candidate.startTime ? start.toUTC().toISO() : null,
+          ...(values.endDate ? { endDate: values.endDate } : {}),
+          confirmedStart: values.startTime ? start.toUTC().toISO() : null,
           confirmedEnd: end?.toUTC().toISO() || null,
         },
       };
@@ -172,6 +215,35 @@ export const discordPublication: DiscordPublicationService = {
     ).find((row) => row.event.id === parsed.eventId);
     if (!published)
       throw new HttpError(404, "This event is no longer published.");
+    const nextValues = { ...published.edit.values, ...parsed.values };
+    if (nextValues.endDate && !nextValues.endTime)
+      throw new HttpError(400, "Supply an end time with the end date.");
+    if (
+      nextValues.endTime &&
+      (!nextValues.startTime ||
+        `${nextValues.endDate || nextValues.date}T${nextValues.endTime}` <=
+          `${nextValues.date}T${nextValues.startTime}`)
+    )
+      throw new HttpError(
+        400,
+        "End date and time must follow the start date and time.",
+      );
+    for (const [date, time] of [
+      [nextValues.date, nextValues.startTime],
+      [nextValues.endDate || nextValues.date, nextValues.endTime],
+    ]) {
+      if (!time) continue;
+      const clock = DateTime.fromISO(`${date}T${time}`, { zone: CAMPUS_TZ });
+      if (
+        !clock.isValid ||
+        clock.toFormat("HH:mm") !== time ||
+        clock.getPossibleOffsets().length !== 1
+      )
+        throw new HttpError(
+          400,
+          "Choose an unambiguous local time in America/New_York.",
+        );
+    }
     if (!mongoClient) throw new HttpError(503, "Storage unavailable.");
     const session = mongoClient.startSession();
     try {
@@ -218,7 +290,7 @@ export const discordPublication: DiscordPublicationService = {
         await corrections().updateOne(
           { _id: parsed.eventId },
           {
-            $set: { values: parsed.values, revision: randomUUID(), updatedAt },
+            $set: { values: nextValues, revision: randomUUID(), updatedAt },
           },
           { upsert: true, session },
         );
@@ -228,7 +300,7 @@ export const discordPublication: DiscordPublicationService = {
             clubId: published.event.clubId,
             userId,
             before: published.edit.values,
-            after: parsed.values,
+            after: nextValues,
             updatedAt,
           },
           { session },

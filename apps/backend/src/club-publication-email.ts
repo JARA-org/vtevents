@@ -28,14 +28,14 @@ export const clubPublicationNotifications: ClubPublicationNotifications = {
       if(!owner || !z.string().email().safeParse(owner.email).success) {await clear();continue;}
       const id=hash(`club-publication:${row.key}:${row.fingerprint}`);
       const editUrl=new URL("/clubs",config.origin);
-      editUrl.searchParams.set("club",String(club._id));editUrl.searchParams.set("event",item.event.id);
+      editUrl.searchParams.set("club",String(club._id));
       const event=item.event;
       const format=(instant:string)=>new Intl.DateTimeFormat("en-US",{timeZone:event.timezone,dateStyle:"medium",timeStyle:"short"}).format(new Date(instant));
       const text=["Your Discord announcement has been published on My Gobbler.","",event.title,
         event.timeTBD?`${item.edit.values.date} — time to be confirmed`:`${format(event.start)}${event.end?` – ${format(event.end)}`:""} (${event.timezone})`,
         event.location||"",event.onlineUrl?`Watch / join online: ${event.onlineUrl}`:"", "", "Original announcement:",row.text,
         ...(row.imageTexts||[]).map((image:{text:string})=>`Flyer transcription: ${image.text}`),"",`Discord message: ${row.sourceUrl}`,"",
-        `Review or correct your event: ${editUrl.href}`,"Sign in with the website account that registered this club. This link does not grant access to anyone else.",
+        `Manage your club events: ${editUrl.href}`,"Sign in with the website account that registered this club, then choose Edit event. This link does not grant access to anyone else.",
         "", "My Gobbler — student-built, not affiliated with Virginia Tech."].join("\n");
       const payload:ClubPublicationEmail={to:owner.email,editUrl:editUrl.href,text,idempotencyKey:id};
       await deliveries.updateOne({_id:id},{$setOnInsert:{ownerId:club.ownerId,revision:item.edit.revision,encrypted:seal(payload),state:"pending",attempts:0,expiresAt:new Date(Date.now()+3600000),nextAttempt:new Date()}},{upsert:true});

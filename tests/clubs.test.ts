@@ -337,52 +337,127 @@ test("club accounts isolate events and securely consume server setup tickets", a
       true,
       "date-only input does not invent a time",
     );
-    await discordCollectionRepository.save({...announcement,text:announcement.text+" from 3:30 PM - 5:00 PM; watch through https://example.org/live"},"timed-source",candidate,"qualified");
-    const timed=(await a.get("/api/events")).body.events.find((e:any)=>e.id===automatic.id);
-    assert.equal(timed.start,"2099-09-25T19:30:00.000Z");
-    assert.equal(timed.end,"2099-09-25T21:00:00.000Z");
-    assert.equal(timed.timeTBD,false);
-    assert.equal(timed.onlineUrl,"https://example.org/live");
-    assert.equal(timed.location,"Squires");
-    const {clubPublicationNotifications}=await import("../apps/backend/src/club-publication-email.js");
-    process.env.RESEND_API_KEY="test-only";
-    process.env.AUTH_EMAIL_FROM="Gobbler <events@example.test>";
-    process.env.TOKEN_ENCRYPTION_KEY=randomBytes(32).toString("hex");
-    const originalFetch=globalThis.fetch;
-    const delivered:{body:any;key:string}[]=[];
-    let fail=true;
-    globalThis.fetch=async (url,options)=>{
-      assert.equal(String(url),"https://api.resend.com/emails");
-      delivered.push({body:JSON.parse(String(options?.body)),key:(options?.headers as Record<string,string>)["Idempotency-Key"]});
-      return new Response("{}",{status:fail?503:200});
+    await discordCollectionRepository.save(
+      {
+        ...announcement,
+        text:
+          announcement.text +
+          " from 3:30 PM - 5:00 PM; watch through https://example.org/live",
+      },
+      "timed-source",
+      candidate,
+      "qualified",
+    );
+    const timed = (await a.get("/api/events")).body.events.find(
+      (e: any) => e.id === automatic.id,
+    );
+    assert.equal(timed.start, "2099-09-25T19:30:00.000Z");
+    assert.equal(timed.end, "2099-09-25T21:00:00.000Z");
+    assert.equal(timed.timeTBD, false);
+    assert.equal(timed.onlineUrl, "https://example.org/live");
+    assert.equal(timed.location, "Squires");
+    const { clubPublicationNotifications } =
+      await import("../apps/backend/src/club-publication-email.js");
+    process.env.RESEND_API_KEY = "test-only";
+    process.env.AUTH_EMAIL_FROM = "Gobbler <events@example.test>";
+    process.env.TOKEN_ENCRYPTION_KEY = randomBytes(32).toString("hex");
+    const originalFetch = globalThis.fetch;
+    const delivered: { body: any; key: string }[] = [];
+    let fail = true;
+    globalThis.fetch = async (url, options) => {
+      assert.equal(String(url), "https://api.resend.com/emails");
+      delivered.push({
+        body: JSON.parse(String(options?.body)),
+        key: (options?.headers as Record<string, string>)["Idempotency-Key"],
+      });
+      return new Response("{}", { status: fail ? 503 : 200 });
     };
     try {
       await clubPublicationNotifications.flush();
-      assert.equal(delivered.length,1);
-      assert.match(delivered[0].body.text,/Original announcement:/);
-      assert.match(delivered[0].body.text,/3:30 PM/);
-      assert.match(delivered[0].body.text,/\/clubs\?club=.+&event=discord-/);
-      assert.match(delivered[0].body.to[0],/one/);
-      const queued=await store.database().collection("club_publication_email_outbox").findOne({});
+      assert.equal(delivered.length, 1);
+      assert.match(delivered[0].body.text, /Original announcement:/);
+      assert.match(delivered[0].body.text, /3:30 PM/);
+      assert.match(delivered[0].body.text, /\/clubs\?club=/);
+      assert.ok(
+        !delivered[0].body.text.includes("&event="),
+        "email leads to the club workspace",
+      );
+      assert.match(delivered[0].body.to[0], /one/);
+      const queued = await store
+        .database()
+        .collection("club_publication_email_outbox")
+        .findOne({});
       assert.ok(queued?.encrypted);
       assert.ok(!queued.encrypted.includes("Chess"));
-      fail=false;
-      await store.database().collection("club_publication_email_outbox").updateMany({},{$set:{nextAttempt:new Date(0)}});
+      fail = false;
+      await store
+        .database()
+        .collection("club_publication_email_outbox")
+        .updateMany({}, { $set: { nextAttempt: new Date(0) } });
       await clubPublicationNotifications.flush();
-      assert.equal(delivered.length,2);
-      assert.deepEqual(delivered[0],delivered[1],"ambiguous delivery retries identical payload and provider key");
+      assert.equal(delivered.length, 2);
+      assert.deepEqual(
+        delivered[0],
+        delivered[1],
+        "ambiguous delivery retries identical payload and provider key",
+      );
       await clubPublicationNotifications.flush();
-      assert.equal(delivered.length,2,"successful notification is not repeated");
-      assert.equal((await store.database().collection("club_publication_email_outbox").findOne({}))?.encrypted,undefined);
-      await discordCollectionRepository.save({...announcement,text:announcement.text+" from 3:30 PM - 5:00 PM; watch through https://example.org/live"},"timed-source",candidate,"qualified");
+      assert.equal(
+        delivered.length,
+        2,
+        "successful notification is not repeated",
+      );
+      assert.equal(
+        (
+          await store
+            .database()
+            .collection("club_publication_email_outbox")
+            .findOne({})
+        )?.encrypted,
+        undefined,
+      );
+      await discordCollectionRepository.save(
+        {
+          ...announcement,
+          text:
+            announcement.text +
+            " from 3:30 PM - 5:00 PM; watch through https://example.org/live",
+        },
+        "timed-source",
+        candidate,
+        "qualified",
+      );
       await clubPublicationNotifications.flush();
-      assert.equal(delivered.length,2,"reprocessing the same revision cannot send again");
-      await discordCollectionRepository.save(announcement,"withdraw-before-email",candidate,"qualified");
-      await store.database().collection("discord_bot_exclusions").insertOne({_id:"900:901:999" as never});
+      assert.equal(
+        delivered.length,
+        2,
+        "reprocessing the same revision cannot send again",
+      );
+      await discordCollectionRepository.save(
+        announcement,
+        "withdraw-before-email",
+        candidate,
+        "qualified",
+      );
+      await store
+        .database()
+        .collection("discord_bot_exclusions")
+        .insertOne({ _id: "900:901:999" as never });
       await clubPublicationNotifications.flush();
-      assert.equal(delivered.length,2,"withdrawal before delivery suppresses email");
-      await store.database().collection("discord_bot_exclusions").deleteOne({_id:"900:901:999" as never});
-    } finally {globalThis.fetch=originalFetch;delete process.env.RESEND_API_KEY;delete process.env.AUTH_EMAIL_FROM;}
+      assert.equal(
+        delivered.length,
+        2,
+        "withdrawal before delivery suppresses email",
+      );
+      await store
+        .database()
+        .collection("discord_bot_exclusions")
+        .deleteOne({ _id: "900:901:999" as never });
+    } finally {
+      globalThis.fetch = originalFetch;
+      delete process.env.RESEND_API_KEY;
+      delete process.env.AUTH_EMAIL_FROM;
+    }
     let workspace = (await a.get(`/api/clubs/${created.body.id}/workspace`))
       .body;
     const edit = workspace.editableEvents[0];
@@ -393,6 +468,11 @@ test("club accounts isolate events and securely consume server setup tickets", a
         title: "Chess evening",
         onlineUrl: "https://example.org/meet",
         isOnline: true,
+        date: "2099-09-26",
+        startTime: "23:30",
+        endDate: "2099-09-27",
+        endTime: "01:00",
+        categories: ["Sports"],
       },
     };
     assert.equal(
@@ -416,6 +496,20 @@ test("club accounts isolate events and securely consume server setup tickets", a
       ).status,
       400,
     );
+    for (const invalid of [
+      { endDate: "2099-09-25" },
+      { endTime: "22:00", endDate: null },
+      { date: "2099-02-30" },
+      { endDate: "2099-09-27", endTime: null },
+      { date: "2026-03-08", startTime: "02:30", endDate: "2026-03-09" },
+      { date: "2026-11-01", startTime: "01:30", endDate: "2026-11-02" },
+    ]) {
+      const rejected = await a
+        .patch(`/api/clubs/events/${edit.eventId}`)
+        .set("Origin", origin)
+        .send({ ...correction, values: { ...correction.values, ...invalid } });
+      assert.equal(rejected.status, 400, JSON.stringify(invalid));
+    }
     assert.equal(
       (
         await a
@@ -442,6 +536,31 @@ test("club accounts isolate events and securely consume server setup tickets", a
       "qualified",
     );
     workspace = (await a.get(`/api/clubs/${created.body.id}/workspace`)).body;
+    const corrected = workspace.events.find(
+      (event: any) => event.id === edit.eventId,
+    );
+    assert.equal(corrected.start, "2099-09-27T03:30:00.000Z");
+    assert.equal(corrected.end, "2099-09-27T05:00:00.000Z");
+    assert.equal(corrected.timeDetails.endDate, "2099-09-27");
+    assert.deepEqual(corrected.categories, ["Sports"]);
+    const legacy = {
+      ...workspace.editableEvents[0],
+      values: { ...workspace.editableEvents[0].values },
+    };
+    delete legacy.values.startTime;
+    delete legacy.values.endTime;
+    delete legacy.values.endDate;
+    delete legacy.values.categories;
+    const compatible = await a
+      .patch(`/api/clubs/events/${edit.eventId}`)
+      .set("Origin", origin)
+      .send(legacy);
+    assert.equal(compatible.status, 200);
+    assert.equal(
+      compatible.body.end,
+      corrected.end,
+      "older clients preserve omitted time and end date fields",
+    );
     assert.equal(
       workspace.editableEvents[0].values.title,
       "Chess evening",
@@ -454,7 +573,7 @@ test("club accounts isolate events and securely consume server setup tickets", a
     );
     assert.equal(
       await store.database().collection("club_event_audit").countDocuments(),
-      1,
+      2,
     );
     const { replaceSourceSnapshot } =
       await import("../apps/backend/src/coordinator.js");
