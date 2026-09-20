@@ -1,4 +1,4 @@
-> Current scope, September 20, 2026: provider account connections and remote calendar writes are retired. All personal scheduling is removed; interests, event discovery and ICS export remain. Older deployment/checkpoint notes below are historical and must not be used to resume provider setup. See [v4 migration](docs/BACKEND_CONTRACTS.md#active-v4-migration). Check the GitHub Actions deployment run for the release status of this source revision.
+> Current scope, September 20, 2026: provider account connections and remote calendar writes are retired. All personal scheduling and calendar downloads are removed; interests, event discovery, Save and Details remain. Older deployment/checkpoint notes below are historical and must not be used to resume provider setup. See [v5 migration](docs/BACKEND_CONTRACTS.md#active-v5-migration). Check the GitHub Actions deployment run for the release status of this source revision.
 
 ## Verified live hardening release — 2026-09-19 23:57 UTC
 
@@ -149,3 +149,46 @@ Vultr View Console opens no usable popup in this in-app browser, including after
 - Local Expo/backend build and typechecks passed. Resend signup consent is pending;
   provider delivery, Google personal consent and Databricks authorization remain
   external dependencies. Do not call this a fully completed public launch.
+
+## Ask Gobbler conversational implementation — 2026-09-20
+
+Implemented a strictly MyGobbler Gemini assistant with current-chat context,
+authenticated interests/current saved-event context and explicitly confirmed
+profile preference facts. The layout holds temporary chat only; refresh, New chat
+and sign-out clear it. Expanded opt-in is required before sending the new context.
+Signed ten-minute previews, separate confirmation, optimistic edits, deletion
+replay protection and per-user capacity enforce memory writes on the backend.
+
+Existing discovery buttons bypass Gemini and use currentEvents plus the backend's
+date/category matching. Event actions reuse real save/detail paths and recheck
+source withdrawal at mutation time. The v5 ANS validator now accepts event
+recommendations without the retired schedule fit field and forwards bounded chat
+context while revalidating the session. Historical contracts remain unchanged.
+
+Free-tier-only text model allowlist and GEMINI_FREE_TIER_CONFIRMED activation gate;
+atomic 100/day app, 20/day user and 4/minute assistant ceilings, with lower/zero
+operator settings, bounded input/output and no provider retries/paid fallbacks.
+Docs: docs/ASK_GOBBLER.md. No deployment, billing change or credential modification.
+
+Validation: all 116 tests passed inside the Linux build image; architecture,
+contracts v1–v4, backend/frontend typechecking, Expo build and the production
+Docker runtime-image build passed. Runtime dependency installation reported zero
+known vulnerabilities. The host suite's sole deployment-test failure was macOS
+Bash 3 lacking mapfile; it passed on Linux. Linux ARM QA used the official Ubuntu
+MongoDB binary and libcurl in a disposable test container (not the production
+image). Desktop/mobile UI checks covered temporary chat, explicit confirmation,
+editing, live filters/save/calendar-download and unavailable-Gemini fallback.
+Model responses for UI/integration QA were synthetic, not billed provider calls.
+
+This checkout lacks the real Gemini key and deployment credentials. Before
+activation verify the deployed key's project is Free Tier with billing disabled,
+check actual shared quotas, set GEMINI_FREE_TIER_CONFIRMED=true and perform a
+real-provider/deployed smoke test. Implementation checks are not evidence that
+this source revision is already deployed or that billing was freshly verified.
+
+GitHub push preparation: integrated upstream v5 calendar-action retirement; Ask
+Gobbler advertises only current Save/Details actions. The combined revision passes
+all 114 Linux tests, architecture and immutable v1–v5 contract checks, frontend/
+backend typechecks and the Linux application build. Test MongoDB was downloaded
+before parallel tests to avoid a temporary download-lock race. Deployment is
+triggered by the user-authorized push to main; check its Actions run for status.

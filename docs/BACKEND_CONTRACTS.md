@@ -17,7 +17,7 @@ Each `HttpApi` entry includes input, output, route, and effects. The browser's
 | Discovery       | discover, getRecommendations                                           | Backend search, date filtering, ranking and saved-event projections       |
 | Account         | getAccount, updateProfile, validateProfile, deleteAccount              | Session-owned persistence; validation is pure; deletion is irreversible                 |
 | Preferences     | setSaved, submitFeedback                                               | Persist desired state/feedback; enqueue associated analytics                            |
-| Assistant       | askAssistant                                                           | Authenticated matching may spend model budget                                           |
+| Assistant       | askAssistant, chatAssistant, assistantMemories, confirmAssistantMemory, editAssistantMemory, deleteAssistantMemory                                                           | Authenticated matching may spend model budget                                           |
 | Discord         | listDiscordChannels, selectDiscordChannels                             | Verify server/channel access; persist allowed selections                                |
 | Analytics       | track                                                                  | Pseudonymous outbox enqueue, eventual external delivery                                 |
 | Authentication  | signUp, signIn, signOut                                                | Better Auth owns account/session/cookie changes                                         |
@@ -246,3 +246,13 @@ provider access, analytics or other effects, regardless of event ID. Anonymous
 requests still require sign-in. Repeating the request is safe. Retired analytics
 submissions fail validation without enqueueing. No stored account or event data
 needs migration, and no external calendar is contacted or modified.
+
+## Additive v5 Ask Gobbler chat
+
+The query-only assistant remains compatible. `/api/assistant/chat` adds bounded,
+untrusted ephemeral history and a deterministic discovery mode. Optional profile
+consent and reply proposal fields preserve historical baselines. Signed preview
+confirmation is the only assistant-related preference write; the model has no
+write tools. `AssistantStateRepository` owns facts and atomic budget reservations.
+The general planned persistent-conversation/memory APIs remain unimplemented.
+See [Ask Gobbler](ASK_GOBBLER.md) for exact limits, failures and deployment gating.

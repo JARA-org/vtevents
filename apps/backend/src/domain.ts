@@ -178,6 +178,7 @@ export function parseStoredDeadline(value: unknown): CampusDeadline | null {
 }
 
 export const profileSchema = z.object({
+  assistantConsentVersion: z.literal(1).optional(),
   name: z.string().trim().min(1).max(80),
   interests: z.array(z.enum(categories)).max(7),
   onboarded: z.boolean(),
@@ -273,6 +274,7 @@ export function questionFilter(query: string) {
     else if (time?.[3] === "am" && afterHour === 12) afterHour = 0;
     else if (!time?.[3] && afterHour <= 7) afterHour += 12;
   }
+  if (afterHour !== null && time?.[2] && Number(time[2]) < 60) afterHour += Number(time[2]) / 60;
   const category =
     categories.find((c) => q.includes(c.toLowerCase())) ||
     (/outdoor|hik|walk|nature/.test(q)
@@ -314,7 +316,7 @@ export function filterQuestion(
       (!day || t.hasSame(day, "day")) &&
       (!filter.weekend || t.weekday >= 6) &&
       (filter.afterHour === null ||
-        (!e.timeTBD && !e.allDay && t.hour >= filter.afterHour)) &&
+        (!e.timeTBD && !e.allDay && t.hour + t.minute / 60 >= filter.afterHour)) &&
       (!filter.category || e.categories.includes(filter.category))
     );
   });

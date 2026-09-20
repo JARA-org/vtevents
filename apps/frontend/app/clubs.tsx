@@ -21,6 +21,7 @@ import type {
   ClubEventValues,
   Category,
 } from "@gobbler/shared";
+import { useGobblerChat } from "../components/GobblerChatState";
 import { backend } from "../services/backend";
 
 function DateField({
@@ -74,6 +75,7 @@ function DateField({
 }
 
 export default function ClubsPage() {
+  const chatState = useGobblerChat();
   const params = useLocalSearchParams<{ club?: string; event?: string }>();
   const compact = useWindowDimensions().width < 760;
   const [signedIn, setSignedIn] = useState(false),
@@ -343,6 +345,7 @@ export default function ClubsPage() {
                     onPress={() =>
                       void run(async () => {
                         await backend.signOut({});
+                        chatState.clear();
                         setSignedIn(false);
                         setClubs([]);
                         setWorkspace(null);

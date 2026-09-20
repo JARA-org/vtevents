@@ -350,7 +350,8 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
     } finally { globalThis.fetch = savedFetch; }
     const { askGobbler } = await import("../apps/backend/src/assistant.js");
     process.env.GEMINI_API_KEY = "synthetic-test-key";
-    const aiProfile = { ...emptyProfile, aiEnabled: true };
+    const aiProfile = { ...emptyProfile, aiEnabled: true, assistantConsentVersion: 1 as const };
+    process.env.GEMINI_FREE_TIER_CONFIRMED = "true";
     globalThis.fetch = async () => new Response("unavailable", { status: 503 });
     try {
       const answer = await askGobbler(
@@ -359,6 +360,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
         aiProfile,
         [],
         {},
+        { userId: me.user.id },
       );
       assert.equal(answer.engine, "deterministic");
       assert.match(answer.notice, /unavailable/);
@@ -377,6 +379,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
                 parts: [
                   {
                     text: JSON.stringify({
+                      intent: "events", answer: "Here is a current event to explore.", today: false, tomorrow: false, weekend: false, memoryEvidence: null,
                       weekday: null,
                       afterHour: null,
                       category: null,
@@ -395,6 +398,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
         aiProfile,
         [],
         {},
+        { userId: me.user.id },
       );
       assert.equal(matched.engine, "gemini");
       assert.deepEqual(
@@ -410,6 +414,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
                 parts: [
                   {
                     text: JSON.stringify({
+                      intent: "events", answer: "Here is a current event to explore.", today: false, tomorrow: false, weekend: false, memoryEvidence: null,
                       weekday: null,
                       afterHour: null,
                       category: null,
@@ -427,6 +432,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
         aiProfile,
         [],
         {},
+        { userId: me.user.id },
       );
       assert.equal(invented.engine, "deterministic");
       assert.ok(invented.recommendations.every((r) => r.event.id === event.id));
@@ -437,12 +443,14 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
         aiProfile,
         [],
         {},
+        { userId: me.user.id },
       );
       assert.match(limited.notice, /limit/);
-      assert.equal(await db.collection("ai_budget").countDocuments(), 1);
+      assert.equal(await db.collection("assistant_budget").countDocuments(), 3);
     } finally {
       globalThis.fetch = savedFetch;
       delete process.env.GEMINI_API_KEY;
+      delete process.env.GEMINI_FREE_TIER_CONFIRMED;
       delete process.env.GEMINI_DAILY_LIMIT;
     }
     assert.equal(

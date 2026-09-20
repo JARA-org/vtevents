@@ -29,9 +29,8 @@ For Atlas, copy `.env.example` to ignored `.env`, fill real backend values secur
 - Responsive Expo Router/React Native/TypeScript website, original turkey mascot, landing page and required account sign-in.
 - Better Auth email/password sign-in, persistent profiles, editable interests, saves and feedback.
 - Public event discovery, filters, details, provenance, freshness, cancellation handling and cross-source deduplication.
-- Deterministic recommendations and grounded Gobbler responses. Optional backend-only Gemini interprets questions and ranks up to 40 public event candidates; unknown IDs are rejected, and explanations and event facts come from stored records.
+- Ask Gobbler provides optional Gemini chat grounded in current events, interests, saved events and explicitly confirmed preferences. Its live-discovery buttons work without AI. See [Ask Gobbler](docs/ASK_GOBBLER.md) for consent, limits and the free-tier deployment gate.
 - America/New_York event display, UTC timestamps and retained source timezone.
-- Working ICS download with stable UIDs, escaping and line folding.
 - Account deletion, analytics outbox and public source refresh job endpoint.
 - Gobbler favicon and optional ElevenLabs narration of up to three stored public event summaries. Authenticated requests, shared audio cache, strict character allowance and explicit playback; no private account details sent. Live audio and authenticated endpoint verified on the Free plan; TTS-only key capped at 8,000 credits per refresh period.
 
@@ -79,7 +78,7 @@ Tests use an isolated disposable MongoDB replica set, synthetic accounts and pro
 
 - Passwords are hashed by Better Auth. Session cookies are HTTP-only, secure in production, and protected by trusted origins and origin validation.
 - Shared public event records contain no personal calendar or Discord data. Every private API derives its owner from the authenticated session.
-- Gemini receives opted-in typed questions, selected interest categories, and bounded public event text. Calendar contents, user identity, saves, credentials and Discord content are excluded. Its free-tier terms may allow use of prompts for product improvement; this is disclosed before opt-in. Requests have a unique daily budget record and SDK retries are disabled.
+- Gemini chat requires the expanded user opt-in and a verified free-tier project. It receives bounded current-chat context, interests, public event details with saved flags, and confirmed preference facts; account identity and credentials are excluded. No transcripts are persisted. See [Ask Gobbler](docs/ASK_GOBBLER.md).
 - Analytics contains pseudonymous IDs, event IDs, action types and timestamps. No raw calendar text, messages or tokens. Failures queue for bounded retries and do not break the app.
 - Demo mode and its browser storage have been removed. Public source links lead to the original listing.
 - Account deletion removes account data and credentials and queues remote analytics erasure. A pseudonymous suppression marker is retained to prevent delayed analytics writes from restoring erased activity; erasure retries during outages. Historical retired-connection records are also deleted locally; there are no remote provider calls.

@@ -173,9 +173,10 @@ export async function startAnsRuntime(
       const result = z.object({events:z.unknown()}).strict().parse(await call("coordinator", {events:validateAnsEvents(events)}));
       return validateAnsEvents(result.events);
     },
-    ask: async (query, cookie) => {
-      const result = await call("assistant", {query}, cookie);
-      const core = z.object({ engine:z.string(), notice:z.string(), answer:z.string(), recommendations:z.array(z.object({event:z.unknown(),score:z.number(),reason:z.string(),fit:z.unknown()})).max(40) }).parse(result);
+    ask: async (query, cookie) => ansRuntime!.chat({ query }, cookie),
+    chat: async (input, cookie) => {
+      const result = await call("assistant", input, cookie);
+      const core = z.object({ engine:z.string(), notice:z.string(), answer:z.string(), recommendations:z.array(z.object({event:z.unknown(),score:z.number(),reason:z.string()})).max(40) }).parse(result);
       validateAnsEvents(core.recommendations.map(r => r.event));
       return result as AssistantReply;
     },

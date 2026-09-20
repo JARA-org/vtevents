@@ -99,6 +99,11 @@ export const backend: BackendClient = {
     request<"setSaved">(`/saved/${id(eventId)}`, "PUT", { saved }),
   submitFeedback: (input) =>
     request<"submitFeedback">("/feedback", "POST", input),
+  assistantMemories: () => request<"assistantMemories">("/assistant/memories"),
+  confirmAssistantMemory: (input) => request<"confirmAssistantMemory">("/assistant/memories", "POST", input),
+  editAssistantMemory: ({ id: memoryId, ...input }) => request<"editAssistantMemory">(`/assistant/memories/${id(memoryId)}`, "PATCH", input),
+  deleteAssistantMemory: ({ id: memoryId }) => request<"deleteAssistantMemory">(`/assistant/memories/${id(memoryId)}`, "DELETE"),
+  chatAssistant: (input) => request<"chatAssistant">("/assistant/chat", "POST", input),
   askAssistant: (input) => request<"askAssistant">("/assistant", "POST", input),
   track: (input) => request<"track">("/analytics", "POST", input),
   listDiscordChannels: () =>

@@ -20,11 +20,13 @@ import type {
   Category,
   DiscoveryView,
   Recommendation,
-  AssistantReply,
   UserSummary,
   SourceHealth,
   HealthView,
 } from "@gobbler/shared";
+import { AskGobbler, type GobblerTurn } from "../components/AskGobbler";
+import { useGobblerChat } from "../components/GobblerChatState";
+import { AssistantMemories } from "../components/AssistantMemories";
 import { backend } from "../services/backend";
 import { C, font } from "../components/theme";
 import { Button, Chip, Field, Gobbler, Pressable } from "../components/ui";
@@ -171,8 +173,6 @@ export default function Home() {
     [toast, setToast] = useState(""),
     [sources, setSources] = useState<Record<string, SourceHealth>>({}),
     [health, setHealth] = useState<Partial<HealthView>>({}),
-    [query, setQuery] = useState(""),
-    [answer, setAnswer] = useState<AssistantReply | null>(null),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
     [signUp, setSignUp] = useState(false),
@@ -185,6 +185,10 @@ export default function Home() {
       filtered: [],
       savedRecommendations: [],
     });
+  const chatState = useGobblerChat();
+  const chat = user && chatState.owner === user.id ? chatState.turns : [];
+  const setChat = (turns: GobblerTurn[]) => { if (user) chatState.update(user.id, turns); else chatState.clear(); };
+  const answer = chat.at(-1)?.reply;
   const notify = (m: string) => {
     setToast(m);
     setTimeout(() => setToast(""), 5000);
@@ -454,6 +458,7 @@ export default function Home() {
             accessibilityLabel={
               (saved.includes(e.id) ? "Unsave " : "Save ") + e.title
             }
+            disabled={loading}
             onPress={() => toggleSave(e)}
             style={s.saveButton}
           >
@@ -1036,67 +1041,17 @@ export default function Home() {
           )}
           {user && page === "gobbler" && !selected && (
             <>
-              <View
-                style={{ alignItems: "center", gap: 14, paddingVertical: 20 }}
-              >
-                <Gobbler size={125} />
-                <Text accessibilityRole="header" style={s.pageTitle}>
-                  Help from My Gobbler.
-                </Text>
-                <Text style={[s.body, { textAlign: "center", maxWidth: 580 }]}>
-                  Tell me what you have in mind. I’ll look through current
-                  listings for events that match your interests.
-                </Text>
-              </View>
-              <View
-                style={[
-                  s.panel,
-                  { maxWidth: 800, width: "100%", alignSelf: "center" },
-                ]}
-              >
-                <Field
-                  label="Ask Gobbler"
-                  value={query}
-                  onChange={setQuery}
-                  placeholder="What can I do Friday after 5?"
-                />
-                <View style={s.wrap}>
-                  {["Friday after 5", "Weekend outdoors", "Arts & music"].map(
-                    (q) => (
-                      <Chip label={q} key={q} onPress={() => setQuery(q)} />
-                    ),
-                  )}
-                </View>
-                <Button
-                  label="Find my next event"
-                  disabled={loading || !query.trim()}
-                  onPress={() =>
-                    run(async () => {
-                      if (!user) {
-                        go("auth");
-                        return;
-                      }
-                      setAnswer(await backend.askAssistant({ query }));
-                    })
-                  }
-                />
-                <Text style={s.meta}>
-                  {profile.aiEnabled
-                    ? "Gemini can match your question to campus events. Event details and explanations come from app records."
-                    : "Gobbler uses deterministic matching. Enable Gemini in Settings to interpret more natural questions."}
-                </Text>
-              </View>
+              <AskGobbler key={user.id} profile={profile} turns={chat} onTurns={setChat}
+                onDiscover={() => go("discover")} onSaved={() => go("saved")} onSettings={() => go("settings")} />
               {answer && (
                 <>
-                  <View style={s.panel}>
-                    <Text style={s.sectionTitle}>{answer.answer}</Text>
-                    <Text style={s.meta}>{answer.notice}</Text>
+                  {!!answer.recommendations.length && <View style={s.panel}>
                     <GobblerVoice
-                      key={query}
+                      key={answer.answer}
                       ids={answer.recommendations.map((item) => item.event.id)}
                       enabled={!!user && !!health.voice}
                     />
-                  </View>
+                  </View>}
                   <View style={s.eventGrid}>
                     {answer.recommendations.map((item) => (
                       <EventCard key={item.event.id} item={item} />
@@ -1181,32 +1136,35 @@ export default function Home() {
                     />
                     <Pressable
                       accessibilityRole="checkbox"
-                      accessibilityState={{ checked: profile.aiEnabled }}
+                      accessibilityState={{ checked: profile.aiEnabled && profile.assistantConsentVersion === 1 }}
                       onPress={() =>
                         saveProfile({
                           ...profile,
-                          aiEnabled: !profile.aiEnabled,
+                          aiEnabled: !(profile.aiEnabled && profile.assistantConsentVersion === 1),
+                          assistantConsentVersion: 1,
                         })
                       }
                       style={s.row}
                     >
                       <Ionicons
-                        name={profile.aiEnabled ? "checkbox" : "square-outline"}
+                        name={profile.aiEnabled && profile.assistantConsentVersion === 1 ? "checkbox" : "square-outline"}
                         size={25}
                         color={C.maroon}
                       />
                       <Text style={[s.body, { flex: 1 }]}>
-                        Use Gemini to match my interests and questions
+                        Enable personalized Gemini chat
                       </Text>
                     </Pressable>
                     <Text style={s.meta}>
-                      When enabled, your typed question, selected interest
-                      categories, and public event listings are sent to Google
-                      Gemini. Don’t include private details. Account identifiers,
-                      tokens, and private source text are never sent. Google’s
-                      free tier may use prompts to improve its products.
+                      When enabled, your current chat, interest categories, relevant
+                      saved events, confirmed preferences and public listings are sent
+                      to Google Gemini. Don’t include sensitive details. Account
+                      identity and credentials are not sent. Google’s free tier may
+                      use prompts and replies to improve its products. Chat history
+                      is temporary; confirmed preferences stay until you remove them.
                     </Text>
                   </View>
+                  <View style={s.panel}><AssistantMemories key={user.id} /></View>
                 </View>
                 <View style={{ flex: 1, gap: 24 }}>
                   <View style={s.panel}>
@@ -1253,7 +1211,7 @@ export default function Home() {
                               setUser(null);
                               setSelected(null);
                               setFeedback({});
-                              setAnswer(null);
+                              chatState.clear();
                               setDiscovery({
                                 recommendations: [],
                                 filtered: [],
@@ -1282,7 +1240,7 @@ export default function Home() {
                               setUser(null);
                               setSelected(null);
                               setFeedback({});
-                              setAnswer(null);
+                              chatState.clear();
                               setDiscovery({
                                 recommendations: [],
                                 filtered: [],

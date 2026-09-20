@@ -108,6 +108,8 @@ export interface EventLink extends Extensible {
   embeddable?: boolean;
 }
 export interface Profile extends Extensible {
+  /** Consent to send current chat, saved-event context and confirmed facts to Gemini. Absent means not granted. */
+  assistantConsentVersion?: 1;
   name: string;
   interests: Category[];
   onboarded: boolean;
@@ -200,6 +202,8 @@ export interface TimelineView {
   totalMatches: number;
 }
 export interface AssistantReply extends Extensible {
+  /** A proposal only; an explicit confirmation request is required to persist it. */
+  memoryProposal?: AssistantMemoryProposal;
   publicMemory?: PublicMemoryView;
   engine: string;
   notice: string;
@@ -297,6 +301,16 @@ export interface HttpApi {
   submitFeedback: Operation<{ eventId: Id; value: -1 | 1 }, { ok: boolean }>;
   /** POST /api/assistant. May consume model budget; does NOT change events/calendars. */
   askAssistant: Operation<{ query: string }, AssistantReply>;
+  /** POST /api/assistant/chat. Authenticated transient chat; at most 12 prior messages. Reads user-owned context, reserves bounded AI attempts; no automatic retries or transcript storage. forceDiscovery skips AI. 400 invalid, 401 unauthenticated, 503 catalog unavailable. */
+  chatAssistant: Operation<AssistantRequest, AssistantReply>;
+  /** GET /api/assistant/memories. Session-owned confirmed facts only; no AI or writes. */
+  assistantMemories: Operation<void, { memories: AssistantMemory[] }>;
+  /** POST /api/assistant/memories. Confirms an unexpired, signed, session-owned proposal. Atomic/idempotent insert; 400 invalid, 409 full, 503 storage unavailable. No AI. */
+  confirmAssistantMemory: Operation<{ token: string; confirmation: true }, { memories: AssistantMemory[] }>;
+  /** PATCH /api/assistant/memories/:id. Explicit replacement with optimistic text check. Atomic; 409 stale/missing; no AI. */
+  editAssistantMemory: Operation<{ id: Id; text: string; expectedText: string; confirmation: true }, { memories: AssistantMemory[] }>;
+  /** DELETE /api/assistant/memories/:id. Idempotent session-owned removal; no AI. */
+  deleteAssistantMemory: Operation<{ id: Id }, { memories: AssistantMemory[] }>;
   /** POST /api/analytics. Queues pseudonymous event; delivery is eventual. */
   track: Operation<{ kind: AnalyticsKind; eventId: Id }, { ok: boolean }>;
   /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. GET /api/discord/channels. Provider reads; returns only authorized announcement channels. */
@@ -1161,6 +1175,8 @@ export interface AnsRuntimeServices {
    * after server verification; receiver independently authenticates the user.
    * May spend existing AI budget and read user-scoped context; no provider writes. */
   ask(query: string, cookie: string): Promise<AssistantReply>;
+  /** Same authenticated handoff with bounded transient history; no transcript storage. */
+  chat(input: AssistantRequest, cookie: string): Promise<AssistantReply>;
 }
 export interface AgentHandoff {
   sender: AgentRole;
@@ -1275,4 +1291,40 @@ export interface PublicMemoryView {
   events: CampusEvent[];
   deadlines: CampusDeadline[];
   clubs: PublicClubMemory[];
+}
+
+/** Ephemeral browser-held history, always untrusted. Never persisted as a transcript.
+ * Optional fields preserve query-only clients. forceDiscovery bypasses model calls. */
+export interface AssistantRequest {
+  query: string;
+  history?: { role: "user" | "assistant"; text: string; eventIds?: Id[] }[];
+  forceDiscovery?: boolean;
+}
+export interface AssistantMemory {
+  id: Id;
+  text: string;
+  createdAt: Instant;
+}
+export interface AssistantMemoryProposal {
+  text: string;
+  evidence: string;
+  token: string;
+  expiresAt: Instant;
+}
+/** Backend-only persistence boundary. All user IDs come from the session adapter.
+ * No provider/model effects. Errors never expose stored text or credentials. */
+export interface AssistantStateRepository {
+  /** Scoped read of at most 12 confirmed facts; retryable, no transaction. */
+  list(userId: Id): Promise<AssistantMemory[]>;
+  /** Pure signed ten-minute proposal; no persistence. Text is not permission. */
+  propose(userId: Id, text: string, evidence: string): AssistantMemoryProposal;
+  /** Explicit confirmation only. Atomic idempotent insert, max 12; rejects wrong owner/tampering/expiry. */
+  confirm(userId: Id, input: { token: string; confirmation: true }): Promise<AssistantMemory[]>;
+  /** Atomic scoped edit with expectedText; rejects stale/missing, safe to retry identical request. */
+  edit(userId: Id, input: { id: Id; text: string; expectedText: string; confirmation: true }): Promise<AssistantMemory[]>;
+  /** Idempotent scoped delete, atomic; no other user's data touched. */
+  remove(userId: Id, id: Id): Promise<AssistantMemory[]>;
+  /** Atomically reserve app/day, user/day and app/minute attempts. Failures count.
+   * No model retries; exhausted or unavailable storage returns false. */
+  reserve(userId: Id): Promise<boolean>;
 }
