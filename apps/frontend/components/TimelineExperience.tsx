@@ -170,9 +170,10 @@ export function TimelineExperience({
       const bounds = bubble.getBoundingClientRect();
       const headerBottom = document.querySelector('[data-testid="app-header"]')
         ?.getBoundingClientRect().bottom || 0;
+      const gap = parseFloat(getComputedStyle(extra).getPropertyValue("--tl-detail-gap")) || 0;
       const room = bubble.closest(".side-a")
-        ? bounds.top - Math.max(12, headerBottom + 8)
-        : window.innerHeight - bounds.bottom - 12;
+        ? bounds.top - gap - Math.max(12, headerBottom + 8)
+        : window.innerHeight - bounds.bottom - gap - 12;
       extra.style.setProperty("--tl-extra-room", `${Math.max(44, room)}px`);
     };
     fit();
@@ -553,9 +554,7 @@ export function TimelineExperience({
                         <span className="tl-bubble-title">{event.title}</span>
                         <span className="tl-match">
                           <i aria-hidden="true" />
-                          {item.matchedInterests.length
-                            ? "Your kind of thing"
-                            : event.categories[0] || "Campus life"}
+                          {item.matchedInterests[0] || event.categories[0] || "Campus life"}
                         </span>
                       </button>
                       <div
