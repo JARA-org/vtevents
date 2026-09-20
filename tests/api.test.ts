@@ -277,6 +277,45 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
       .send({ category: "Outdoors" });
     assert.equal(discover.status, 200);
     assert.equal(discover.body.savedRecommendations[0].event.id, "live-test-1");
+    {
+      const originalFetch = globalThis.fetch, env = { ...process.env };
+      let embedded = 0, withdraw = false;
+      process.env.GEMINI_API_KEY = "synthetic-semantic-key";
+      process.env.GEMINI_FREE_TIER_CONFIRMED = "true";
+      delete process.env.SEMANTIC_SEARCH_ENABLED;
+      globalThis.fetch = async (_url, init) => {
+        embedded++;
+        const body = JSON.parse(String(init?.body));
+        if (withdraw) await coordinator.replaceSourceSnapshot("gobblerconnect", []);
+        return Response.json({ embeddings: (body.requests || [body]).map(() => ({ values: Array.from({ length: 768 }, (_, i) => i === 0 ? 1 : 0) })) });
+      };
+      try {
+        const input = { searchMode: "semantic", search: "a peaceful break after classes" };
+        const disabled = await a.post("/api/discovery").set("Origin", origin).send(input);
+        assert.equal(disabled.body.search.status, "consent_required");
+        assert.equal(disabled.body.search.mode, "keyword");
+        assert.equal(embedded, 0, "no query sent without consent");
+        await a.put("/api/profile").set("Origin", origin).send({ ...pa, aiEnabled: true, assistantConsentVersion: 1 });
+        const { semanticSearch } = await import("../apps/backend/src/semantic-runtime.js");
+        await semanticSearch.index([event]);
+        const semantic = await a.post("/api/discovery").set("Origin", origin).send(input);
+        assert.equal(semantic.status, 200);
+        assert.equal(semantic.body.search.status, "ready");
+        assert.equal(semantic.body.filtered[0].event.id, event.id);
+        assert.equal(semantic.headers["cache-control"], "no-store");
+        assert.equal((await b.post("/api/discovery").set("Origin", origin).send(input)).body.search.status, "consent_required");
+        assert.equal((await a.post("/api/discovery").set("Origin", origin).send({ ...input, userId: "other" })).status, 400);
+        withdraw = true;
+        const withdrawn = await a.post("/api/discovery").set("Origin", origin).send(input);
+        assert.deepEqual(withdrawn.body.filtered, [], "withdrawal during model latency must win");
+      } finally {
+        globalThis.fetch = originalFetch;
+        for (const key of Object.keys(process.env)) if (!(key in env)) delete process.env[key];
+        Object.assign(process.env, env);
+        await a.put("/api/profile").set("Origin", origin).send(pa);
+        await coordinator.replaceSourceSnapshot("gobblerconnect", [event]);
+      }
+    }
     const otherDiscovery = await b
       .post("/api/discovery")
       .set("Origin", origin)

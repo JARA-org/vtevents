@@ -46,6 +46,7 @@ const edges = {
     "discord-bot-store",
   ],
   "app.ts": [
+    "semantic-runtime",
     "assistant-state",
     "ans-runtime",
     "event-consolidation",
@@ -88,7 +89,11 @@ const edges = {
   // those rules. It uses the stored-record parsers only; no scheduling or ranking.
   "coordinator.ts": ["store", "domain", "agent-policy", "event-consolidation", "public-source-registry", "public-ingestion", "public-source-store", "public-fetch", "public-memory"],
   "discovery.ts": ["domain", "config"],
-  "assistant.ts": ["domain", "agent-policy", "public-memory", "assistant-state"],
+  "assistant.ts": ["domain", "agent-policy", "public-memory", "assistant-state", "semantic-runtime"],
+  "semantic-search.ts": [],
+  "semantic-embedding.ts": [],
+  "semantic-store.ts": ["store"],
+  "semantic-runtime.ts": ["semantic-search", "semantic-embedding", "semantic-store"],
   "assistant-state.ts": ["store", "config"],
   "discord-limits.ts": [],
   "discord-gateway.ts": [],
@@ -133,7 +138,7 @@ const edges = {
     "discord-collection-store",
   ],
   "analytics.ts": ["store", "security"],
-  "jobs.ts": ["coordinator"],
+  "jobs.ts": ["coordinator", "semantic-runtime"],
   "contract-check.ts": [
     "domain",
     "coordinator",

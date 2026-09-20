@@ -34,6 +34,7 @@ import { ansRuntime, isAnsAssistantRequest } from "./ans-runtime.js";
 import { searchPublicMemory, publicEventById, publicEventIds } from "./public-memory.js";
 import { askGobbler, assistantRequestSchema } from "./assistant.js";
 import { assistantState } from "./assistant-state.js";
+import { semanticSearch, forgetSemanticUser } from "./semantic-runtime.js";
 import { analyticsKinds, track, eraseAnalytics } from "./analytics.js";
 import { registerDiscordBotRoutes } from "./discord-bot-http.js";
 import { discordPublication } from "./discord-publication.js";
@@ -254,15 +255,33 @@ export function createApp() {
       database().collection("saved").find({ userId: id }).toArray(),
       database().collection("feedback").find({ userId: id }).toArray(),
     ]);
-    res.json(
-      discoverEvents(
-        input,
-        await currentEvents(),
-        p,
-        saved.map((r) => r.eventId),
-        Object.fromEntries(feedback.map((r) => [r.eventId, r.value])),
-      ),
-    );
+    const catalog = await currentEvents();
+    const savedIds = saved.map(r => r.eventId), values = Object.fromEntries(feedback.map(r => [r.eventId, r.value]));
+    if (input.searchMode !== "semantic" || !input.search?.trim()) {
+      res.json(discoverEvents(input, catalog, p, savedIds, values));
+      return;
+    }
+    res.setHeader("Cache-Control", "no-store");
+    const view = discoverEvents({ ...input, search: undefined, limit: undefined }, catalog, p, savedIds, values);
+    if (!p.aiEnabled || p.assistantConsentVersion !== 1) {
+      res.json({ ...discoverEvents(input, catalog, p, savedIds, values), search: {
+        mode: "keyword", status: "consent_required", notice: "Showing keyword matches. Enable personalized Gemini in Settings to search by meaning.", indexed: 0, total: view.filtered.length,
+      } });
+      return;
+    }
+    const found = await semanticSearch.search(input.search, view.filtered.map(r => r.event), id);
+    // Re-read current visibility after model latency; withdrawal always wins.
+    const refreshed = discoverEvents({ ...input, search: undefined, limit: undefined }, await currentEvents(), p, savedIds, values);
+    const byId = new Map(refreshed.filtered.map(r => [r.event.id, r]));
+    const ranked = found.ids.flatMap(eventId => byId.has(eventId) ? [byId.get(eventId)!] : []);
+    res.json({ ...refreshed, recommendations: refreshed.recommendations.slice(0, input.limit),
+      filtered: ranked.slice(0, input.limit), totalMatches: ranked.length,
+      search: { mode: "semantic", status: found.status, indexed: found.indexed, total: found.total,
+        notice: found.status === "ready" ? "Matched by meaning across current events."
+          : found.status === "partial" ? `Semantic index is updating (${found.indexed}/${found.total} events ready). Results may be incomplete.`
+          : "Semantic search is unavailable. Try keyword search or retry later.",
+      },
+    });
   });
   app.post("/api/timeline", protect, async (req, res) => {
     const input = timelineSchema.parse(req.body);
@@ -474,16 +493,23 @@ export function createApp() {
         database().collection("feedback").find({ userId: id }).toArray(),
       ]);
       const listings = await currentEvents();
-      res.json(
-        await askGobbler(
+      const reply = await askGobbler(
           query,
           listings,
           p,
           saved.map((r) => r.eventId),
           Object.fromEntries(feedback.map((r) => [r.eventId, r.value])),
           { ...context, userId: id },
-        ),
-      );
+        );
+      const latest = new Map((await currentEvents()).map(e => [e.id, e]));
+      if (reply.recommendations.some(r => {
+        const current = latest.get(r.event.id);
+        return !current || current.title !== r.event.title || current.start !== r.event.start || current.description !== r.event.description;
+      })) {
+        reply.recommendations = [];
+        reply.answer = "Some event information changed while I was answering. Please ask again for current details.";
+      }
+      res.json(reply);
     },
   );
   app.post("/api/analytics", protect, async (req, res) => {
@@ -534,6 +560,7 @@ export function createApp() {
     const { ObjectId } = await import("mongodb");
     const identifiers = ObjectId.isValid(id) ? [id, new ObjectId(id)] : [id];
     await eraseAnalytics(id);
+    await forgetSemanticUser(id);
     for (const name of [
       "assistant_memories",
       "assistant_memory_owners",

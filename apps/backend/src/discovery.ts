@@ -19,6 +19,7 @@ import { HttpError } from "./config.js";
 
 export const discoverySchema = z
   .object({
+    searchMode: z.enum(["keyword", "semantic"]).optional(),
     limit: z.number().int().min(1).max(100).optional(),
     mode: z.literal("live").optional(),
     search: z.string().max(300).optional(),

@@ -489,3 +489,13 @@ Event narration is retired under contract v6. Remove its player, audio transport
 provider adapter, credentials and budget/cache/lease initialization. Historical
 contracts remain immutable; stale authenticated requests receive a no-effect 410.
 This supersedes all earlier narration setup and playback tasks.
+
+## Semantic discovery (September 20, 2026)
+
+Meaning-based search uses bounded Gemini embeddings with cached public website
+vectors in MongoDB. Discover keeps an explicit keyword option; no silent model
+spending occurs for legacy keyword requests. Semantic search requires session AI
+consent, reports partial/unavailable indexing, and rechecks visibility after model
+latency. Discord vectors are request-local and never archived. Ask Gobbler uses
+semantic candidates but only returns cards when the query requests events.
+See docs/SEMANTIC_SEARCH.md for the implemented ports, limits and privacy behavior.

@@ -91,6 +91,8 @@ export default function Home() {
     [saved, setSaved] = useState<string[]>([]),
     [feedback, setFeedback] = useState<Record<string, number>>({}),
     [search, setSearch] = useState(""),
+    [searchDraft, setSearchDraft] = useState(""),
+    [searchMode, setSearchMode] = useState<"keyword" | "semantic">("semantic"),
     [category, setCategory] = useState("All interests"),
     [dateFilter, setDateFilter] = useState("Any day"),
     [selected, setSelected] = useState<CampusEvent | null>(null),
@@ -113,6 +115,8 @@ export default function Home() {
       savedRecommendations: [],
     });
   const chatState = useGobblerChat();
+  useEffect(() => { setSearch(""); setSearchDraft(""); }, [user?.id]);
+  const submitSearch = () => { setSearch(searchDraft.trim()); setRefreshVersion(v => v + 1); };
   const chat = user && chatState.owner === user.id ? chatState.turns : [];
   const setChat = (turns: GobblerTurn[]) => { if (user) chatState.update(user.id, turns); else chatState.clear(); };
   const answer = chat.at(-1)?.reply;
@@ -269,6 +273,7 @@ export default function Home() {
         .discover({
           limit: 60,
           search,
+          searchMode: page === "discover" ? searchMode : "keyword",
           category: category as Category | "All interests",
           dateFilter: dateFilter as
             "Any day" | "Today" | "This week" | "Weekend",
@@ -300,6 +305,7 @@ export default function Home() {
     user,
     refreshVersion,
     search,
+    searchMode,
     category,
     dateFilter,
   ]);
@@ -716,8 +722,9 @@ export default function Home() {
                   accessibilityLabel="Search campus events"
                   placeholder="Search events, interests, or places…"
                   placeholderTextColor={C.muted}
-                  value={search}
-                  onChangeText={setSearch}
+                  value={searchDraft}
+                  onChangeText={setSearchDraft}
+                  onSubmitEditing={submitSearch}
                   style={{
                     flex: 1,
                     fontFamily: font,
@@ -726,7 +733,14 @@ export default function Home() {
                     padding: 12,
                   }}
                 />
+                <Button label="Search" onPress={submitSearch} />
               </View>
+              <View style={s.wrap}>
+                <Chip label="By meaning" active={searchMode === "semantic"} onPress={() => setSearchMode("semantic")} />
+                <Chip label="Exact keywords" active={searchMode === "keyword"} onPress={() => setSearchMode("keyword")} />
+              </View>
+              <Text style={s.meta}>Search by meaning sends your search phrase to Gemini when personalized AI is enabled. Search text is not stored.</Text>
+              {!!discovery.search && <Text style={s.meta} accessibilityLiveRegion="polite">{discovery.search.notice}</Text>}
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1164,7 +1178,7 @@ export default function Home() {
                       </Text>
                     </Pressable>
                     <Text style={s.meta}>
-                      When enabled, your current chat, interest categories, relevant
+                      When enabled, your search phrases, current chat, interest categories, relevant
                       saved events, confirmed preferences and public listings are sent
                       to Google Gemini. Don’t include sensitive details. Account
                       identity and credentials are not sent. Google’s free tier may

@@ -5,6 +5,13 @@ implements reading selections, individual message submissions, exclusions, a bou
 collector, and optional AI interpretation with deterministic qualification. It does
 **not** yet publish the staged candidates into the canonical campus event feed.
 
+## Install My Gobbler in your server
+
+A member with **Manage Server** permission can [add Gobbler to Discord](https://discord.com/oauth2/authorize?client_id=1550934717719781436&scope=bot%20applications.commands&permissions=66560&integration_type=0).
+Choose the server and authorize **View Channel** and **Read Message History**.
+An App Directory listing is not required. Then run `/gobbler setup` and complete
+the private ten-minute setup link to create or connect your club workspace.
+
 ## Commands
 
 - `/gobbler watch public:true`: select the current text/announcement channel for automatic reading as

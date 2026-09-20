@@ -164,6 +164,8 @@ export interface EventList extends Extensible {
   generatedAt?: Instant;
 }
 export interface DiscoveryRequest {
+  /** Default keyword. Semantic explicitly permits a bounded embedding request under AI consent. */
+  searchMode?: "keyword" | "semantic";
   /** Optional 1–100 result cap for recommendations/filtered; omitted keeps legacy full results. Saved events are never truncated. */
   limit?: number;
   mode?: Mode;
@@ -172,6 +174,7 @@ export interface DiscoveryRequest {
   dateFilter?: "Any day" | "Today" | "This week" | "Weekend";
 }
 export interface DiscoveryView extends Extensible {
+  search?: { mode: "keyword" | "semantic"; status: "ready" | "partial" | "unavailable" | "consent_required"; notice: string; indexed: number; total: number };
   /** Counts before the optional limit; absent on older servers. */
   totalAvailable?: number;
   totalMatches?: number;
@@ -301,7 +304,11 @@ export interface HttpApi {
   validateProfile: Operation<Profile, Profile>;
   /** GET /api/recommendations. Session-scoped ranking by interests and feedback; no writes. */
   getRecommendations: Operation<void, { recommendations: Recommendation[] }>;
-  /** POST /api/discovery. Session-scoped read-only search/ranking; submitted identity/preferences are not accepted. */
+  /** POST /api/discovery. Keyword mode is read-only. Explicit semantic mode may
+   * reserve bounded embedding usage under session-derived AI consent; no query
+   * persistence or provider writes. Returns search status on partial/unavailable
+   * index, 400 on invalid input, 401 without session. No automatic model retries.
+   * Submitted identity/preferences are never accepted; no cross-module transaction. */
   discover: Operation<DiscoveryRequest, DiscoveryView>;
   /** POST /api/timeline. Session-scoped read of the next seven campus days and up to
    * ten curated events for an inclusive range. No refresh, models or writes.
@@ -652,6 +659,7 @@ export interface AnalyticsService {
   ): Promise<{ localDeleted: boolean; remotePending: boolean }>;
 }
 export interface BackendModules {
+  semanticSearch?: SemanticSearchService;
   discordPolicy: DiscordPolicyService;
   sources: Record<string, SourceAdapter>;
   events: EventRepository;
@@ -1423,4 +1431,36 @@ export interface AssistantStateRepository {
   /** Atomically reserve app/day, user/day and app/minute attempts. Failures count.
    * No model retries; exhausted or unavailable storage returns false. */
   reserve(userId: Id): Promise<boolean>;
+}
+
+/** Backend-only embedding ports. Inputs are bounded public event text or a consenting
+ * caller's query, never credentials or private connectors. Vectors are not browser DTOs. */
+export interface SemanticEmbeddingProvider {
+  readonly ready: boolean;
+  embed(texts: string[], task: "document" | "query"): Promise<number[][]>;
+}
+export interface SemanticIndexRepository {
+  read(keys: string[]): Promise<{ key: string; vector: number[] }[]>;
+  put(rows: { key: string; vector: number[] }[]): Promise<void>;
+  prune(keys: string[]): Promise<void>;
+  /** Atomic budget reservation, no refund after an attempted call. userId only for query limits. */
+  reserve(count: number, userId?: Id): Promise<boolean>;
+  acquire(): Promise<boolean>;
+  release(): Promise<void>;
+  forgetUser(userId: Id): Promise<void>;
+}
+export interface SemanticSearchResult {
+  ids: Id[];
+  status: "ready" | "partial" | "unavailable";
+  indexed: number;
+  total: number;
+}
+export interface SemanticSearchService {
+  /** Operator background command: public website text only, bounded model/index writes.
+   * Content-revision cache, shared lease, no automatic retries, no provider mutations. */
+  index(events: CampusEvent[]): Promise<void>;
+  /** Explicit session-scoped search command. Caller enforces AI consent and supplies the
+   * currently authorized catalog; bounded model calls, no query/transcript persistence.
+   * Returns current IDs only, reports partial/unavailable; no implicit retries. */
+  search(query: string, events: CampusEvent[], userId: Id): Promise<SemanticSearchResult>;
 }

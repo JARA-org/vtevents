@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "expo-router";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Button, Gobbler, Pressable } from "./ui";
@@ -12,6 +13,7 @@ type Step = {
   title: string;
   body: string[];
   commands?: { label: string; note: string }[];
+  link?: { label: string; href: string };
 };
 
 const steps: Step[] = [
@@ -28,8 +30,12 @@ const steps: Step[] = [
     icon: "add-circle-outline",
     title: "1. Add the Gobbler bot",
     body: [
-      "A server admin installs the bot once. Ask the My Gobbler team for the install link — we do not publish it here, so nobody can add a look-alike bot to your server.",
+      "A server admin installs the bot once. Open the invitation below, choose your Discord server, and authorize View Channel and Read Message History. You do not need to find Gobbler in the App Directory.",
     ],
+    link: {
+      label: "Add Gobbler to your Discord server",
+      href: "https://discord.com/oauth2/authorize?client_id=1550934717719781436&scope=bot%20applications.commands&permissions=66560&integration_type=0",
+    },
   },
   {
     icon: "link-outline",
@@ -190,6 +196,11 @@ export function ClubGuide({ onBack, onWorkspace }: { onBack: () => void; onWorks
                 {line}
               </Text>
             ))}
+            {step.link && (
+              <Link href={step.link.href} target="_blank" rel="noopener noreferrer" style={g.inlineLinkText}>
+                {step.link.label}
+              </Link>
+            )}
             {step.commands?.map((command) => (
               <View key={command.label} style={g.command}>
                 <Text style={g.commandLabel}>{command.label}</Text>
@@ -214,7 +225,7 @@ export function ClubGuide({ onBack, onWorkspace }: { onBack: () => void; onWorks
 
       <View style={{ gap: 12, alignItems: mobile ? "stretch" : "flex-start" }}>
         <Text style={g.body}>
-          Stuck on a step, or need the bot install link? Ask the My Gobbler team.
+          Stuck on a step? Ask the My Gobbler team.
         </Text>
         <Pressable accessibilityRole="button" onPress={onWorkspace} style={g.inlineLink}>
           <Text style={g.inlineLinkText}>Go to my club workspace</Text>

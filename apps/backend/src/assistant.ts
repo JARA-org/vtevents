@@ -5,6 +5,7 @@ import { CampusEvent, Profile, recommendations, categories, questionFilter, filt
 import { agentHandoffPolicy } from "./agent-policy.js";
 import { searchPublicMemory } from "./public-memory.js";
 import { assistantState } from "./assistant-state.js";
+import { semanticSearch } from "./semantic-runtime.js";
 
 export const assistantRequestSchema = z.object({
   query: z.string().trim().min(1).max(1000),
@@ -103,6 +104,7 @@ export async function askGobbler(query: string, events: CampusEvent[], profile: 
       return reply;
     }
     const memories: AssistantMemory[] = await state.list(context.userId);
+    const semantic = await semanticSearch.search(input.query, publicEvents, context.userId);
     const ranked = recommendations(publicEvents, profile, saved, feedback);
     // Known keyword relevance is deterministic. The model interprets semantics.
     const terms = input.query.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 3).slice(0, 20);
@@ -112,6 +114,7 @@ export async function askGobbler(query: string, events: CampusEvent[], profile: 
     });
     const priorIds = new Set(input.history?.slice(-2).flatMap(m => m.role === "assistant" ? m.eventIds || [] : []) || []);
     const candidates = [...new Map([
+      ...semantic.ids.slice(0, 16).flatMap(id => publicEvents.filter(e => e.id === id)).map(event => ({ event })),
       ...ranked.filter(r => priorIds.has(r.event.id)).slice(0, 8), ...fallback, ...relevant.slice(0, 10), ...ranked.filter(r => saved.includes(r.event.id)).slice(0, 10), ...ranked.slice(0, 8),
     ].map(r => [r.event.id, r.event])).values()].slice(0, 32);
     const contents = JSON.stringify({
