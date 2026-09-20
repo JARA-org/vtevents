@@ -31,6 +31,11 @@
   one indexed head read and up to three ordered bulk writes per 100-record
   coordinator batch, within the existing atomic transaction. Unchanged records
   still produce no writes, and historical/private scope rules remain intact.
+- Real catalog profiling also found multi-year source windows. Schedule checks
+  return unknown for windows longer than 31 days (after exact dated busy-block
+  checks) rather than expanding thousands of days. The explanation asks users
+  to confirm individual meeting times. No-recurring-block checks skip daily
+  expansion entirely. Normal campus timezone/DST conflict tests remain intact.
 - Once per minute, `runtime_performance` logs numeric RSS, heap, CPU percentage
   and event-loop p99/max delays. No event text, URLs, user data or secrets.
   Deployment reports host capacity before and after its five-minute stability

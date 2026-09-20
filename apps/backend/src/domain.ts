@@ -151,11 +151,25 @@ export function scheduleFit(event: CampusEvent, profile: Profile): Fit {
         Date.parse(b.start) < end.toMillis() &&
         Date.parse(b.end) > start.toMillis(),
     )
-  )
-    return {
-      status: "conflict",
-      reason: "Overlaps a busy block in your schedule.",
-    };
+    )
+      return {
+        status: "conflict",
+        reason: "Overlaps a busy block in your schedule.",
+      };
+    // Providers can publish multi-year registration/activity windows. Do not
+    // expand them into thousands of recurring daily intervals on a web request,
+    // or claim that the whole window is confirmed free. Exact busy blocks above
+    // still provide a definite conflict without expansion.
+    if (end.diff(start, "days").days > 31)
+      return {
+        status: "unknown",
+        reason: "This listing spans more than a month. Confirm individual meeting times before making plans.",
+      };
+    if (!profile.recurring.length)
+      return {
+        status: "unknown",
+        reason: "Availability is missing for part or all of this event.",
+      };
   const intervals: { start: number; end: number; kind: string }[] = [];
   let ambiguousTime = false;
   for (let day = start.startOf("day"); day <= end; day = day.plus({ days: 1 }))

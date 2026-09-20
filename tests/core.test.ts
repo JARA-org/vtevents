@@ -25,6 +25,19 @@ const e = {
 };
 test("unknown availability never claims free time", () =>
   assert.equal(scheduleFit(e, emptyProfile).status, "unknown"));
+
+test("multi-year source windows stay unknown without expanding recurring days; exact conflicts remain definite", () => {
+  const listing = { ...e, end: "2099-09-25T22:00:00Z" };
+  const profile = { ...emptyProfile, recurring: [
+    { id: "free", weekday: 5, start: "17:00", end: "18:00", kind: "free" as const },
+  ] };
+  const fit = scheduleFit(listing, profile);
+  assert.equal(fit.status, "unknown");
+  assert.match(fit.reason, /individual meeting times/);
+  assert.equal(scheduleFit(listing, { ...profile, busy: [{
+    id: "busy", start: e.start, end: e.end, source: "manual",
+  }] }).status, "conflict");
+});
 test("recurring availability uses campus timezone", () =>
   assert.equal(
     scheduleFit(e, {
