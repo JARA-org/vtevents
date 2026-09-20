@@ -1,4 +1,4 @@
-{$GOBBLER_DOMAIN} {
+mygobbler.us {
   encode zstd gzip
   reverse_proxy app:3000 {
     # The app trusts exactly this proxy hop. Overwrite client-supplied IPs.
@@ -7,6 +7,19 @@
   }
 }
 
-www.{$GOBBLER_DOMAIN} {
-  redir https://{$GOBBLER_DOMAIN}{uri} permanent
+www.mygobbler.us, www.vtevents.us {
+  redir https://mygobbler.us{uri} 308
+}
+
+vtevents.us {
+  # Discord still delivers signed interactions to its registered legacy URL.
+  handle /api/discord/interactions {
+    reverse_proxy app:3000 {
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Real-IP {remote_host}
+    }
+  }
+  handle {
+    redir https://mygobbler.us{uri} 308
+  }
 }

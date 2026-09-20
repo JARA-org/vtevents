@@ -18,7 +18,7 @@ compose=$(realpath "$compose")
 release=$(dirname "$(dirname "$compose")")
 export GOBBLER_IMAGE
 GOBBLER_IMAGE=$(docker inspect --format '{{.Config.Image}}' "$current")
-export GOBBLER_DOMAIN=vtevents.us
+export GOBBLER_DOMAIN=mygobbler.us
 backup=$(mktemp "$release/.env.production.before-assistant.XXXXXX")
 cp -- "$release/.env.production" "$backup"
 rollback() {
