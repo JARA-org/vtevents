@@ -48,6 +48,7 @@ export async function collectPublicSource(
   repository: PublicSourceRepository,
   fetcher: PublicPageFetcher,
 ): Promise<PublicSourceBatch> {
+  const parserVersion = source.kind === "sports" ? `${PARSER_VERSION}-sport-titles-v1` : PARSER_VERSION;
   const prior = await repository.pages(source.id),
     pages = new Map(prior.map((p) => [p.url, p]));
   const before = semanticHash(
@@ -78,7 +79,7 @@ export async function collectPublicSource(
     seen.add(url);
     const old = pages.get(url);
     try {
-      const response = await fetcher.read(url, source.allowedHosts, old?.parserVersion===PARSER_VERSION ? old : undefined);
+      const response = await fetcher.read(url, source.allowedHosts, old?.parserVersion===parserVersion ? old : undefined);
       let parsed = old
         ? { events: old.events, deadlines: old.deadlines, links: old.links }
         : ({ events: [], deadlines: [], links: [] } as Pick<
@@ -181,7 +182,7 @@ export async function collectPublicSource(
         return prior && semanticHash(prior) === semanticHash(d) ? prior : d;
       });
       const page: PublicPageCache = {
-        parserVersion: PARSER_VERSION,
+        parserVersion,
         url,
         hash: response.hash,
         etag: response.etag,

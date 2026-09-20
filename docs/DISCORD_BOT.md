@@ -170,6 +170,15 @@ The full-date requirement above is superseded. Today/tomorrow and reasonably res
 
 ## Current worker behavior (supersedes earlier polling and budget descriptions)
 
+An operator can temporarily disable the two server spending caps by setting
+`discord_extraction_overrides` document `_id` to the exact Discord server ID and
+`capsDisabled: true` in backend storage. There is no public write endpoint for
+this setting. Missing/false retains the configured caps; storage errors fail
+closed. Usage still accumulates, and revision idempotency, eligibility, exclusions,
+input bounds and provider limits still apply. `/gobbler status` reports the
+override. Delete the document or set it false to restore caps against recorded
+usage. This is an explicit operator exception for demos, never a model decision.
+
 Gateway message creation/edits and explicit submissions queue eligible messages. Three backend worker lanes process distinct messages concurrently; leases and message locks serialize each message. Defaults: 20 AI attempts per server per UTC day and 5 per UTC hour, including edits and failures. Configure DISCORD_AI_GUILD_DAILY_LIMIT and DISCORD_AI_GUILD_HOURLY_LIMIT, then restart. No app-wide or per-message spending caps apply. Atomic quota reservations and revision deduplication remain enforced across workers.
 
 ## Append messages and read flyers

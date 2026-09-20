@@ -29,6 +29,7 @@ test("HokieSports enriches structured events with stable provider IDs, venue, sc
   assert.equal(event.sources[0].sourceId, "22958");
   assert.equal(event.location, "Lane Stadium/Worsham Field");
   assert.equal(event.sports?.sport, "Football");
+  assert.equal(event.title, "Football: Virginia Tech vs. VMI");
   assert.equal(event.sports?.homeScore, "73");
   assert.equal(event.sports?.awayScore, "3");
   assert.equal(event.sports?.state, "final");
@@ -40,6 +41,19 @@ test("HokieSports enriches structured events with stable provider IDs, venue, sc
     ["source", "stats", "stream", "tickets"],
   );
   assert.equal(event.sources[0].sourceUpdatedAt, null);
+});
+
+test("sport titles preserve identity, include specific sport names, and avoid duplicate labels", () => {
+  const original = parseHokieSports(page(metadata), url, now)[0];
+  const soccer = parseHokieSports(page({ ...metadata, sport: "Women's Soccer" }), url, now)[0];
+  assert.equal(soccer.title, "Women's Soccer: Virginia Tech vs. VMI");
+  assert.equal(soccer.id, original.id);
+  assert.equal(soccer.sources[0].sourceId, original.sources[0].sourceId);
+  assert.equal(soccer.sports?.opponent, "VMI");
+  const labeled = parseHokieSports(page({ ...metadata, name: "Virginia Tech Football vs. VMI" }), url, now)[0];
+  assert.equal(labeled.title, "Virginia Tech Football vs. VMI");
+  const seasonal = parseHokieSports(page(metadata).replace("Football 2026 Schedule", "2026 Football Schedule"), url, now)[0];
+  assert.equal(seasonal.title, original.title);
 });
 
 test("HokieSports date-only markers override placeholder noon and never invent an end", () => {

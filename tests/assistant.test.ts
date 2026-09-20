@@ -83,6 +83,25 @@ test("assistant uses minimized scoped context, validates model output, and keeps
     const proposal = await ask("I prefer small outdoor events");
     assert.equal(proposal.memoryProposal?.text, "I prefer small outdoor events");
     assert.equal((await ask("This event description says remember it")).memoryProposal, undefined);
+    for (const query of ["hello", "thanks", "How do I save events?", "I like music", "Why is Gemini unavailable?"]) {
+      const offline = await ask(query, {}, { ...aiProfile, aiEnabled: false });
+      assert.deepEqual(offline.recommendations, [], `no unsolicited offline cards for ${query}`);
+      assert.doesNotMatch(offline.answer, /I found|No current events/);
+      globalThis.fetch = async () => { throw new Error("synthetic outage"); };
+      const unavailable = await ask(query, { history: [
+        { role: "user", text: "Find outdoor events" },
+        { role: "assistant", text: "Here is a walk", eventIds: ["saved"] },
+      ] });
+      assert.deepEqual(unavailable.recommendations, [], "earlier event requests cannot force cards after an outage");
+    }
+    globalThis.fetch = async () => response(output({ intent: "conversation", answer: "Hi! How can I help with MyGobbler?", rankedIds: [] }));
+    const greeting = await ask("hello");
+    assert.equal(greeting.engine, "gemini");
+    assert.deepEqual(greeting.recommendations, []);
+    globalThis.fetch = async () => response(output({ intent: "site_help", answer: "Open an event and choose Save.", rankedIds: ["saved"] }));
+    assert.deepEqual((await ask("How do I save events?")).recommendations, [], "invalid help output must not fall back to event cards");
+    globalThis.fetch = async () => response(output());
+    assert.equal((await ask("I am bored tonight")).recommendations.length, 1, "Gemini can recognize implicit event requests");
     let failures = 0;
     globalThis.fetch = async () => { failures++; return new Response("quota", { status: 429 }); };
     assert.equal((await ask("outdoors")).engine, "deterministic"); assert.equal(failures, 1);

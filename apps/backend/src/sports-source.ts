@@ -42,6 +42,15 @@ function link(value: unknown, base: string): string | undefined {
 const digest = (value: string) =>
   createHash("sha256").update(value).digest("hex").slice(0, 24);
 
+/** Pure display title from provider evidence. No I/O or authorization effects;
+ * missing sport preserves the title, repeated calls never duplicate a prefix.
+ * Source identity and row matching continue to use the original provider title. */
+function sportsTitle(title: string, sport: string): string {
+  const escaped = sport.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return !sport || new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}(?=$|[^\\p{L}\\p{N}])`, "iu").test(title)
+    ? title : `${sport}: ${title}`;
+}
+
 /** Pure discovery of official schedule links from fetched HTML. No effects, permissions,
  * retries or transaction; malformed/off-origin links are excluded, repeated calls are stable. */
 export function discoverSportsSchedules(html: string, url: string): string[] {
@@ -106,7 +115,7 @@ export function parseHokieSports(
   const events = new Map<string, CampusEvent>();
   const rows = $(".schedule-event-block").toArray();
   const sportFromPage =
-    clean($("h1").first().text()).replace(
+    clean($("h1").first().text()).replace(/^\d{4}(?:-\d{2,4})?\s+/, "").replace(
       /\s+(?:\d{4}(?:-\d{2,4})?\s+)?Schedule.*$/i,
       "",
     ) ||
@@ -245,7 +254,7 @@ export function parseHokieSports(
     const updated = DateTime.fromISO(text(x.dateModified));
     const event: CampusEvent = {
       id: `vt-sports-${digest(sourceId)}`,
-      title,
+      title: sportsTitle(title, sports.sport),
       description: [
         clean(x.description),
         clean(row.find(".schedule-default-team__promo-title").text()),

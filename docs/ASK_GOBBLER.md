@@ -59,7 +59,13 @@ projection as authenticated discovery, including source withdrawal checks, curre
 Discord eligibility, interest ranking, date filters and exclusion of cancellations.
 Malformed output, unknown/duplicate IDs, inconsistent filters, provider errors,
 timeouts, missing consent/configuration, unavailable budget storage and exhausted
-quotas return an explicit deterministic notice and current-catalog results.
+quotas return an explicit deterministic notice. Current-catalog cards are returned
+only for explicit discovery commands or short date/category filters; otherwise
+the fallback offers navigation without an unsolicited event list. Gemini handles
+implicit requests such as "I'm bored tonight" and contextual follow-ups. Greetings,
+thanks, site help and preference statements return no cards. Prior event requests
+do not make later unrelated messages into discovery requests. Operational logs
+record only failure categories and provider status codes, never chat content.
 
 Discover, Saved and Preferences use real site navigation. Event cards reuse the
 existing Save/Unsave and details flows. Save handlers revalidate event existence;
