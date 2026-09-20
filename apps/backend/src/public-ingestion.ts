@@ -10,7 +10,7 @@ import type {
 import { parsePublicPage } from "./public-page-parser.js";
 import { normalizeICS } from "./sources.js";
 import { parseHokieSports, discoverSportsSchedules } from "./sports-source.js";
-import { eventSchema, deadlineSchema } from "./domain.js";
+import { parseStoredEvent, parseStoredDeadline } from "./domain.js";
 const PARSER_VERSION = "public-events-2026-09-19-v3";
 
 /** Content-only revisions: fetching/checking/generated ICS timestamps never create event revisions. */
@@ -131,9 +131,39 @@ export async function collectPublicSource(
         )
           throw new Error("Previously recognized page no longer parses");
       }
-      parsed.events=parsed.events.map(e=>({...e,...eventSchema.parse(e)}));
-      parsed.deadlines=parsed.deadlines.map(d=>deadlineSchema.parse(d));
-      const oldEvents = new Map((old?.events || []).map((e) => [e.id, e]));
+      // Validate each record on its own. A supplier that emits one unusable
+      // record must not discard the rest of a page, and a page cache written
+      // before absent fields stopped being stored as null is repaired here
+      // rather than failing this source on every later pass.
+      const keptEvents: typeof parsed.events = [];
+      const keptDeadlines: typeof parsed.deadlines = [];
+      let rejected = 0;
+      for (const event of parsed.events) {
+        const record = parseStoredEvent(event);
+        if (record) keptEvents.push(record);
+        else rejected++;
+      }
+      for (const deadline of parsed.deadlines) {
+        const record = parseStoredDeadline(deadline);
+        if (record) keptDeadlines.push(record);
+        else rejected++;
+      }
+      if (rejected) {
+        // Identifiers and counts only: never supplier text in a log line.
+        console.warn("public_records_rejected", JSON.stringify({ source: source.id, url, rejected }));
+        errors++;
+      }
+      parsed.events = keptEvents;
+      parsed.deadlines = keptDeadlines;
+      // Prior records are repaired before comparison so that removing a legacy
+      // null placeholder is not mistaken for a content change: the record keeps
+      // its existing revision while the stored copy is written back clean.
+      const oldEvents = new Map(
+        (old?.events || []).flatMap((e) => {
+          const record = parseStoredEvent(e);
+          return record ? [[record.id, record] as const] : [];
+        }),
+      );
       parsed.events = parsed.events.map((e) => {
         const prior = oldEvents.get(e.id);
         return prior && semanticHash(prior) === semanticHash(e)
@@ -141,7 +171,10 @@ export async function collectPublicSource(
           : { ...e, revision: semanticHash(e) };
       });
       const oldDeadlines = new Map(
-        (old?.deadlines || []).map((d) => [d.id, d]),
+        (old?.deadlines || []).flatMap((d) => {
+          const record = parseStoredDeadline(d);
+          return record ? [[record.id, record] as const] : [];
+        }),
       );
       parsed.deadlines = parsed.deadlines.map((d) => {
         const prior = oldDeadlines.get(d.id);

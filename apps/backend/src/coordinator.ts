@@ -128,8 +128,16 @@ export async function replaceSourceSnapshot(
     deadlines.some((d) => d.sources.some((s) => s.source !== definition.source))
   )
     throw new Error("Source snapshot identity mismatch");
-  if (!events.length && !deadlines.length)
+  // Last gate before persistence. A supplier cannot write a record that later
+  // reads cannot represent, whatever it produced upstream. Individual unusable
+  // records are excluded and counted rather than failing the whole snapshot,
+  // and a source that yields nothing usable is reported, never committed empty.
+  const checkedEvents = readStored(events, parseStoredEvent, source);
+  const checkedDeadlines = readStored(deadlines, parseStoredDeadline, source);
+  if (!checkedEvents.length && !checkedDeadlines.length)
     throw new Error("The source returned no validated records");
+  events = checkedEvents;
+  deadlines = checkedDeadlines;
   if (
     Buffer.byteLength(JSON.stringify({ events, deadlines })) >
     12 * 1024 * 1024
