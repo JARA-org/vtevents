@@ -33,6 +33,8 @@ export type CalendarProvider = "google" | "canvas";
 export type SourceName =
   "gobblerconnect" | "vt-sports" | "vt-events" | "canvas" | "discord";
 export interface SourceReference extends Extensible {
+  providerId?: string;
+  label?: string;
   source: SourceName;
   sourceId: Id;
   url: string;
@@ -42,6 +44,14 @@ export interface SourceReference extends Extensible {
 }
 /** Existing event fields remain present even when richer optional fields arrive. */
 export interface CampusEvent extends Extensible {
+  media?: EventMedia[];
+  admission?: { price?: string; currency?: string; free?: boolean; availability?: string };
+  audience?: string[];
+  address?: string;
+  registrationUrl?: string;
+  organizerUrl?: string;
+  ownerCorrected?: boolean;
+  aliases?: string[];
   id: Id;
   title: string;
   description: string;
@@ -177,12 +187,14 @@ export interface DiscoveryRequest {
   dateFilter?: "Any day" | "Today" | "This week" | "Weekend";
 }
 export interface DiscoveryView extends Extensible {
+  sportsTicker?: CampusEvent[];
   recommendations: Recommendation[];
   filtered: Recommendation[];
   savedRecommendations: Recommendation[];
   schedule: Recommendation[];
 }
 export interface AssistantReply extends Extensible {
+  publicMemory?: PublicMemoryView;
   engine: string;
   notice: string;
   answer: string;
@@ -269,6 +281,10 @@ export interface Operation<Input, Output> {
   output: Output;
 }
 export interface HttpApi {
+  /** GET /api/public-memory?q=... Authenticated public history query. No model/refresh effects, no private context. */
+  searchPublicMemory: Operation<{ query: string }, PublicMemoryView>;
+  /** GET /api/deadlines. Authenticated public deadline query; no refresh/model effects. */
+  listDeadlines: Operation<void, { deadlines: CampusDeadline[] }>;
   /** PATCH /api/clubs/events/:eventId. Authenticated owner correction of published Discord event; revision checked, audited, no provider writes. */
   editClubEvent: Operation<ClubEventEdit, CampusEvent>;
   /** GET /api/clubs/mine. Session-scoped owned clubs, no side effects. */
@@ -576,6 +592,7 @@ export interface RequestContext {
   actor: { kind: "user"; userId: Id } | { kind: "worker"; jobId: Id };
   now: Instant;
 }
+
 export interface SourceRecord extends Extensible {
   source: string;
   sourceId: Id;
@@ -1217,4 +1234,152 @@ export interface DiscordTriggerQueue {
   claim(): Promise<DiscordMessageJob | null>;
   /** Completes/reschedules the claimed revision without deleting newer edits. No AI; safe after crashes via lease expiry. */
   finish(job: DiscordMessageJob, retryMs?: number): Promise<void>;
+}
+
+/** Backend-only agent identity. A role is operator policy, never an LLM assertion. */
+export type AgentRole = "vt-events" | "gobblerconnect" | "vt-sports" | "discord" | "canvas" | "google-calendar" | "coordinator" | "assistant";
+export interface AnsPeerPin {
+  role: AgentRole;
+  agentId: string;
+  host: string;
+  version: string;
+  ansName: string;
+}
+export interface AnsVerifierConfig {
+  peers: AnsPeerPin[];
+  /** Operator-pinned HTTPS origins; DNS cannot add trust roots. */
+  trustedTransparencyOrigins: string[];
+}
+export interface AnsTransportIdentity {
+  /** Supplied ONLY by a trusted TLS adapter after chain/possession verification, never from HTTP JSON/headers. */
+  authorized: boolean;
+  certificatePem: string;
+}
+export interface AnsVerifiedIdentity {
+  role: AgentRole;
+  agentId: string;
+  ansName: string;
+  fingerprint: string;
+  status: "ACTIVE" | "WARNING" | "DEPRECATED";
+  checkedAt: Instant;
+  method: "mtls";
+  tier: "badge";
+}
+export interface AnsVerificationService {
+  /** Trusted backend transport only. Verifies pinned peer against live DNS/TL badge and TLS certificate. DNS/HTTPS reads, no AI/provider writes. Throws on missing/malformed/revoked/unavailable evidence. No stale fallback or persistent acceptance cache. */
+  verifyCaller(role: AgentRole, transport: AnsTransportIdentity): Promise<AnsVerifiedIdentity>;
+}
+export interface AgentHandoff {
+  sender: AgentRole;
+  recipient: AgentRole;
+  kind: "public_events" | "private_context" | "recommendations" | "calendar_write";
+  visibility: "public" | "user";
+  /** Mandatory for private context. Must match the authenticated receiving user's scope. */
+  userId?: Id;
+}
+export interface AgentHandoffPolicy {
+  /** Pure role/scope authorization, separate from identity and content validation. No AI, reads or writes. Calendar writes always denied here; existing explicit-user-confirmation path owns them. */
+  authorize(handoff: AgentHandoff, receivingUserId?: Id): void;
+}
+/** Appendix-B Trust Index payload. Parsing this shape is NOT signature verification or authorization. */
+export interface AgentTrustEvaluation {
+  agentId: string;
+  evaluationTime: Instant;
+  trustVector: { integrity: number; identity: number; solvency: number; behavior: number; safety: number };
+  recommendedProfile: "READ_ONLY" | "TRANSACTIONAL" | "FIDUCIARY" | "UNTRUSTED";
+  riskFactors: string[];
+  verificationTier?: "BRONZE" | "SILVER" | "GOLD";
+}
+
+/** Public source media references only; backend validates URLs, no binary data or automatic embedding. */
+export interface EventMedia {
+  url: string;
+  kind: "image" | "video";
+  alt?: string;
+  credit?: string;
+  sourceUrl?: string;
+}
+export interface CampusDeadline extends Extensible {
+  id: Id;
+  title: string;
+  description: string;
+  dueDate: LocalDate;
+  dueAt?: Instant;
+  timezone: string;
+  audience?: string[];
+  term?: string;
+  submissionUrl?: string;
+  sources: SourceReference[];
+  updatedAt: Instant;
+  status: "active" | "withdrawn";
+  media?: EventMedia[];
+}
+export interface PublicSourceDefinition {
+  id: string;
+  label: string;
+  source: "gobblerconnect" | "vt-sports" | "vt-events";
+  seeds: string[];
+  allowedHosts: string[];
+  kind: "ics" | "sports" | "events" | "deadlines" | "mixed";
+  intervalMs: number;
+  maxPages: number;
+}
+export interface PublicPageResult {
+  url: string;
+  hash: string;
+  etag?: string;
+  lastModified?: string;
+  checkedAt: Instant;
+  changed: boolean;
+  body?: string;
+  removed?: boolean;
+}
+export interface PublicPageCache {
+  parserVersion?: string;
+  url: string;
+  hash: string;
+  etag?: string;
+  lastModified?: string;
+  checkedAt: Instant;
+  events: CampusEvent[];
+  deadlines: CampusDeadline[];
+  links: string[];
+}
+export interface PublicSourceBatch {
+  events: CampusEvent[];
+  deadlines: CampusDeadline[];
+  changed: boolean;
+  checkedAt: Instant;
+  pagesChecked: number;
+  changedPages: number;
+  errors: number;
+  hasMore: boolean;
+}
+export interface PublicSourceRepository {
+  /** Backend-only reads of committed page records; no effects. */
+  pages(sourceId: string): Promise<PublicPageCache[]>;
+  /** Upsert one successfully parsed page revision atomically; unchanged pages retain records. No cross-page transaction. */
+  savePage(sourceId: string, page: PublicPageCache): Promise<void>;
+}
+export interface PublicPageFetcher {
+  /** Conditional bounded HTTPS read of operator-allowlisted public URLs. No credentials, model calls or persistence. Throws on errors; 404/410 explicitly marks removal. */
+  read(url: string, allowedHosts: string[], previous?: PublicPageCache): Promise<PublicPageResult>;
+}
+
+/** Evidence-derived public organizer history; never establishes a claim or scrapes membership. */
+export interface PublicClubMemory {
+  id: string;
+  name: string;
+  clubId?: string;
+  sourceUrls: string[];
+  eventIds: string[];
+  firstSeenAt: Instant;
+  lastSeenAt: Instant;
+  description: string;
+  verified: boolean;
+}
+export interface PublicMemoryView {
+  events: CampusEvent[];
+  deadlines: CampusDeadline[];
+  clubs: PublicClubMemory[];
 }

@@ -60,6 +60,7 @@ export function discoverEvents(
     saved.includes(event.id),
   );
   return {
+    sportsTicker: input.category === "Sports" ? events.filter(e=>e.sports && e.status!=="cancelled" && (e.sports.state==="live" || DateTime.fromISO(e.start)>=today.startOf("day"))).sort((a,b)=>Number(b.sports?.state==="live")-Number(a.sports?.state==="live")||a.start.localeCompare(b.start)).slice(0,8) : [],
     recommendations: ranked,
     filtered,
     savedRecommendations,

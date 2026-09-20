@@ -16,5 +16,5 @@ const stopDiscord = startDiscordCollection();
 process.once("SIGTERM", () => {
   void stopDiscord().finally(() => process.exit(0));
 });
-setInterval(() => background(runJobs, "refresh"), 3600000).unref();
+setInterval(() => background(runJobs, "refresh"), 60000).unref();
 setInterval(() => background(flushAnalytics, "analytics"), 60000).unref();

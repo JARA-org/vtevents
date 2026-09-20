@@ -1,6 +1,7 @@
 import ical from "node-ical";
 import { load } from "cheerio";
-import { DateTime } from "luxon";
+import { parseHokieSports } from "./sports-source.js";
+import { consolidateEvents } from "./event-consolidation.js";
 import { CampusEvent, eventSchema, categories, CAMPUS_TZ } from "./domain.js";
 import { hash } from "./security.js";
 import { remote } from "./config.js";
@@ -26,7 +27,7 @@ export function classify(s: string): CampusEvent["categories"] {
 }
 export function normalizeICS(
   raw: string,
-  source: "gobblerconnect" | "vt-sports",
+  source: "gobblerconnect" | "vt-sports" | "vt-events",
   url: string,
   now = new Date(),
 ): CampusEvent[] {
@@ -38,10 +39,16 @@ export function normalizeICS(
       title = text(e.summary),
       description = load(text(e.description)).text().trim(),
       location = text(e.location);
+    const descriptionHtml=load(text(e.description));
+    const safe=(value:unknown)=>{try{if(typeof value!=="string"||!value)return undefined;const u=new URL(value,url);return /^https?:$/.test(u.protocol)&&!u.username&&!u.password?u.href:undefined;}catch{return undefined;}};
+    const media=descriptionHtml("img[src]").toArray().flatMap(node=>{const image=safe(descriptionHtml(node).attr("src"));return image?[{url:image,kind:"image" as const,alt:descriptionHtml(node).attr("alt"),sourceUrl:safe(text(e.url))||url}]:[];}).slice(0,30);
+    const links=descriptionHtml("a[href]").toArray().flatMap(node=>{const link=safe(descriptionHtml(node).attr("href"));return link?[{url:link,label:descriptionHtml(node).text().trim().slice(0,300)||"Event link",kind:"other" as const}]:[];}).slice(0,50);
     const parsed = eventSchema.safeParse({
       id: `${source}-${hash(e.uid).slice(0, 24)}`,
       title,
       description: description.slice(0, 12000),
+      media,
+      links,
       start: e.start.toISOString(),
       end: e.end && e.end > e.start ? e.end.toISOString() : null,
       timezone: e.start.tz || CAMPUS_TZ,
@@ -71,42 +78,7 @@ export function normalizeICS(
   }
   return events;
 }
-export function deduplicate(events: CampusEvent[]): CampusEvent[] {
-  const groups = new Map<string, CampusEvent>();
-  for (const e of events) {
-    const key = [
-      e.title.toLowerCase().replace(/[^a-z0-9]/g, ""),
-      e.start,
-      (e.location || "").toLowerCase().replace(/[^a-z0-9]/g, ""),
-    ].join("|");
-    const old = groups.get(key);
-    if (!old) {
-      groups.set(key, { ...e, sources: [...e.sources] });
-      continue;
-    }
-    const newer = e.updatedAt > old.updatedAt ? e : old;
-    groups.set(key, {
-      ...newer,
-      onlineUrl:
-        newer.onlineUrl !== undefined
-          ? newer.onlineUrl
-          : (newer === e ? old : e).onlineUrl,
-      isOnline:
-        newer.isOnline !== undefined
-          ? newer.isOnline
-          : (newer === e ? old : e).isOnline,
-      id: old.id,
-      sources: [...old.sources, ...e.sources].filter(
-        (s, i, a) =>
-          a.findIndex(
-            (t) => t.source === s.source && t.sourceId === s.sourceId,
-          ) === i,
-      ),
-      categories: [...new Set([...old.categories, ...e.categories])],
-    });
-  }
-  return [...groups.values()];
-}
+export function deduplicate(events: CampusEvent[]): CampusEvent[] { return consolidateEvents(events); }
 export async function fetchGobbler() {
   const first = await fetch(GOBBLER_FEED, {
     redirect: "manual",
@@ -127,60 +99,7 @@ export async function fetchGobbler() {
 }
 // Consume only structured metadata publicly embedded in the official schedule.
 // If the provider removes it, fail explicitly instead of guessing an internal API.
-export function parseSports(html: string, url: string) {
-  const $ = load(html),
-    events: CampusEvent[] = [];
-  $('script[type="application/ld+json"]').each((_, s) => {
-    try {
-      const root = JSON.parse($(s).text());
-      const walk = (x: any) => {
-        if (!x || typeof x !== "object") return;
-        if (
-          (x["@type"] === "SportsEvent" || x["@type"] === "Event") &&
-          x.startDate
-        ) {
-          const start = DateTime.fromISO(x.startDate, { zone: CAMPUS_TZ });
-          const end = x.endDate
-            ? DateTime.fromISO(x.endDate, { zone: CAMPUS_TZ })
-            : null;
-          const p = eventSchema.safeParse({
-            id:
-              "vt-sports-" +
-              hash(x["@id"] || x.url || x.name + x.startDate).slice(0, 24),
-            title: x.name,
-            description: load(x.description || "").text(),
-            start: start.toUTC().toISO(),
-            end: end?.isValid ? end.toUTC().toISO() : null,
-            timezone: CAMPUS_TZ,
-            location: x.location?.name || null,
-            organizer: "Virginia Tech Athletics",
-            categories: ["Sports"],
-            sources: [
-              {
-                source: "vt-sports",
-                sourceId: x["@id"] || x.url || x.name + x.startDate,
-                url: x.url || url,
-                fetchedAt: new Date().toISOString(),
-              },
-            ],
-            updatedAt: new Date().toISOString(),
-            status: /cancel/i.test(x.eventStatus || "")
-              ? "cancelled"
-              : "scheduled",
-            mode: "live",
-            timeTBD: x.eventSchedule?.startTime === "00:00:00",
-          });
-          if (p.success) events.push(p.data);
-        }
-        for (const v of Object.values(x))
-          if (typeof v === "object")
-            Array.isArray(v) ? v.forEach(walk) : walk(v);
-      };
-      walk(root);
-    } catch {}
-  });
-  return deduplicate(events);
-}
+export function parseSports(html: string, url: string) { return parseHokieSports(html, url); }
 export async function fetchSports() {
   const index = "https://hokiesports.com/all-sports-schedule";
   const html = await (await remote(index)).text(),

@@ -93,6 +93,8 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
     );
     for (const path of [
       "/api/events",
+      "/api/deadlines",
+      "/api/public-memory?q=workshop",
       "/api/events/live-test-1/ics",
       "/api/recommendations",
     ]) {

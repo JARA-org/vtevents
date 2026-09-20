@@ -16,6 +16,7 @@ import {
 } from "./discord-event-rules.js";
 import { discordBotRepository } from "./discord-bot-store.js";
 import { discordAnnouncements } from "./discord-announcements.js";
+import { agentHandoffPolicy } from "./agent-policy.js";
 const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 const eventId = (key: string) => "discord-" + hash(key).slice(0, 32);
 const valuesSchema = z
@@ -60,6 +61,7 @@ const corrections = () =>
   database().collection<Override>("discord_event_corrections");
 export const discordPublication: DiscordPublicationService = {
   async list(input) {
+    agentHandoffPolicy.authorize({sender:"discord",recipient:"coordinator",kind:"public_events",visibility:"public"});
     if (!db) return [];
     const result: Awaited<ReturnType<DiscordPublicationService["list"]>> = [];
     const rows = database()
@@ -143,6 +145,7 @@ export const discordPublication: DiscordPublicationService = {
           endEstimated: false,
         }),
         clubId: club._id,
+        ownerCorrected: !!override,
         revision,
         timeDetails: {
           precision: "date_only" as const,

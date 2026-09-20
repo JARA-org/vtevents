@@ -53,6 +53,8 @@ async function request<K extends keyof HttpApi>(
 }
 const id = encodeURIComponent;
 export const backend: BackendClient = {
+  searchPublicMemory: ({query}) => request<"searchPublicMemory">(`/public-memory?q=${encodeURIComponent(query)}`),
+  listDeadlines: () => request<"listDeadlines">("/deadlines"),
   editClubEvent: ({ eventId, ...input }) =>
     request<"editClubEvent">(`/clubs/events/${id(eventId)}`, "PATCH", input),
   myClubs: () => request<"myClubs">("/clubs/mine"),

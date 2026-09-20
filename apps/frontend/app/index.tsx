@@ -11,10 +11,12 @@ import {
   Share,
   ActivityIndicator,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type {
   CampusEvent,
+  CampusDeadline,
   Profile,
   Category,
   DiscoveryView,
@@ -182,6 +184,8 @@ export default function Home() {
     ),
     [deleteText, setDeleteText] = useState(""),
     [privateContext, setPrivateContext] = useState<PrivateContextView[]>([]),
+    [deadlines, setDeadlines] = useState<CampusDeadline[]>([]),
+    [deadlineStatus, setDeadlineStatus] = useState("Loading deadlines…"),
     [discovery, setDiscovery] = useState<DiscoveryView>({
       recommendations: [],
       filtered: [],
@@ -275,6 +279,21 @@ export default function Home() {
     if (user && page !== "landing" && page !== "auth")
       void run(() => loadEvents());
   }, [user, page === "landing", page === "auth"]);
+  useEffect(() => {
+    if (!user) { setDeadlines([]); return; }
+    if (page !== "discover") return;
+    let active = true;
+    setDeadlineStatus("Loading deadlines…");
+    backend.listDeadlines(undefined).then(data => {
+      if (active) {
+        setDeadlines(data.deadlines);
+        setDeadlineStatus(data.deadlines.length ? "" : "No deadlines are currently listed.");
+      }
+    }).catch(() => {
+      if (active) { setDeadlines([]); setDeadlineStatus("Deadlines are unavailable. Please try again later."); }
+    });
+    return () => { active = false; };
+  }, [user, page, events]);
   useEffect(() => {
     if (!user) return;
     let active = true;
@@ -409,6 +428,7 @@ export default function Home() {
     compact?: boolean;
   }) {
     const { event: e, fit, reason } = item;
+    const cover = e.media?.find(media => media.kind === "image");
     const accent = e.categories.includes("Outdoors")
       ? "#E4EEE5"
       : e.categories.includes("Arts & music")
@@ -428,6 +448,7 @@ export default function Home() {
           style={{ gap: 16 }}
         >
           <View style={[s.eventTop, { backgroundColor: accent }]}>
+            {cover && <Image source={{ uri: cover.url }} accessibilityLabel={cover.alt || e.title} resizeMode="cover" style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }} />}
             <View style={s.dateStamp}>
               <Text style={s.dateMonth}>
                 {date(e.start, "LLL").toUpperCase()}
@@ -439,7 +460,7 @@ export default function Home() {
                 e.categories.includes("Outdoors")
                   ? "leaf-outline"
                   : e.categories.includes("Sports")
-                    ? "american-football-outline"
+                    ? "trophy-outline"
                     : e.categories.includes("Arts & music")
                       ? "musical-notes-outline"
                       : "sparkles-outline"
@@ -453,6 +474,7 @@ export default function Home() {
           </View>
           <View style={{ paddingHorizontal: 20, gap: 9 }}>
             <Text style={s.eventTitle}>{e.title}</Text>
+            {e.sports && <Text style={s.meta}>{e.sports.sport}{e.sports.opponent ? ` · ${e.sports.opponent}` : ""}</Text>}
             <Text style={s.meta}>{eventTime(e)} ET</Text>
             <Text style={s.meta} numberOfLines={1}>
               <Ionicons name="location-outline" />{" "}
@@ -502,9 +524,7 @@ export default function Home() {
           ]}
         >
           <Text style={s.small}>
-            {e.sources[0].source === "gobblerconnect"
-              ? "GobblerConnect"
-              : "VT Sports"}
+            {e.sources[0]?.label || e.sources[0]?.source || "Campus listing"}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -964,6 +984,24 @@ export default function Home() {
                   />
                 ))}
               </ScrollView>
+              {!!discovery.sportsTicker?.length && (
+                <View style={{ gap: 10 }}>
+                  <Text style={s.sectionTitle}>HokieSports — latest source schedule</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ gap: 12 }}>
+                    {discovery.sportsTicker.map(event => (
+                      <Pressable key={event.id} accessibilityRole="button" accessibilityLabel={`View ${event.title}`} onPress={() => viewEvent(event)} style={[s.panel, { width: 290, gap: 8 }]}>
+                        <Text style={s.eyebrowText}>{event.sports?.sport || "HokieSports"}</Text>
+                        <Text style={s.eventTitle}>{event.title}</Text>
+                        {!!event.sports?.opponent && <Text style={s.meta}>Opponent: {event.sports.opponent}</Text>}
+                        <Text style={s.body}>{eventTime(event)} ET</Text>
+                        {!!event.sports?.state && <Text style={s.meta}>{event.sports.state}</Text>}
+                        {(event.sports?.homeScore != null || event.sports?.awayScore != null) && <Text style={s.body}>Home: {event.sports?.homeScore ?? "—"} · Away: {event.sports?.awayScore ?? "—"}</Text>}
+                        {!!event.sports?.checkedAt && <Text style={s.meta}>Source checked {date(event.sports.checkedAt)}</Text>}
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
               <View style={s.wrap}>
                 {["Any day", "Today", "This week", "Weekend"].map((d) => (
                   <Chip
@@ -1004,6 +1042,27 @@ export default function Home() {
                   your results.
                 </Text>
               )}
+              <View style={s.panel}>
+                <Text accessibilityRole="header" style={s.sectionTitle}>Dates to remember</Text>
+                <Text style={s.meta}>Academic, application and campus deadlines</Text>
+                {!!deadlineStatus && <Text accessibilityLiveRegion="polite" style={s.body}>{deadlineStatus}</Text>}
+                {deadlines.map(deadline => (
+                  <View key={deadline.id} style={{ gap: 8, paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.muted }}>
+                    <Text style={s.eventTitle}>{deadline.title}</Text>
+                    <Text style={s.body}>
+                      Due {DateTime.fromISO(deadline.dueDate, { zone: deadline.timezone }).toFormat("ccc, LLL d, yyyy")}
+                      {deadline.dueAt ? ` · ${DateTime.fromISO(deadline.dueAt).setZone(deadline.timezone).toFormat("h:mm a ZZZZ")}` : " · Time not specified"}
+                    </Text>
+                    {!!deadline.term && <Text style={s.meta}>{deadline.term}</Text>}
+                    {!!deadline.description && <Text style={s.body}>{deadline.description}</Text>}
+                    {!!deadline.audience?.length && <Text style={s.meta}>For {deadline.audience.join(" · ")}</Text>}
+                    <View style={s.wrap}>
+                      {deadline.submissionUrl && <Button secondary label="Submission details ↗" onPress={() => Linking.openURL(deadline.submissionUrl!)} />}
+                      {deadline.sources.map(source => <Button key={`${source.source}:${source.sourceId}`} secondary label={`${source.label || source.source} ↗`} onPress={() => Linking.openURL(source.url)} />)}
+                    </View>
+                  </View>
+                ))}
+              </View>
             </>
           )}
           {selected && (
@@ -1026,21 +1085,38 @@ export default function Home() {
               </Pressable>
               <View style={s.panel}>
                 <Text style={s.eyebrowText}>
-                  {selected.sources[0].source.toUpperCase()}
+                  {(selected.sources[0]?.label || selected.sources[0]?.source || "Campus listing").toUpperCase()}
                 </Text>
                 <Text accessibilityRole="header" style={s.pageTitle}>
                   {selected.title}
                 </Text>
                 <Text style={s.body}>
                   {eventTime(selected)}
-                  {selected.end ? " – " + date(selected.end, "h:mm a") : ""} ET
+                  {selected.end && !selected.timeTBD && !selected.allDay && !selected.endEstimated ? " – " + date(selected.end, "h:mm a") : ""} ET
                 </Text>
+                {selected.timeDetails?.note && <Text style={s.meta}>{selected.timeDetails.note}</Text>}
+                {selected.media?.map((media, index) => media.kind === "image" ? (
+                  <View key={`${media.url}:${index}`} style={{ gap: 5 }}>
+                    <Image source={{ uri: media.url }} accessibilityLabel={media.alt || selected.title} resizeMode="contain" style={{ width: "100%", height: mobile ? 230 : 380, borderRadius: 14 }} />
+                    {!!media.credit && <Text style={s.meta}>{media.credit}</Text>}
+                  </View>
+                ) : <Button key={`${media.url}:${index}`} secondary label={media.alt || "Watch event video ↗"} onPress={() => Linking.openURL(media.url)} />)}
+                {selected.sports && (
+                  <View style={{ gap: 7 }}>
+                    <Text style={s.sectionTitle}>{selected.sports.sport}</Text>
+                    {!!selected.sports.opponent && <Text style={s.body}>Opponent: {selected.sports.opponent}</Text>}
+                    <Text style={s.meta}>{selected.sports.venueType} · {selected.sports.state}</Text>
+                    {(selected.sports.homeScore != null || selected.sports.awayScore != null) && <Text style={s.body}>Home: {selected.sports.homeScore ?? "—"} · Away: {selected.sports.awayScore ?? "—"}</Text>}
+                    {(selected.sports.period || selected.sports.clock) && <Text style={s.meta}>{selected.sports.period} {selected.sports.clock}</Text>}
+                  </View>
+                )}
                 <Text style={s.body}>
                   {selected.location ||
                     (selected.isOnline || selected.onlineUrl
                       ? "Online event"
                       : "Location not published. Check the original source.")}
                 </Text>
+                {!!selected.address && <Text style={s.meta}>{selected.address}</Text>}
                 {selected.onlineUrl && (
                   <Button
                     label="Join online"
@@ -1056,6 +1132,14 @@ export default function Home() {
                 <Text style={[s.body, { lineHeight: 28 }]}>
                   {selected.description}
                 </Text>
+                {selected.admission && <Text style={s.body}>Admission: {selected.admission.free === true ? "Free" : selected.admission.price || "See source for pricing"}{selected.admission.currency ? ` ${selected.admission.currency}` : ""}{selected.admission.availability ? ` · ${selected.admission.availability}` : ""}</Text>}
+                {!!selected.audience?.length && <Text style={s.meta}>For {selected.audience.join(" · ")}</Text>}
+                {!!selected.conflicts?.length && <Text style={{ color: C.orange }}>Sources report different details for {selected.conflicts.map(conflict => conflict.field).join(", ")}. Check the original listings; any club-owner corrections remain in place.</Text>}
+                <View style={s.wrap}>
+                  {selected.registrationUrl && <Button secondary label="Register ↗" onPress={() => Linking.openURL(selected.registrationUrl!)} />}
+                  {selected.links?.map((link, index) => <Button key={`${link.url}:${index}`} secondary label={`${link.label || link.kind} ↗`} onPress={() => Linking.openURL(link.url)} />)}
+                  {selected.sources.map(source => <Button key={`${source.source}:${source.sourceId}`} secondary label={`${source.label || source.source} ↗`} onPress={() => Linking.openURL(source.url)} />)}
+                </View>
                 <View style={s.fit}>
                   <Text style={s.body}>
                     {ranked.find((x) => x.event.id === selected.id)?.reason ||
@@ -1329,6 +1413,43 @@ export default function Home() {
                       <EventCard key={item.event.id} item={item} />
                     ))}
                   </View>
+                  {answer.publicMemory && (
+                    <View style={s.panel}>
+                      <Text accessibilityRole="header" style={s.sectionTitle}>Public history</Text>
+                      <Text style={s.meta}>Matching event, deadline and organizer records from public sources.</Text>
+                      {answer.publicMemory.events.map(event => (
+                        <View key={event.id} style={{ gap: 7, paddingVertical: 12 }}>
+                          <Text style={s.eventTitle}>{event.title}</Text>
+                          <Text style={s.meta}>{eventTime(event)} · {event.status}</Text>
+                          {!!event.description && <Text style={s.body}>{event.description}</Text>}
+                          <View style={s.wrap}>
+                            {event.sources.map(source => <Button key={`${source.source}:${source.sourceId}`} secondary label={`${source.label || source.source} ↗`} onPress={() => Linking.openURL(source.url)} />)}
+                          </View>
+                        </View>
+                      ))}
+                      {answer.publicMemory.deadlines.map(deadline => (
+                        <View key={deadline.id} style={{ gap: 7, paddingVertical: 12 }}>
+                          <Text style={s.eventTitle}>{deadline.title}</Text>
+                          <Text style={s.meta}>Due {DateTime.fromISO(deadline.dueDate, { zone: deadline.timezone }).toFormat("LLL d, yyyy")}{deadline.dueAt ? ` · ${DateTime.fromISO(deadline.dueAt).setZone(deadline.timezone).toFormat("h:mm a ZZZZ")}` : ""} · {deadline.status}</Text>
+                          {!!deadline.term && <Text style={s.meta}>{deadline.term}</Text>}
+                          {!!deadline.description && <Text style={s.body}>{deadline.description}</Text>}
+                          <View style={s.wrap}>
+                            {deadline.sources.map(source => <Button key={`${source.source}:${source.sourceId}`} secondary label={`${source.label || source.source} ↗`} onPress={() => Linking.openURL(source.url)} />)}
+                          </View>
+                        </View>
+                      ))}
+                      {answer.publicMemory.clubs.map(club => (
+                        <View key={club.id} style={{ gap: 7, paddingVertical: 12 }}>
+                          <Text style={s.eventTitle}>{club.name}</Text>
+                          <Text style={s.meta}>{club.verified ? "Verified organizer record" : "Public organizer record · ownership unverified"}</Text>
+                          {!!club.description && <Text style={s.body}>{club.description}</Text>}
+                          <View style={s.wrap}>
+                            {club.sourceUrls.map((url, index) => <Button key={`${url}:${index}`} secondary label={`Organizer source ${index + 1} ↗`} onPress={() => Linking.openURL(url)} />)}
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </>
               )}
             </>
@@ -1533,7 +1654,7 @@ export default function Home() {
                         <Text style={s.label}>
                           {key === "gobblerconnect"
                             ? "GobblerConnect"
-                            : "VT Sports"}{" "}
+                            : key === "vt-sports" ? "HokieSports" : key}{" "}
                           · {value.status}
                         </Text>
                         <Text style={s.meta}>

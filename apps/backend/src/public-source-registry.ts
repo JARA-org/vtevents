@@ -1,0 +1,127 @@
+import type { PublicSourceDefinition } from "../../../packages/shared/src/contracts.js";
+import { RESEARCH_SHEET_URL } from "./research-sheet.js";
+const hour = 3600000;
+const page = (
+  id: string,
+  label: string,
+  host: string,
+  seeds: string[],
+  kind: PublicSourceDefinition["kind"] = "events",
+  extra: string[] = [],
+): PublicSourceDefinition => ({
+  id,
+  label,
+  source: "vt-events",
+  seeds: seeds.map((p) => `https://${host}${p}`),
+  allowedHosts: [host, ...extra],
+  kind,
+  intervalMs: kind === "deadlines" ? 24 * hour : hour / 2,
+  maxPages: 20,
+});
+/** Operator-owned public seeds; no provider URL or trust roots accepted from browser/model input. */
+export const publicSources: PublicSourceDefinition[] = [
+  {
+    id: "gobblerconnect",
+    label: "GobblerConnect",
+    source: "gobblerconnect",
+    seeds: [
+      "https://gobblerconnect.vt.edu/ical/virginiatech/ical_virginiatech.ics",
+    ],
+    allowedHosts: [
+      "gobblerconnect.vt.edu",
+      "static-prod-us-east-1.campusgroups.com",
+    ],
+    kind: "ics",
+    intervalMs: hour / 2,
+    maxPages: 1,
+  },
+  page("vt-events", "Virginia Tech Events", "events.vt.edu", [
+    "/events.html",
+    "/sitemap.html",
+  ]),
+  {
+    id: "vt-sports",
+    label: "HokieSports",
+    source: "vt-sports",
+    seeds: ["https://hokiesports.com/all-sports-schedule"],
+    allowedHosts: ["hokiesports.com"],
+    kind: "sports",
+    intervalMs: hour / 2,
+    maxPages: 24,
+  },
+  page(
+    "registrar",
+    "Academic Deadlines",
+    "www.registrar.vt.edu",
+    ["/dates-deadlines/academic-calendar.html"],
+    "deadlines",
+    ["registrar.vt.edu"],
+  ),
+  page("libraries", "University Libraries", "calendar.lib.vt.edu", ["/"]),
+  page("arts", "Center for the Arts", "artscenter.vt.edu", [
+    "/performances.html",
+    "/exhibitions.html",
+  ]),
+  page(
+    "recreation",
+    "Recreational Sports",
+    "recsports.vt.edu",
+    ["/events.html"],
+    "mixed",
+    ["gobblerconnect.vt.edu"],
+  ),
+  page(
+    "career",
+    "Career and Professional Development",
+    "career.vt.edu",
+    ["/events/"],
+    "mixed",
+  ),
+  {id:"dining",label:"Dining Events",source:"gobblerconnect",seeds:["https://gobblerconnect.vt.edu/ical/virginiatech/ical_club_35584.ics"],allowedHosts:["gobblerconnect.vt.edu","static-prod-us-east-1.campusgroups.com"],kind:"ics",intervalMs:hour/2,maxPages:1},
+  page(
+    "housing",
+    "Housing Dates",
+    "housing.vt.edu",
+    ["/contracts/events.html"],
+    "mixed",
+  ),
+  page(
+    "financial-aid",
+    "Financial Aid Deadlines",
+    "finaid.vt.edu",
+    ["/prospectiveundergradhokies/dateanddeadlinestestpage.html"],
+    "deadlines",
+  ),
+  page(
+    "bursar",
+    "Payment Deadlines",
+    "www.bursar.vt.edu",
+    ["/tuition-fee-rates/tuitionduedates.html"],
+    "deadlines",
+    ["bursar.vt.edu"],
+  ),
+  page(
+    "cranwell",
+    "Cranwell International Center",
+    "international.vt.edu",
+    ["/calendar.html"],
+    "mixed",
+  ),
+  {...page("research","Research Events","www.research.vt.edu",["/events.html"],"mixed",["research.vt.edu","docs.google.com"]),seeds:[RESEARCH_SHEET_URL,"https://www.research.vt.edu/events.html"]},
+  page(
+    "undergraduate-research",
+    "Undergraduate Research",
+    "undergraduate.research.vt.edu",
+    ["/"],
+    "mixed",
+    ["www.undergraduate.research.vt.edu"],
+  ),
+  page(
+    "graduate",
+    "Graduate School Events",
+    "graduate.vt.edu",
+    ["/"],
+    "mixed",
+    ["www.graduate.vt.edu"],
+  ),
+];

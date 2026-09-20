@@ -22,7 +22,12 @@ export const categories = [
   "Food & fun",
 ] as const;
 const instant = z.string().datetime({ offset: true });
+const publicUrl = z.string().url().refine(v => /^https?:\/\//i.test(v) && !new URL(v).username && !new URL(v).password);
+export const mediaSchema = z.object({url:publicUrl,kind:z.enum(["image","video"]),alt:z.string().max(1000).optional(),credit:z.string().max(500).optional(),sourceUrl:publicUrl.optional()});
 export const sourceSchema = z.object({
+  providerId: z.string().optional(),
+  label: z.string().optional(),
+  sourceUpdatedAt: instant.nullable().optional(),
   source: z.enum([
     "gobblerconnect",
     "vt-sports",
@@ -39,6 +44,17 @@ export const sourceSchema = z.object({
 });
 export const eventSchema = z
   .object({
+    media: z.array(mediaSchema).max(30).optional(),
+    links: z.array(z.object({label:z.string().max(300),url:publicUrl,kind:z.enum(["source","tickets","stream","stats","recap","other"]),embeddable:z.boolean().optional()})).max(50).optional(),
+    sports: z.object({sport:z.string(),opponent:z.string().nullable(),venueType:z.enum(["home","away","neutral","unknown"]),state:z.enum(["upcoming","live","final","postponed","cancelled","unknown"]),homeScore:z.string().nullable().optional(),awayScore:z.string().nullable().optional(),period:z.string().nullable().optional(),clock:z.string().nullable().optional(),opponentLogoUrl:publicUrl.optional(),checkedAt:instant.optional()}).optional(),
+    timeDetails: z.object({precision:z.enum(["confirmed","date_only","start_only","end_only","unknown"]),startDate:z.string().optional(),endDate:z.string().optional(),note:z.string().optional(),confirmedStart:instant.nullable().optional(),confirmedEnd:instant.nullable().optional()}).optional(),
+    admission: z.object({price:z.string().optional(),currency:z.string().optional(),free:z.boolean().optional(),availability:z.string().optional()}).optional(),
+    audience: z.array(z.string()).max(30).optional(),
+    address: z.string().max(2000).optional(),
+    registrationUrl: publicUrl.optional(),
+    organizerUrl: publicUrl.optional(),
+    ownerCorrected: z.boolean().optional(),
+    aliases: z.array(z.string()).optional(),
     id: z.string().min(1),
     title: z.string().min(1).max(300),
     description: z.string().max(12000).default(""),
@@ -73,6 +89,14 @@ export const eventSchema = z
     (x) => !x.end || Date.parse(x.end) > Date.parse(x.start),
     "End must follow start",
   );
+
+export const deadlineSchema = z.object({
+  id:z.string().min(1),title:z.string().min(1).max(300),description:z.string().max(12000),
+  dueDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v=>DateTime.fromISO(v).isValid),
+  dueAt:instant.optional(),timezone:z.string().default(CAMPUS_TZ),audience:z.array(z.string()).max(30).optional(),
+  term:z.string().max(300).optional(),submissionUrl:publicUrl.optional(),sources:z.array(sourceSchema).min(1),
+  updatedAt:instant,status:z.enum(["active","withdrawn"]),media:z.array(mediaSchema).max(30).optional(),
+}).refine(v=>!v.dueAt||DateTime.fromISO(v.dueAt).setZone(v.timezone).toISODate()===v.dueDate,"Deadline date and cutoff disagree");
 
 export const recurringSchema = z
   .object({

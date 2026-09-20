@@ -1,5 +1,7 @@
 # Mandatory architecture rules
 
+ANS verifies remote identity, never content truth or permission. Keep operator-pinned identities and trust roots backend-only; use real authenticated transport evidence, never model/request/forwarded-header claims. Preserve role and authenticated-user scope checks even after verification. Trust Index scores cannot authorize writes or broaden visibility. Current local modules use policy checks; do not claim live ANS deployment without provisioning and wiring the remote transport described in docs/ANS.md.
+
 These instructions apply to every task and every directory in this repository.
 Read `packages/shared/src/contracts.ts` before changing any interface.
 
@@ -113,3 +115,9 @@ Read Master.md in root to understand ideas and specifications before making chan
 - Production Discord processing is driven by Gateway post/edit/delete events and explicit message submissions. Keep queue scheduling separate from AI, preserve revision idempotency and server budgets, and do not reintroduce periodic channel-history scans or automatic history backfill. Message Content Intent and AI credentials are explicit runtime prerequisites; status must expose disabled/unavailable states accurately.
 
 - Discord dates may be inferred from natural-language references using the original provider posting timestamp in campus timezone. Do not reinstate an explicit day/month/year requirement. Keep the timestamp separate from untrusted text; edits and delayed processing must not shift the reference date. Ambiguous dates stay unpublished, and backend checks validate evidence and basic calendar consistency.
+
+## Implemented source polling and public memory
+
+Public website ingestion must use the operator-owned public source registry, conditional public-fetch adapter and persisted page checkpoints. Do not reintroduce full snapshot replacement after partial scans, model calls for unchanged/structured data, arbitrary URL crawling, or invented event dates. Preserve event/deadline separation, source identity, rich optional fields, conflicts, owner corrections and partial/unavailable health. A failed or ambiguous source is not an empty authoritative snapshot.
+
+Public site-wide memory is evidence-derived website history, separate from user memory. Keep nested field allowlists and content-hash idempotency. Do not archive revocable Discord input until its opt-out/deletion fences and withdrawal cleanup are integrated. Observed organizer names never establish club claims or membership. New remote agents require ANS verification plus independent authorization; deterministic in-process adapters do not need model agents or pretend ANS identities.

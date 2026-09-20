@@ -5,6 +5,7 @@ import { database } from "./store.js";
 import { config, HttpError, remote } from "./config.js";
 import { seal, unseal, hash } from "./security.js";
 import { track } from "./analytics.js";
+import { agentHandoffPolicy } from "./agent-policy.js";
 export type Provider = "google" | "canvas";
 const canvasBase = () => {
   const u = new URL(process.env.CANVAS_BASE_URL || "https://canvas.vt.edu");
@@ -333,6 +334,7 @@ export async function withPrivateContext(userId: string, profile: Profile) {
       syncedAt: { $gte: new Date(Date.now() - 24 * 3600000) },
     })
     .toArray();
+  for(const row of rows) agentHandoffPolicy.authorize({sender:row.provider==="canvas"?"canvas":"google-calendar",recipient:"assistant",kind:"private_context",visibility:"user",userId:row.userId},userId);
   return {
     ...profile,
     busy: [

@@ -27,7 +27,9 @@ import {
 } from "./discovery.js";
 import { config, HttpError } from "./config.js";
 import { db, database, mongoClient } from "./store.js";
-import { sourceStatus, liveEvents, refreshSources } from "./coordinator.js";
+import { sourceStatus, liveEvents, liveDeadlines, refreshSources } from "./coordinator.js";
+import { consolidateEvents } from "./event-consolidation.js";
+import { searchPublicMemory } from "./public-memory.js";
 import { askGobbler } from "./assistant.js";
 import { narrate, voiceReady } from "./narration.js";
 import { analyticsKinds, track, eraseAnalytics } from "./analytics.js";
@@ -162,12 +164,12 @@ export function createApp() {
       }),
     );
   });
-  const currentEvents = async () => [
+  const currentEvents = async () => consolidateEvents([
     ...liveEvents(),
     ...(await discordPublication.list()).map((row) => row.event),
-  ];
+  ]);
   const currentEvent = async (id: string) => {
-    const e = (await currentEvents()).find((e) => e.id === id);
+    const e = (await currentEvents()).find((e) => e.id === id || e.aliases?.includes(id));
     if (!e)
       throw new HttpError(
         404,
@@ -228,6 +230,8 @@ export function createApp() {
       sources: sourceStatus,
     });
   });
+  app.get("/api/deadlines", protect, (_req, res) => res.json({deadlines:liveDeadlines()}));
+  app.get("/api/public-memory", protect, async (req,res) => res.json(await searchPublicMemory(z.string().max(200).parse(req.query.q||""))));
   app.get("/api/events/:id/ics", protect, async (req, res) => {
     if (req.query.mode && req.query.mode !== "live")
       throw new HttpError(400, "Unsupported event mode.");

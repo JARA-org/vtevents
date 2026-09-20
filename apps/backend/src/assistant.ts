@@ -9,6 +9,8 @@ import {
   filterQuestion,
 } from "./domain.js";
 import { db } from "./store.js";
+import { agentHandoffPolicy } from "./agent-policy.js";
+import { searchPublicMemory } from "./public-memory.js";
 const querySchema = z.object({
   weekday: z.number().int().min(1).max(7).nullable(),
   afterHour: z.number().min(0).max(23).nullable(),
@@ -22,6 +24,7 @@ export async function askGobbler(
   saved: string[],
   feedback: Record<string, number>,
 ) {
+  agentHandoffPolicy.authorize({sender:"coordinator",recipient:"assistant",kind:"recommendations",visibility:"public"});
   let filter = questionFilter(query),
     engine = "deterministic",
     notice = "Gobbler is using interest and schedule matching.";
@@ -136,12 +139,16 @@ export async function askGobbler(
       return (ai < 0 ? 1000 : ai) - (bi < 0 ? 1000 : bi);
     })
     .slice(0, 8);
+  const publicMemory = db ? await searchPublicMemory(query).catch(()=>undefined) : undefined;
+  const historyAnswer = publicMemory && (publicMemory.events.length || publicMemory.deadlines.length || publicMemory.clubs.length)
+    ? ` Public history has ${publicMemory.events.length} matching event records, ${publicMemory.deadlines.length} deadlines and ${publicMemory.clubs.length} observed organizers. Historical records are not necessarily upcoming; organizer histories do not establish club ownership.` : "";
   return {
+    ...(publicMemory ? {publicMemory} : {}),
     engine,
     notice,
     answer: ranked.length
       ? `I found ${ranked.length} ${ranked.length === 1 ? "option" : "options"} to explore. Check the schedule note on each one before making plans.`
-      : "I don’t have a matching event in the current listings. Try another day or a broader search.",
+      : "I don’t have a matching event in the current listings." + (historyAnswer || " Try another day or a broader search."),
     recommendations: ranked,
   };
 }
