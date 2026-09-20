@@ -3,7 +3,10 @@ import { resolveTxt } from "node:dns/promises";
 import { z } from "zod";
 import type {
   AnsVerifierConfig,
-  AnsVerificationService,
+  AnsPeerVerificationService,
+  AgentRole,
+  AnsTransportIdentity,
+  AnsVerifiedIdentity,
 } from "../../../packages/shared/src/contracts.js";
 
 const role = z.enum([
@@ -56,7 +59,8 @@ const badgeSchema = z.object({
         ansName: z.string(),
         agent: z.object({ host: z.string(), version: z.string() }),
         attestations: z.object({
-          identityCerts: z.array(z.object({ fingerprint })).max(32),
+          identityCerts: z.array(z.object({ fingerprint })).max(32).optional(),
+          serverCerts: z.array(z.object({ fingerprint })).max(32).optional(),
         }),
       }),
     }),
@@ -107,7 +111,7 @@ export function createAnsVerifier(
     fetch?: typeof fetch;
     now?: () => number;
   } = {},
-): AnsVerificationService {
+): AnsPeerVerificationService {
   const settings = ansConfigSchema.parse(config),
     pins = new Map(settings.peers.map((peer) => [peer.role, peer]));
   if (pins.size !== settings.peers.length)
@@ -137,8 +141,7 @@ export function createAnsVerifier(
   const txt = deps.txt || resolveTxt,
     transport = deps.fetch || fetch,
     clock = deps.now || Date.now;
-  return {
-    async verifyCaller(sender, evidence) {
+  async function verify(sender: AgentRole, evidence: AnsTransportIdentity, direction: "caller" | "callee", dialedHost?: string): Promise<AnsVerifiedIdentity> {
       const peer = pins.get(sender);
       if (
         !peer ||
@@ -146,6 +149,8 @@ export function createAnsVerifier(
         evidence.certificatePem.length > 32768
       )
         throw new Error("ANS TLS identity unavailable");
+      if (direction === "callee" && dialedHost !== peer.host)
+        throw new Error("ANS dialed host does not match pinned peer");
       const certificate = new X509Certificate(evidence.certificatePem),
         now = clock();
       if (
@@ -162,7 +167,7 @@ export function createAnsVerifier(
         throw new Error("ANS certificate host mismatch");
       // URI is operator-pinned ASCII without commas/quotes. Do not accept a substring or CN fallback.
       if (
-        !certificate.subjectAltName?.split(", ").includes(`URI:${peer.ansName}`)
+        direction === "caller" && !certificate.subjectAltName?.split(", ").includes(`URI:${peer.ansName}`)
       )
         throw new Error("ANS certificate URI mismatch");
       const digest =
@@ -228,7 +233,7 @@ export function createAnsVerifier(
       )
         throw new Error("ANS registration identity mismatch");
       if (
-        !event.attestations.identityCerts.some(
+        !(direction === "caller" ? event.attestations.identityCerts : event.attestations.serverCerts)?.some(
           (entry) => entry.fingerprint === digest,
         )
       )
@@ -245,6 +250,9 @@ export function createAnsVerifier(
         method: "mtls",
         tier: "badge",
       };
-    },
+  }
+  return {
+    verifyCaller: (sender, evidence) => verify(sender, evidence, "caller"),
+    verifyCallee: (recipient, dialedHost, evidence) => verify(recipient, evidence, "callee", dialedHost),
   };
 }

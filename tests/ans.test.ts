@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { X509Certificate, createHash } from "node:crypto";
 import { createServer, request } from "node:https";
-import type { TLSSocket } from "node:tls";
+import { connect, type TLSSocket } from "node:tls";
 import { createAnsVerifier } from "../apps/backend/src/ans-verification.js";
-import { receiveAnsHandoff } from "../apps/backend/src/ans-handoff.js";
+import { receiveAnsHandoff, sendAnsHandoff } from "../apps/backend/src/ans-handoff.js";
 import { agentHandoffPolicy } from "../apps/backend/src/agent-policy.js";
 import type { AnsVerifierConfig } from "../packages/shared/src/contracts.js";
 
@@ -35,7 +35,7 @@ const pin = config.peers[0];
 const url = `https://log.example.test/v1/agents/${pin.agentId}`;
 const digest = "SHA256:" + createHash("sha256").update(x509.raw).digest("hex");
 const now = Date.parse(x509.validFrom) + 60000;
-function fixture(status = "ACTIVE", fingerprint = digest, badgeUrl = url) {
+function fixture(status = "ACTIVE", fingerprint = digest, badgeUrl = url, certificateKind = "identityCerts") {
   let requests = 0;
   const verifier = createAnsVerifier(config, {
     now: () => now,
@@ -51,7 +51,7 @@ function fixture(status = "ACTIVE", fingerprint = digest, badgeUrl = url) {
                 ansId: pin.agentId,
                 ansName: pin.ansName,
                 agent: { host: pin.host, version: pin.version },
-                attestations: { identityCerts: [{ fingerprint }] },
+                attestations: { [certificateKind]: [{ fingerprint }] },
               },
             },
           },
@@ -251,5 +251,47 @@ test("handoff requires a real authenticated TLS connection before effects", asyn
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
     );
+  }
+});
+
+test("outgoing ANS requires server registration and the intended host, never an identity certificate entry", async () => {
+  const evidence = { authorized: true, certificatePem: cert };
+  const good = fixture("ACTIVE", digest, url, "serverCerts");
+  assert.equal((await good.verifier.verifyCallee("discord", pin.host, evidence)).fingerprint, digest);
+  await assert.rejects(good.verifier.verifyCallee("discord", "other.example.test", evidence));
+  await assert.rejects(fixture().verifier.verifyCallee("discord", pin.host, evidence));
+  await assert.rejects(good.verifier.verifyCaller("discord", evidence));
+  await assert.rejects(fixture("REVOKED", digest, url, "serverCerts").verifier.verifyCallee("discord", pin.host, evidence));
+});
+
+test("outgoing socket gate sends nothing to an unverified recipient", async () => {
+  let requests = 0;
+  const server = createServer({ key, cert, ca: cert, requestCert: true, rejectUnauthorized: true }, (_, response) => {
+    requests++;
+    response.end("ok");
+  });
+  await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  try {
+    for (const accepted of [false, true]) {
+      const socket = connect({ host: "127.0.0.1", port: address.port, servername: pin.host, ca: cert, cert, key });
+      await new Promise<void>((resolve, reject) => { socket.once("secureConnect", resolve); socket.once("error", reject); });
+      let effects = 0;
+      const operation = sendAnsHandoff(socket, fixture(accepted ? "ACTIVE" : "REVOKED", digest, url, "serverCerts").verifier, "discord", pin.host, async verifiedSocket => {
+        effects++;
+        assert.equal(verifiedSocket, socket);
+        const done = new Promise<void>((resolve, reject) => { socket.on("data", () => {}); socket.once("end", resolve); socket.once("error", reject); });
+        socket.write("GET / HTTP/1.1\r\nHost: source.example.test\r\nConnection: close\r\n\r\n");
+        await done;
+      });
+      if (accepted) await operation;
+      else await assert.rejects(operation);
+      assert.equal(effects, accepted ? 1 : 0);
+      socket.destroy();
+    }
+    assert.equal(requests, 1);
+  } finally {
+    await new Promise<void>(resolve => server.close(() => resolve()));
   }
 });

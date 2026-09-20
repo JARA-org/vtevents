@@ -1277,6 +1277,11 @@ export interface AnsVerificationService {
   /** Trusted backend transport only. Verifies pinned peer against live DNS/TL badge and TLS certificate. DNS/HTTPS reads, no AI/provider writes. Throws on missing/malformed/revoked/unavailable evidence. No stale fallback or persistent acceptance cache. */
   verifyCaller(role: AgentRole, transport: AnsTransportIdentity): Promise<AnsVerifiedIdentity>;
 }
+/** Additive outgoing verification port; existing incoming-only implementations remain compatible. */
+export interface AnsPeerVerificationService extends AnsVerificationService {
+  /** Trusted TLS adapter only. Binds the server certificate to the operator-selected host and registered serverCerts. Fresh DNS/HTTPS reads; throws before application data is sent. No writes, AI, or automatic retry. */
+  verifyCallee(role: AgentRole, dialedHost: string, transport: AnsTransportIdentity): Promise<AnsVerifiedIdentity>;
+}
 export interface AgentHandoff {
   sender: AgentRole;
   recipient: AgentRole;

@@ -6,7 +6,7 @@ Implementation reviewed 2026-09-19. See Master.md for product policy.
 
 `ans-verification.ts` verifies incoming caller identity using operator-pinned identities, live DNS discovery and HTTPS transparency badges. `ans-handoff.ts` binds this to an actual mutual-TLS socket before executing a callback. `agent-policy.ts` separately enforces role and user boundaries. All contracts are type-only additions in `packages/shared/src/contracts.ts`; the browser has no verification logic or credentials.
 
-The current monolithic runtime uses local policy checks only. The remote boundary is not mounted in the public Express server. ANS is not enabled on the hosted application by these changes.
+The current monolithic runtime uses local policy checks only. The remote boundary is not mounted in the public Express server. ANS is not enabled on the hosted application by these changes. The user confirmed no identities or certificates have been registered yet. Canvas is excluded from the intended integration scope; its remaining legacy types/code do not authorize a new Canvas deployment.
 
 ## Operations and effects
 
@@ -14,6 +14,8 @@ The current monolithic runtime uses local policy checks only. The remote boundar
 |---|---|---|
 | `createAnsVerifier` | Operator-owned peer pins, trusted log origins, optional backend adapters; returns verification service | Validates configuration; no registration or persistence |
 | `verifyCaller` | Expected role and TLS-adapter certificate evidence; returns verified identity/status/time | DNS + HTTPS reads; rejects invalid identity, status or unavailable evidence; no model calls or data writes |
+| `verifyCallee` | Expected role, operator-selected dialed hostname and trusted TLS evidence | Verifies registered server certificate, host, identity and fresh status; never accepts an identity-certificate entry as a server certificate |
+| `sendAnsHandoff` | Established authenticated TLS socket, outgoing verifier, pinned recipient/host and callback | Verifies the recipient before callback can send application bytes on the same socket; failure destroys the socket; no reconnection or retry |
 | `receiveAnsHandoff` | Real TLS socket, verifier, trusted route handoff, scoped user ID, operation callback | Permission check and identity verification precede callback; failed checks never invoke it; callback owns effects, transactions and idempotency; no automatic retries |
 | `agentHandoffPolicy.authorize` | Sender/recipient/data class and authenticated receiving user | Pure permission check, throws on denial; never grants provider-write permission |
 | `parseUnverifiedTrustEvaluation` | Diagnostic payload, expected ANS subject and clock | Pure shape/subject/freshness validation, **not** credential-signature verification or authorization |
@@ -33,7 +35,7 @@ There is no production environment switch that magically enables this architectu
 
 ## Limitations
 
-This implements an incoming badge/mTLS subset of the draft, not full ANS conformance: outgoing callee verification, DPoP, SCITT/offline receipts, signed Trust Index credentials and lifecycle automation remain future work. Fresh badge lookups have an availability cost; failure denies the operation. WARNING/DEPRECATED remain distinguishable accepted states. TLS authenticates a connection, not a unique business operation: revision checks/idempotency still belong to the receiving module. Identity never proves content correctness or prompt-injection resistance.
+This implements incoming and outgoing badge/TLS verification boundaries, not full ANS conformance. DPoP, SCITT/offline receipts, signed Trust Index credentials and lifecycle automation remain future work. Fresh badge lookups have an availability cost; failure denies the operation. WARNING/DEPRECATED remain distinguishable accepted states. TLS authenticates a connection, not a unique business operation: revision checks/idempotency still belong to the receiving module. Identity never proves content correctness or prompt-injection resistance. The outgoing gate is a trusted transport primitive, not a complete HTTP client: its caller must establish the intended TLS connection, enforce independent data/user authorization, and send only on the verified socket. No current data pipeline calls it yet.
 
 Test certificate/key files under `tests/fixtures/ans-test-*` are synthetic, self-signed fixtures for loopback tests only. Never configure them as production identities or trust anchors.
 
