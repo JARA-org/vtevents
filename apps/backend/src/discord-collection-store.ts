@@ -132,6 +132,7 @@ export const discordCollectionRepository: DiscordCollectionRepository = {
               fingerprint,
               candidate,
               status,
+              ...(status === "qualified" ? { publicationEmailPending: true } : {}),
               collectionCheckedAt: new Date(),
             },
           },

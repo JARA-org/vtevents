@@ -8,7 +8,7 @@ import {
   Switch,
   Linking,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Button } from "../components/ui";
 import { C, font } from "../components/theme";
 import type {
@@ -19,6 +19,7 @@ import type {
 import { backend } from "../services/backend";
 
 export default function ClubsPage() {
+  const params=useLocalSearchParams<{club?:string;event?:string}>();
   const [signedIn, setSignedIn] = useState(false);
   const [ready, setReady] = useState(false);
   const [register, setRegister] = useState(false);
@@ -34,6 +35,18 @@ export default function ClubsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const requestId = useRef(String(Date.now()) + "-club-create");
+  useEffect(() => {
+    if(!signedIn || typeof params.club!=="string" || typeof params.event!=="string") return;
+    let active=true;
+    backend.clubWorkspace({clubId:params.club}).then(result=>{
+      if(!active) return;
+      setWorkspace(result);
+      const selected=result.editableEvents?.find(item=>item.eventId===params.event);
+      setEdit(selected||null);
+      if(!selected) setError("This event is no longer available to edit.");
+    }).catch(e=>{if(active) setError(e instanceof Error?e.message:"Unable to open this event.");});
+    return ()=>{active=false;};
+  },[signedIn,params.club,params.event]);
   useEffect(() => {
     if (typeof window !== "undefined") {
       const token = new URLSearchParams(window.location.hash.slice(1)).get(

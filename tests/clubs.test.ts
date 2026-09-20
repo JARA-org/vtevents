@@ -344,6 +344,45 @@ test("club accounts isolate events and securely consume server setup tickets", a
     assert.equal(timed.timeTBD,false);
     assert.equal(timed.onlineUrl,"https://example.org/live");
     assert.equal(timed.location,"Squires");
+    const {clubPublicationNotifications}=await import("../apps/backend/src/club-publication-email.js");
+    process.env.RESEND_API_KEY="test-only";
+    process.env.AUTH_EMAIL_FROM="Gobbler <events@example.test>";
+    process.env.TOKEN_ENCRYPTION_KEY=randomBytes(32).toString("hex");
+    const originalFetch=globalThis.fetch;
+    const delivered:{body:any;key:string}[]=[];
+    let fail=true;
+    globalThis.fetch=async (url,options)=>{
+      assert.equal(String(url),"https://api.resend.com/emails");
+      delivered.push({body:JSON.parse(String(options?.body)),key:(options?.headers as Record<string,string>)["Idempotency-Key"]});
+      return new Response("{}",{status:fail?503:200});
+    };
+    try {
+      await clubPublicationNotifications.flush();
+      assert.equal(delivered.length,1);
+      assert.match(delivered[0].body.text,/Original announcement:/);
+      assert.match(delivered[0].body.text,/3:30 PM/);
+      assert.match(delivered[0].body.text,/\/clubs\?club=.+&event=discord-/);
+      assert.match(delivered[0].body.to[0],/one/);
+      const queued=await store.database().collection("club_publication_email_outbox").findOne({});
+      assert.ok(queued?.encrypted);
+      assert.ok(!queued.encrypted.includes("Chess"));
+      fail=false;
+      await store.database().collection("club_publication_email_outbox").updateMany({},{$set:{nextAttempt:new Date(0)}});
+      await clubPublicationNotifications.flush();
+      assert.equal(delivered.length,2);
+      assert.deepEqual(delivered[0],delivered[1],"ambiguous delivery retries identical payload and provider key");
+      await clubPublicationNotifications.flush();
+      assert.equal(delivered.length,2,"successful notification is not repeated");
+      assert.equal((await store.database().collection("club_publication_email_outbox").findOne({}))?.encrypted,undefined);
+      await discordCollectionRepository.save({...announcement,text:announcement.text+" from 3:30 PM - 5:00 PM; watch through https://example.org/live"},"timed-source",candidate,"qualified");
+      await clubPublicationNotifications.flush();
+      assert.equal(delivered.length,2,"reprocessing the same revision cannot send again");
+      await discordCollectionRepository.save(announcement,"withdraw-before-email",candidate,"qualified");
+      await store.database().collection("discord_bot_exclusions").insertOne({_id:"900:901:999" as never});
+      await clubPublicationNotifications.flush();
+      assert.equal(delivered.length,2,"withdrawal before delivery suppresses email");
+      await store.database().collection("discord_bot_exclusions").deleteOne({_id:"900:901:999" as never});
+    } finally {globalThis.fetch=originalFetch;delete process.env.RESEND_API_KEY;delete process.env.AUTH_EMAIL_FROM;}
     let workspace = (await a.get(`/api/clubs/${created.body.id}/workspace`))
       .body;
     const edit = workspace.editableEvents[0];

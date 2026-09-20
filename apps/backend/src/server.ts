@@ -4,6 +4,7 @@ import { config } from "./config.js";
 import { runJobs } from "./jobs.js";
 import { flushAnalytics } from "./analytics.js";
 import { flushAccountEmail } from "./account-email.js";
+import { clubPublicationNotifications } from "./club-publication-email.js";
 import { startDiscordCollection } from "./discord-jobs.js";
 import { startAnsRuntime } from "./ans-runtime.js";
 import { monitorEventLoopDelay } from "node:perf_hooks";
@@ -45,3 +46,4 @@ setInterval(
   () => background(flushAccountEmail, "account-email"),
   10000,
 ).unref();
+setInterval(() => background(() => clubPublicationNotifications.flush(), "club-publication-email"), 10000).unref();

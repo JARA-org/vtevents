@@ -63,6 +63,7 @@ const edges = {
     "discord-bot-http",
   ],
   "server.ts": [
+    "club-publication-email",
     "ans-runtime",
     "store",
     "app",
@@ -73,6 +74,7 @@ const edges = {
     "account-email",
   ],
   "account-email.ts": ["store", "config", "security"],
+  "club-publication-email.ts": ["store", "config", "security", "account-email", "discord-publication"],
   "domain.ts": [],
   "config.ts": [],
   "security.ts": [],

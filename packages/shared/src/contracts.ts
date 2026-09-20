@@ -1292,6 +1292,21 @@ export interface AnsPeerVerificationService extends AnsVerificationService {
   /** Trusted TLS adapter only. Binds the server certificate to the operator-selected host and registered serverCerts. Fresh DNS/HTTPS reads; throws before application data is sent. No writes, AI, or automatic retry. */
   verifyCallee(role: AgentRole, dialedHost: string, transport: AnsTransportIdentity): Promise<AnsVerifiedIdentity>;
 }
+/** Backend-only notification payload, never returned to the browser or a model. */
+export interface ClubPublicationEmail {
+  to: string;
+  editUrl: string;
+  text: string;
+  idempotencyKey: string;
+}
+export interface ClubPublicationNotifications {
+  /** Internal scheduler: reads newly qualified Discord revisions and current owner;
+   * persists encrypted delivery snapshots/leases and sends bounded email batches.
+   * Rechecks publication/ownership before delivery. No AI or event modifications.
+   * Provider retries use the same payload/key, at most five attempts in one hour.
+   * Individual DB writes are atomic; no transaction spans a provider call. */
+  flush(): Promise<void>;
+}
 /** Backend-only enabled transport. No browser access to credentials or cookies.
  * Calls have bounded payloads/timeouts, no retries and no local fallback on failure. */
 export interface AnsRuntimeServices {

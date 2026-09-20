@@ -2,6 +2,20 @@ import { randomUUID } from "node:crypto";
 import { database } from "./store.js";
 import { config } from "./config.js";
 import { seal, unseal, hash } from "./security.js";
+import type { ClubPublicationEmail } from "../../../packages/shared/src/contracts.js";
+
+/** Internal outbox transport. Sends the caller's frozen notification with provider
+ * idempotency; errors propagate for bounded worker retry. No persistence or AI. */
+export async function sendClubPublicationEmail(input: ClubPublicationEmail): Promise<void> {
+  if (!accountEmailReady() || new URL(input.editUrl).origin !== config.origin)
+    throw new Error("Publication email unavailable");
+  const response = await fetch("https://api.resend.com/emails", {
+    method:"POST", redirect:"error", signal:AbortSignal.timeout(15000),
+    headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,"Content-Type":"application/json","Idempotency-Key":input.idempotencyKey},
+    body:JSON.stringify({from:process.env.AUTH_EMAIL_FROM,to:[input.to],subject:"Your Discord event is published on My Gobbler",text:input.text}),
+  });
+  if(!response.ok) throw new Error("Publication email delivery unavailable");
+}
 
 type EmailRecord = {
   _id: string;
