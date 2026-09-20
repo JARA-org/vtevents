@@ -461,3 +461,24 @@ supersedes the earlier requirement to preserve ICS downloads. Preserve saving
 favorites, viewing event details, event dates/date filters and public source
 collectors. Contract v5 freezes v4 as history and keeps a no-effect authenticated
 410 guard for stale clients requesting the old download route.
+
+## Ask Gobbler current-chat assistant (September 20, 2026 — latest)
+
+Ask Gobbler is strictly a MyGobbler site assistant. It uses Gemini for conversation,
+current-event interpretation and explanations, with authenticated interests, saved
+event context and explicit profile preference facts. Current chat is temporary;
+there are no saved transcripts or silently inferred memories. Preferences require
+an exact visible preview and explicit confirmation, with edit/forget controls.
+Models cannot save events or perform external actions. Existing event actions
+remain real backend-validated buttons. Provider outages/limits fall back to the
+existing date/category buttons on live discovery, without model calls.
+
+Use Gemini Free Tier only, with billing disabled and no paid fallback. The new
+assistant checks `GEMINI_FREE_TIER_CONFIRMED` before any call and requires the
+expanded user consent for saved-event/fact context. Application limits do not
+prove the provider project's billing status. Source implementation and tests are
+separate from deployment/real-key verification; see docs/ASK_GOBBLER.md.
+
+The v4 scheduling and v5 calendar-action retirements remain in force. Public history stays separate;
+attendance-aware answers, persistent transcript memory and remote account/provider
+connections are not restored by this change.

@@ -56,6 +56,19 @@ test("ANS runtime gates actual TLS sockets, forwards session only after verifica
     rejectCaller = false;
     const event: CampusEvent = {id:"one",title:"Event",description:"",start:"2026-10-01T10:00:00Z",end:null,timezone:"America/New_York",location:"Campus",organizer:null,categories:["Community"],sources:[{source:"discord",sourceId:"one",url:"https://discord.com/channels/1/2/3",fetchedAt:"2026-09-20T00:00:00Z"}],updatedAt:"2026-09-20T00:00:00Z",status:"scheduled",mode:"live",timeTBD:false,allDay:false,endEstimated:false};
     assert.equal((await ansRuntime!.reconcile([event,event])).length,1);
+    const basicHandler = handler;
+    handler = async (req, res) => {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(Buffer.from(chunk));
+      const input = JSON.parse(Buffer.concat(chunks).toString());
+      assert.equal(input.history[0].text, "previous question");
+      assert.equal(input.forceDiscovery, true);
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ engine: "deterministic", notice: "", answer: "ok", recommendations: [{ event, score: 1, reason: "Interest match" }] }));
+    };
+    const chat = await ansRuntime!.chat({ query: "follow-up", history: [{ role: "user", text: "previous question" }], forceDiscovery: true }, "session=valid");
+    assert.equal(chat.recommendations[0].event.id, event.id);
+    handler = basicHandler;
     const legacy={...event,isOnline:null,sports:null,admission:null};
     const normalized=validateAnsEvents([legacy])[0];
     assert.equal("sports" in normalized,false);

@@ -32,7 +32,8 @@ import { sourceStatus, liveEvents, liveDeadlines, refreshSources, unreadableReco
 import { consolidateEvents } from "./event-consolidation.js";
 import { ansRuntime, isAnsAssistantRequest } from "./ans-runtime.js";
 import { searchPublicMemory, publicEventById, publicEventIds } from "./public-memory.js";
-import { askGobbler } from "./assistant.js";
+import { askGobbler, assistantRequestSchema } from "./assistant.js";
+import { assistantState } from "./assistant-state.js";
 import { narrate, voiceReady } from "./narration.js";
 import { analyticsKinds, track, eraseAnalytics } from "./analytics.js";
 import { registerDiscordBotRoutes } from "./discord-bot-http.js";
@@ -370,6 +371,7 @@ export function createApp() {
     res.status(410).json({ message: "Calendar downloads have been retired.", code: "FEATURE_RETIRED" });
   });
   app.get("/api/me", protect, async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
     const id = res.locals.user.id;
     const [p, saved, feedback] = await Promise.all([
       profile(id, res.locals.user.name),
@@ -441,16 +443,30 @@ export function createApp() {
     await track(res.locals.user.id, "recommendation_feedback", body.eventId);
     res.json({ ok: true });
   });
+  app.get("/api/assistant/memories", protect, async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ memories: await assistantState.list(res.locals.user.id) });
+  });
+  app.post("/api/assistant/memories", protect, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ memories: await assistantState.confirm(res.locals.user.id, req.body) });
+  });
+  app.patch("/api/assistant/memories/:id", protect, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ memories: await assistantState.edit(res.locals.user.id, { ...req.body, id: String(req.params.id) }) });
+  });
+  app.delete("/api/assistant/memories/:id", protect, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ memories: await assistantState.remove(res.locals.user.id, String(req.params.id)) });
+  });
   app.post(
-    "/api/assistant",
+    ["/api/assistant", "/api/assistant/chat"],
     protect,
-    rateLimit({ windowMs: 60000, limit: 10, skip: isAnsAssistantRequest }),
     async (req, res) => {
-      const { query } = z
-        .object({ query: z.string().min(1).max(1000) })
-        .parse(req.body);
+      res.setHeader("Cache-Control", "no-store");
+      const { query, ...context } = assistantRequestSchema.parse(req.body);
       if (ansRuntime && !isAnsAssistantRequest(req)) {
-        res.json(await ansRuntime.ask(query, req.headers.cookie || ""));
+        res.json(await ansRuntime.chat({ query, ...context }, req.headers.cookie || ""));
         return;
       }
       const id = res.locals.user.id,
@@ -460,10 +476,6 @@ export function createApp() {
         database().collection("feedback").find({ userId: id }).toArray(),
       ]);
       const listings = await currentEvents();
-      // Memory is read under this session only, and marked against what is still
-      // retrievable so a withdrawn source cannot re-enter an explanation.
-      const memoryListings = await currentEvents(true);
-      const memory = await userMemory.view(id, memoryListings);
       res.json(
         await askGobbler(
           query,
@@ -471,7 +483,7 @@ export function createApp() {
           p,
           saved.map((r) => r.eventId),
           Object.fromEntries(feedback.map((r) => [r.eventId, r.value])),
-          memory && (await withAvailability(memory, memoryListings)),
+          { ...context, userId: id },
         ),
       );
     },
@@ -535,6 +547,8 @@ export function createApp() {
     const identifiers = ObjectId.isValid(id) ? [id, new ObjectId(id)] : [id];
     await eraseAnalytics(id);
     for (const name of [
+      "assistant_memories",
+      "assistant_memory_owners",
       "account_email_outbox",
       "profiles",
       "discord_guilds",

@@ -52,6 +52,9 @@ export async function connectDB() {
   }
   await Promise.all([
     db.collection("user_attendance").createIndex({ userId: 1, eventId: 1 }, { unique: true }),
+    db.collection("assistant_budget").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    db.collection("assistant_memories").createIndex({ userId: 1 }),
+    db.collection("assistant_memories").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db
       .collection("account_email_outbox")
       .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
