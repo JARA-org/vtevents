@@ -1,5 +1,5 @@
 /**
- * My Gobbler boundary contracts, version 4 (personal schedules retired).
+ * My Gobbler boundary contracts, version 3 (provider connections retired).
  * This file contains wire data and interfaces ONLY: no validation, fetching,
  * matching, storage, SDK imports, secrets, fixtures, or business implementation.
  * Dates on the wire are ISO strings, never Date/Luxon/Mongo objects.
@@ -107,14 +107,34 @@ export interface EventLink extends Extensible {
   kind: "source" | "tickets" | "stream" | "stats" | "recap" | "other";
   embeddable?: boolean;
 }
+export interface RecurringBlock extends Extensible {
+  id: Id;
+  weekday: number;
+  start: LocalTime;
+  end: LocalTime;
+  kind: "free" | "busy";
+}
+export interface BusyBlock extends Extensible {
+  id: Id;
+  start: Instant;
+  end: Instant;
+  source: "manual";
+}
 export interface Profile extends Extensible {
   name: string;
   interests: Category[];
+  recurring: RecurringBlock[];
+  busy: BusyBlock[];
   onboarded: boolean;
   aiEnabled: boolean;
 }
+export interface Fit extends Extensible {
+  status: "free" | "conflict" | "unknown";
+  reason: string;
+}
 export interface Recommendation extends Extensible {
   event: CampusEvent;
+  fit: Fit;
   score: number;
   reason: string;
 }
@@ -153,7 +173,7 @@ export interface BootstrapView extends Extensible {
   categories: Category[];
   timezone: string;
   emptyProfile: Profile;
-  contractVersion: 4;
+  contractVersion: 3;
 }
 export interface EventList extends Extensible {
   mode: Mode;
@@ -163,7 +183,7 @@ export interface EventList extends Extensible {
   generatedAt?: Instant;
 }
 export interface DiscoveryRequest {
-  /** Optional 1–100 result cap for recommendations/filtered; omitted keeps legacy full results. Saved events are never truncated. */
+  /** Optional 1–100 result cap for recommendations/filtered; omitted keeps legacy full results. Saved/schedule are never truncated. */
   limit?: number;
   mode?: Mode;
   search?: string;
@@ -180,6 +200,7 @@ export interface DiscoveryView extends Extensible {
   recommendations: Recommendation[];
   filtered: Recommendation[];
   savedRecommendations: Recommendation[];
+  schedule: Recommendation[];
 }
 /** Read-only, authenticated seven-day timeline. Dates are campus-local and inclusive. */
 export interface TimelineRequest {
@@ -236,6 +257,18 @@ export type AnalyticsKind =
   | "save"
   | "calendar_addition"
   | "recommendation_feedback";
+export interface AvailabilityInput {
+  profile: Profile;
+  block:
+    | {
+        kind: "recurring";
+        weekday: number;
+        start: LocalTime;
+        end: LocalTime;
+        availability: "free" | "busy";
+      }
+    | { kind: "dated"; date: LocalDate; start: LocalTime; end: LocalTime };
+}
 /** Actual HTTP contract. Body/query types are transport inputs, NOT authorization. */
 export interface Operation<Input, Output> {
   input: Input;
@@ -284,7 +317,9 @@ export interface HttpApi {
   updateProfile: Operation<Profile, Profile>;
   /** POST /api/profile/validate. Validates a form draft; no persistence. */
   validateProfile: Operation<Profile, Profile>;
-  /** GET /api/recommendations. Session-scoped ranking by interests and feedback; no writes. */
+  /** POST /api/availability/preview. Validates/appends a block to a draft; no persistence. */
+  previewAvailability: Operation<AvailabilityInput, Profile>;
+  /** GET /api/recommendations. Session-scoped ranking with private busy context; no writes. */
   getRecommendations: Operation<void, { recommendations: Recommendation[] }>;
   /** POST /api/discovery. Session-scoped read-only search/ranking; submitted identity/preferences are not accepted. */
   discover: Operation<DiscoveryRequest, DiscoveryView>;
@@ -352,7 +387,7 @@ export interface Page<T> extends Extensible {
   nextCursor: string | null;
 }
 export interface Capabilities extends Extensible {
-  contractVersion: 4;
+  contractVersion: 3;
   availableOperations: string[];
 }
 export type Visibility =
@@ -594,6 +629,15 @@ export interface ExtractionService {
     context: RequestContext,
   ): Promise<MergeProposal[]>;
 }
+export interface SchedulingService {
+  /** Pure interval evaluation; unknown data never becomes confirmed availability. */
+  evaluate(input: {
+    events: CampusEvent[];
+    profile: Profile;
+  }): { eventId: Id; fit: Fit }[];
+  /** Pure draft normalization/validation; no persistence. */
+  preview(input: AvailabilityInput): Profile;
+}
 export interface RecommendationService {
   /** Pure scoring/filtering over validated records and explicit time. No provider reads or writes. */
   rank(input: {
@@ -633,6 +677,7 @@ export interface BackendModules {
   events: EventRepository;
   coordinator: CoordinatorService;
   extraction: ExtractionService;
+  scheduling: SchedulingService;
   recommendations: RecommendationService;
   assistant: AssistantService;
   analytics: AnalyticsService;

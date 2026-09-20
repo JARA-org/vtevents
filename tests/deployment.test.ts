@@ -80,7 +80,7 @@ test("production preflight preserves raw secrets and rejects unsafe/incomplete c
   );
 });
 
-test("HTTPS smoke verifies v3 and anonymous rejection using GET only", async () => {
+test("HTTPS smoke verifies v4 and anonymous rejection using GET only", async () => {
   const seen: string[] = [];
   const results = await smokeDeployment(
     "https://gobbler.vt.edu",
@@ -99,7 +99,7 @@ test("HTTPS smoke verifies v3 and anonymous rejection using GET only", async () 
         url.pathname === "/api/health"
           ? { ok: true, database: true, accounts: true }
           : url.pathname === "/api/bootstrap"
-            ? { contractVersion: 3, categories: [] }
+            ? { contractVersion: 4, categories: [] }
             : {};
       const status = ["/api/health", "/api/bootstrap"].includes(url.pathname)
         ? 200

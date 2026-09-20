@@ -94,7 +94,6 @@
 .tl-extra-heading { display: flex; align-items: center; gap: 10px; }
 .tl-extra-heading img { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
 .tl-extra-heading p { color: #6d5360; font-size: 11px; line-height: 1.5; }
-.tl-fit { font-size: 10px; color: #635159; padding-top: 12px; }
 .tl-explanation { font-size: 10px; line-height: 1.6; color: #8d7983; padding-top: 5px; }
 .tl-bubble-actions { display: flex; justify-content: space-between; gap: 5px; border-top: 1px solid #eee4e6; margin-top: 10px; }
 .tl-bubble-actions button { min-height: 44px; background: none; border: 0; color: var(--tl-maroon); font-size: 11px; padding: 4px; }

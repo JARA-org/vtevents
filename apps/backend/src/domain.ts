@@ -2,14 +2,12 @@ import type {
   CampusEvent,
   CampusDeadline,
   Profile,
-  Fit,
   Recommendation,
   TimelineItem,
 } from "../../../packages/shared/src/contracts.js";
 export type {
   CampusEvent,
   Profile,
-  Fit,
 } from "../../../packages/shared/src/contracts.js";
 import { z } from "zod";
 import { DateTime } from "luxon";
@@ -179,31 +177,9 @@ export function parseStoredDeadline(value: unknown): CampusDeadline | null {
     : null;
 }
 
-export const recurringSchema = z
-  .object({
-    id: z.string(),
-    weekday: z.number().int().min(1).max(7),
-    start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-    end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-    kind: z.enum(["free", "busy"]),
-  })
-  .refine(
-    (x) => x.end > x.start,
-    "Use separate blocks for overnight availability",
-  );
-export const busySchema = z
-  .object({
-    id: z.string(),
-    start: instant,
-    end: instant,
-    source: z.literal("manual"),
-  })
-  .refine((x) => Date.parse(x.end) > Date.parse(x.start));
 export const profileSchema = z.object({
   name: z.string().trim().min(1).max(80),
   interests: z.array(z.enum(categories)).max(7),
-  recurring: z.array(recurringSchema).max(70),
-  busy: z.array(busySchema).max(500),
   onboarded: z.boolean(),
   aiEnabled: z.boolean().default(false),
 });
@@ -211,101 +187,10 @@ export const profileSchema = z.object({
 export const emptyProfile: Profile = {
   name: "Hokie",
   interests: [],
-  recurring: [],
-  busy: [],
   onboarded: false,
   aiEnabled: false,
 };
 
-export function scheduleFit(event: CampusEvent, profile: Profile): Fit {
-  if (!event.end || event.endEstimated || event.allDay || event.timeTBD)
-    return {
-      status: "unknown",
-      reason:
-        "The source does not provide a precise event time. Check before making plans.",
-    };
-  const start = DateTime.fromISO(event.start).setZone(CAMPUS_TZ),
-    end = DateTime.fromISO(event.end).setZone(CAMPUS_TZ);
-  if (
-    profile.busy.some(
-      (b) =>
-        Date.parse(b.start) < end.toMillis() &&
-        Date.parse(b.end) > start.toMillis(),
-    )
-    )
-      return {
-        status: "conflict",
-        reason: "Overlaps a busy block in your schedule.",
-      };
-    // Providers can publish multi-year registration/activity windows. Do not
-    // expand them into thousands of recurring daily intervals on a web request,
-    // or claim that the whole window is confirmed free. Exact busy blocks above
-    // still provide a definite conflict without expansion.
-    if (end.diff(start, "days").days > 31)
-      return {
-        status: "unknown",
-        reason: "This listing spans more than a month. Confirm individual meeting times before making plans.",
-      };
-    if (!profile.recurring.length)
-      return {
-        status: "unknown",
-        reason: "Availability is missing for part or all of this event.",
-      };
-  const intervals: { start: number; end: number; kind: string }[] = [];
-  let ambiguousTime = false;
-  for (let day = start.startOf("day"); day <= end; day = day.plus({ days: 1 }))
-    for (const b of profile.recurring.filter(
-      (b) => b.weekday === day.weekday,
-    )) {
-      const [sh, sm] = b.start.split(":").map(Number),
-        [eh, em] = b.end.split(":").map(Number);
-      const blockStart = day.set({ hour: sh, minute: sm }),
-        blockEnd = day.set({ hour: eh, minute: em });
-      if (
-        blockStart.toFormat("HH:mm") !== b.start ||
-        blockEnd.toFormat("HH:mm") !== b.end ||
-        blockStart.getPossibleOffsets().length > 1 ||
-        blockEnd.getPossibleOffsets().length > 1
-      ) {
-        ambiguousTime = true;
-        continue;
-      }
-      intervals.push({
-        start: blockStart.toMillis(),
-        end: blockEnd.toMillis(),
-        kind: b.kind,
-      });
-    }
-  if (
-    intervals.some(
-      (b) =>
-        b.kind === "busy" &&
-        b.start < end.toMillis() &&
-        b.end > start.toMillis(),
-    )
-  )
-    return { status: "conflict", reason: "Overlaps your recurring busy time." };
-  if (ambiguousTime)
-    return {
-      status: "unknown",
-      reason:
-        "A recurring block falls in a daylight-saving clock change. Confirm your availability for this date.",
-    };
-  let covered = start.toMillis();
-  for (const b of intervals
-    .filter((b) => b.kind === "free")
-    .sort((a, b) => a.start - b.start))
-    if (b.start <= covered && b.end > covered) covered = b.end;
-  return covered >= end.toMillis()
-    ? {
-        status: "free",
-        reason: "Fits entirely within the availability you shared.",
-      }
-    : {
-        status: "unknown",
-        reason: "Availability is missing for part or all of this event.",
-      };
-}
 export function recommendations(
   events: CampusEvent[],
   profile: Profile,
@@ -317,19 +202,16 @@ export function recommendations(
     .map((event) => {
       const matched = event.categories.filter((c) =>
           profile.interests.includes(c),
-        ),
-        fit = scheduleFit(event, profile);
+        );
       return {
         event,
-        fit,
         score:
           matched.length * 20 +
-          (fit.status === "free" ? 15 : fit.status === "conflict" ? -30 : 0) +
           (saved.includes(event.id) ? 4 : 0) +
           (feedback[event.id] || 0) * 8,
         reason: matched.length
-          ? `Matches your interest in ${matched.join(" and ").toLowerCase()}. ${fit.reason}`
-          : `A chance to explore something new. ${fit.reason}`,
+          ? `Matches your interest in ${matched.join(" and ").toLowerCase()}.`
+          : `A chance to explore something new.`,
       };
     })
     .sort(

@@ -125,27 +125,19 @@ test("arbitrary inclusive ranges and sparse days redistribute within the selecti
   );
 });
 
-test("explicit interests outrank unrelated events even with a schedule conflict", () => {
+test("explicit interests outrank unrelated events without personal time data", () => {
   const events = Array.from({ length: 15 }, (_, i) =>
     event(1, i, i === 14 ? ["Outdoors", "Arts & music"] : ["Sports"]),
   );
   const p = {
     ...emptyProfile,
     interests: ["Outdoors", "Arts & music"] as Category[],
-    busy: [
-      {
-        id: "busy",
-        start: events[14].start,
-        end: events[14].end!,
-        source: "manual" as const,
-      },
-    ],
   };
   const view = discoverTimeline(query, events, p, [], {}, now);
   const match = view.items.find((x) => x.recommendation.event.id === "1-14");
   assert.ok(match);
   assert.deepEqual(match.matchedInterests, ["Outdoors", "Arts & music"]);
-  assert.equal(match.recommendation.fit.status, "conflict");
+  assert.equal("fit" in match.recommendation, false);
 });
 
 test("no-interest selection includes a diverse set, including academic/career options", () => {

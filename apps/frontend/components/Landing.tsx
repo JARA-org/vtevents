@@ -164,7 +164,7 @@ export function Landing({
                 "03",
                 "calendar-outline",
                 "Make it a plan.",
-                "Save a favorite. Check your schedule. Go make a memory.",
+                "Save a favorite. Bring a friend. Go make a memory.",
                 "#EAF0E5",
               ],
             ] as const

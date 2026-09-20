@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { DateTime } from "luxon";
 import {
   emptyProfile,
-  scheduleFit,
   eventICS,
   eventSchema,
   recommendations,
@@ -22,118 +21,13 @@ const e = {
   start: "2026-09-25T21:00:00Z",
   end: "2026-09-25T22:00:00Z",
 };
-test("unknown availability never claims free time", () =>
-  assert.equal(scheduleFit(e, emptyProfile).status, "unknown"));
-
-test("multi-year source windows stay unknown without expanding recurring days; exact conflicts remain definite", () => {
-  const listing = { ...e, end: "2099-09-25T22:00:00Z" };
-  const profile = { ...emptyProfile, recurring: [
-    { id: "free", weekday: 5, start: "17:00", end: "18:00", kind: "free" as const },
-  ] };
-  const fit = scheduleFit(listing, profile);
-  assert.equal(fit.status, "unknown");
-  assert.match(fit.reason, /individual meeting times/);
-  assert.equal(scheduleFit(listing, { ...profile, busy: [{
-    id: "busy", start: e.start, end: e.end, source: "manual",
-  }] }).status, "conflict");
-});
-test("recurring availability uses campus timezone", () =>
-  assert.equal(
-    scheduleFit(e, {
-      ...emptyProfile,
-      recurring: [
-        { id: "1", weekday: 5, start: "17:00", end: "18:00", kind: "free" },
-      ],
-    }).status,
-    "free",
-  ));
-test("busy blocks take precedence over free blocks", () =>
-  assert.equal(
-    scheduleFit(e, {
-      ...emptyProfile,
-      recurring: [
-        { id: "1", weekday: 5, start: "17:00", end: "18:00", kind: "free" },
-      ],
-      busy: [
-        {
-          id: "2",
-          start: "2026-09-25T21:30:00Z",
-          end: "2026-09-25T22:30:00Z",
-          source: "manual",
-        },
-      ],
-    }).status,
-    "conflict",
-  ));
-test("touching endpoints do not conflict", () =>
-  assert.equal(
-    scheduleFit(e, {
-      ...emptyProfile,
-      busy: [
-        {
-          id: "2",
-          start: e.end!,
-          end: "2026-09-25T23:00:00Z",
-          source: "manual",
-        },
-      ],
-    }).status,
-    "unknown",
-  ));
-test("DST changes preserve local recurring hours", () => {
-  const winter = {
-    ...e,
-    start: "2026-11-06T22:00:00Z",
-    end: "2026-11-06T23:00:00Z",
-  };
-  assert.equal(
-    scheduleFit(winter, {
-      ...emptyProfile,
-      recurring: [
-        { id: "1", weekday: 5, start: "17:00", end: "18:00", kind: "free" },
-      ],
-    }).status,
-    "free",
-  );
-});
-test("partial availability and missing event end remain unknown", () => {
-  assert.equal(
-    scheduleFit(e, {
-      ...emptyProfile,
-      recurring: [
-        { id: "1", weekday: 5, start: "17:30", end: "19:00", kind: "free" },
-      ],
-    }).status,
-    "unknown",
-  );
-  assert.equal(
-    scheduleFit({ ...e, end: null }, emptyProfile).status,
-    "unknown",
-  );
-});
-test("nonexistent and repeated DST boundary times remain unknown", () => {
-  for (const [start, end, freeStart, freeEnd] of [
-    ["2026-03-08T07:30:00Z", "2026-03-08T08:00:00Z", "02:00", "04:00"],
-    ["2026-11-01T06:15:00Z", "2026-11-01T06:45:00Z", "01:00", "02:00"],
-  ]) {
-    const fit = scheduleFit(
-      { ...e, start, end },
-      {
-        ...emptyProfile,
-        recurring: [
-          {
-            id: "dst",
-            weekday: 7,
-            start: freeStart,
-            end: freeEnd,
-            kind: "free",
-          },
-        ],
-      },
-    );
-    assert.equal(fit.status, "unknown");
-    assert.match(fit.reason, /daylight-saving/);
-  }
+test("retired personal blocks have no effect on recommendations", () => {
+  const legacy = { ...emptyProfile, recurring: [{ kind: "busy", weekday: 5,
+    start: "00:00", end: "23:59" }], busy: [{ start: e.start, end: e.end }] };
+  const clean = recommendations([e], emptyProfile);
+  assert.deepEqual(recommendations([e], legacy), clean);
+  assert.equal("fit" in clean[0], false);
+  assert.doesNotMatch(clean[0].reason, /schedule|availability|conflict/i);
 });
 test("all-day ICS preserves exclusive end date across multiple days", () => {
   const text = eventICS({

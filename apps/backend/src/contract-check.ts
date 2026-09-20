@@ -2,11 +2,9 @@
 import type {
   CampusEvent,
   Profile,
-  Fit,
   Recommendation,
   HttpApi,
   DiscoveryView,
-  AvailabilityInput,
 } from "../../../packages/shared/src/contracts.js";
 import type * as domain from "./domain.js";
 import type * as coordinator from "./coordinator.js";
@@ -19,7 +17,6 @@ type Output<K extends keyof HttpApi> = HttpApi[K]["output"];
 type Checks = [
   Assert<Extends<ReturnType<typeof domain.eventSchema.parse>, CampusEvent>>,
   Assert<Extends<ReturnType<typeof domain.profileSchema.parse>, Profile>>,
-  Assert<Extends<ReturnType<typeof domain.scheduleFit>, Fit>>,
   Assert<Extends<ReturnType<typeof domain.recommendations>, Recommendation[]>>,
   Assert<Extends<ReturnType<typeof coordinator.liveEvents>, CampusEvent[]>>,
   Assert<
@@ -38,10 +35,4 @@ type Checks = [
     >
   >,
   Assert<Extends<ReturnType<typeof discovery.discoverEvents>, DiscoveryView>>,
-  Assert<
-    Extends<
-      Parameters<typeof discovery.previewAvailability>[0],
-      AvailabilityInput
-    >
-  >,
 ];

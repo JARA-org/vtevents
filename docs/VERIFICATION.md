@@ -1,4 +1,4 @@
-> Current scope, September 20, 2026: provider account connections and remote calendar writes are retired. Setup collects interests only; manual availability and ICS export remain. Older deployment/checkpoint notes below are historical and must not be used to resume provider setup. See [v3 migration](../docs/BACKEND_CONTRACTS.md#active-v3-migration). Check the GitHub Actions deployment run for the release status of this source revision.
+> Current scope, September 20, 2026: provider account connections and remote calendar writes are retired. All personal scheduling is removed; interests, event discovery and ICS export remain. Older deployment/checkpoint notes below are historical and must not be used to resume provider setup. See [v4 migration](../docs/BACKEND_CONTRACTS.md#active-v4-migration). Check the GitHub Actions deployment run for the release status of this source revision.
 
 ## Verified live hardening release — 2026-09-19 23:57 UTC
 
@@ -151,3 +151,18 @@ from discovery. Manual availability and ICS tests still pass. Browser review aga
 a disposable local database confirms interests-only setup, no connection panel,
 and friendly source labels with Coming soon in place of a simulated raw error.
 No deployment, production data change or external credential revocation was run.
+
+
+## Local v4 retirement verification — September 20, 2026
+
+Architecture, historical v1/v2/v3 and active v4 contracts, backend/frontend types
+and production build pass. Local tests pass 112/113; the unchanged release-script
+test requires newer Bash than this macOS host provides. Linux CI must pass before
+deployment. Regression checks cover obsolete profile fields excluded from API
+responses and ranking, cleanup idempotency and account/saved-data preservation.
+ICS export still produces an attachment with valid calendar content.
+
+A disposable local browser account verified interests-only setup, navigation
+without Schedule, Settings without availability controls, discovery cards without
+fit/conflict badges, and event details with Add to calendar. Clicking Download
+calendar file successfully started the download. No real user account was changed.

@@ -14,9 +14,8 @@ Each `HttpApi` entry includes input, output, route, and effects. The browser's
 | --------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Application     | health, bootstrap                                                      | Read server status and form/category defaults                                           |
 | Events          | listEvents, exportCalendar                                             | Read listings; serialize ICS without writing a calendar                                 |
-| Discovery       | discover, getRecommendations                                           | Backend search, date filtering, ranking, schedule fit, saved/schedule projections       |
+| Discovery       | discover, getRecommendations                                           | Backend search, date filtering, ranking and saved-event projections       |
 | Account         | getAccount, updateProfile, validateProfile, deleteAccount              | Session-owned persistence; validation is pure; deletion is irreversible                 |
-| Availability    | previewAvailability                                                    | Normalize and validate a form draft, including local timezone ambiguity; no persistence |
 | Preferences     | setSaved, submitFeedback                                               | Persist desired state/feedback; enqueue associated analytics                            |
 | Assistant       | askAssistant                                                           | Authenticated matching may spend model budget                                           |
 | Discord         | listDiscordChannels, selectDiscordChannels                             | Verify server/channel access; persist allowed selections                                |
@@ -55,7 +54,7 @@ implementation. There are no browser stubs that return fake success.
 ## Backend module boundaries
 
 `BackendModules` declares source adapters, event/profile/preference repositories,
-coordinator, extraction, scheduling, recommendations, identity, calendar-file export, assistant, conversations/memory, clubs, news, analytics,
+coordinator, extraction, recommendations, identity, calendar-file export, assistant, conversations/memory, clubs, news, analytics,
 and jobs. Each port documents its allowed effects and return value.
 
 The current backend remains a set of flat modules, with persistence still present
@@ -96,11 +95,11 @@ imports in the frontend, imports outside UI boundaries, non-UI dependencies,
 frontend network calls outside the transport, and undeclared backend dependencies.
 It also rejects known migrated business operations if copied back into UI.
 
-`npm run check:contracts` checks the preserved v1 definitions and v2 definitions and the active v3 floor. Both run as part of typecheck,
+`npm run check:contracts` checks the preserved v1 definitions and v2 definitions and the active v4 floor. Both run as part of typecheck,
 tests, and build, including the existing CI workflow. Static checks cannot prove
 that arbitrary new code is free of business logic; review remains mandatory.
 
-Tests exercise server discovery/availability, request validation and session
+Tests exercise server discovery, request validation and session
 isolation, type compatibility, and intentional boundary violations. Ranking,
 matching and ICS generation run on the backend. A static-only deployment
 cannot run those features; host Node and frontend together or route `/api` to Node.
@@ -168,7 +167,7 @@ Club listing now includes additive `canCreate?: boolean`; absence means creation
 `DiscordTextExtractor.propose` accepts additive optional `DiscordExtractionContext` (trusted postedAt/timezone). `DiscordEventCandidate.dateReasoning` is optional and required by runtime validation for inferred dates; explicit-date callers remain compatible. The collector and publication service validate inferred dates with the original message timestamp, never edit or processing time. Fingerprints include context and extraction-policy version. Model interpretation handles language; ordinary backend validation handles obvious calendar arithmetic and weekday consistency.
 
 
-## Active v3 migration
+## Historical v3 migration
 
 The user-authorized retirement removes campus provider connections, private provider
 context and remote calendar writes. `contracts.ts` now advertises version 3 and
@@ -196,3 +195,31 @@ Onboarding asks only for interests. Manual availability remains on the schedule
 and preferences pages. Calendar-file export remains backend-generated and has no
 provider effects. Campus listing status uses friendly presentation labels while
 backend health retains accurate diagnostic status and errors.
+
+
+## Active v4 migration
+
+The user's clarified request removes the entire personal scheduling feature.
+There is no Schedule page, availability editor, busy/free form, conflict badge,
+fit classification, time-coverage arithmetic, schedule projection or ranking bonus/
+penalty based on personal time. Assistant prompts and explanations use event facts
+and interests. Event dates, the discovery date selector and ICS export remain.
+“Add to calendar” still downloads a backend-generated file for the chosen event.
+
+`Profile` contains name, interests and opt-in/onboarding flags. `Recommendation`
+contains event, score and reason; `DiscoveryView` has no schedule projection.
+`SchedulingService` and preview operations are removed from active types/client.
+The former preview endpoint requires a session and returns 410 without domain
+side effects. Other authenticated event/account operations remain available.
+Older profile payloads have unknown obsolete fields stripped on validation; those
+fields are never used, returned or accepted as personal-time data.
+
+The backend clears obsolete stored blocks on startup, atomically per profile and
+idempotently across restarts, without changing preferences, saved events or other
+account fields. Empty legacy storage columns are retained solely so the previous
+release can load accounts if deployment rolls back. Profile writes also keep those
+columns empty. No provider calls or AI spending are involved in this migration.
+
+Deploy frontend and backend together and reload open tabs. Bootstrap advertises
+version 4. The v1/v2/v3 contracts and original fixtures are immutable historical
+references; the current compatibility floor is `tests/fixtures/contracts-v4.json`.

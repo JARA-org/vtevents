@@ -82,7 +82,7 @@ Read `packages/shared/src/contracts.ts` before changing any interface.
 - Architecture checks enforce type-only shared code, client import/transport
   boundaries, and backend dependencies. They cannot prove the meaning of every
   expression: also review code for duplicated or hidden business logic.
-- Contract checks preserve the historical v1 types and check historical v2 against `tests/fixtures/contracts-v2.json` and active v3 against `tests/fixtures/contracts-v3.json`. Never
+- Contract checks preserve the historical v1 types and check historical v2 against `tests/fixtures/contracts-v2.json` historical v3 against `tests/fixtures/contracts-v3.json`, and active v4 against `tests/fixtures/contracts-v4.json`. Never
   regenerate that baseline to silence a failure. Keep it as the original v1
   compatibility floor; add a separate baseline for a new major version.
 - Test API behavior, access isolation, effects, and existing client compatibility.
@@ -130,3 +130,10 @@ connections, private provider context and remote calendar writes. Do not restore
 these integrations. Keep v1/v2 definitions and fixtures as historical compatibility
 references only. Setup collects interests; manual availability and ICS export
 remain. This supersedes earlier implementation plans for the retired providers.
+
+
+The latest clarification retires ALL personal scheduling under contract v4:
+no manual availability, busy/free blocks, Schedule page, conflict badges or
+schedule-dependent recommendations. This supersedes the earlier manual-availability
+exception. Keep event dates/date filters and Add to calendar (ICS download).
+Historical contract definitions remain immutable; never restore their features.

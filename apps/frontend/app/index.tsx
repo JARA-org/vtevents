@@ -41,8 +41,6 @@ import { deadlineText } from "../components/event-presentation";
 const blankProfile: Profile = {
   name: "",
   interests: [],
-  recurring: [],
-  busy: [],
   onboarded: false,
   aiEnabled: false,
 };
@@ -53,7 +51,6 @@ type Page =
   | "timeline"
   | "discover"
   | "saved"
-  | "schedule"
   | "gobbler"
   | "settings"
   | "onboarding"
@@ -118,7 +115,7 @@ function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
       />
       <Text style={s.meta}>
         {enabled
-          ? "Reads the first three public event summaries using ElevenLabs. Your question and private schedule are not sent."
+          ? "Reads the first three public event summaries using ElevenLabs. Your question and personal details are not sent."
           : "ElevenLabs narration is available for signed-in students when the voice service is connected."}
       </Text>
       {!!notice && (
@@ -182,13 +179,6 @@ export default function Home() {
     [password, setPassword] = useState(""),
     [signUp, setSignUp] = useState(false),
     [name, setName] = useState(""),
-    [weekday, setWeekday] = useState(1),
-    [blockStart, setBlockStart] = useState("17:00"),
-    [blockEnd, setBlockEnd] = useState("22:00"),
-    [blockKind, setBlockKind] = useState<"free" | "busy">("free"),
-    [busyDate, setBusyDate] = useState(
-      DateTime.now().setZone(CAMPUS_TZ).toISODate()!,
-    ),
     [deleteText, setDeleteText] = useState(""),
     [deadlines, setDeadlines] = useState<CampusDeadline[]>([]),
     [deadlineStatus, setDeadlineStatus] = useState("Loading deadlines…"),
@@ -196,7 +186,6 @@ export default function Home() {
       recommendations: [],
       filtered: [],
       savedRecommendations: [],
-      schedule: [],
     });
   const notify = (m: string) => {
     setToast(m);
@@ -297,7 +286,7 @@ export default function Home() {
     return () => { active = false; };
   }, [user, page, refreshVersion]);
   useEffect(() => {
-    if (!user || !["discover", "saved", "schedule"].includes(page)) {
+    if (!user || !["discover", "saved"].includes(page)) {
       setDiscoveryLoading(false);
       return;
     }
@@ -307,7 +296,6 @@ export default function Home() {
       recommendations: [],
       filtered: [],
       savedRecommendations: [],
-      schedule: [],
     });
     const timer = setTimeout(() => {
       backend
@@ -327,7 +315,6 @@ export default function Home() {
               recommendations: [],
               filtered: [],
               savedRecommendations: [],
-              schedule: [],
             });
             setError(e.message);
           }
@@ -434,7 +421,7 @@ export default function Home() {
     item: Recommendation;
     compact?: boolean;
   }) {
-    const { event: e, fit, reason } = item;
+    const { event: e, reason } = item;
     const accent = e.categories.includes("Outdoors")
       ? "#E4EEE5"
       : e.categories.includes("Arts & music")
@@ -473,38 +460,6 @@ export default function Home() {
               <Ionicons name="location-outline" />{" "}
               {e.location || "Location available at source"}
             </Text>
-            <View
-              style={[
-                s.fit,
-                {
-                  backgroundColor:
-                    fit.status === "free"
-                      ? "#EDF5EE"
-                      : fit.status === "conflict"
-                        ? "#FFF0E2"
-                        : "#F3F0ED",
-                },
-              ]}
-            >
-              <Ionicons
-                name={
-                  fit.status === "free"
-                    ? "checkmark-circle-outline"
-                    : fit.status === "conflict"
-                      ? "alert-circle-outline"
-                      : "help-circle-outline"
-                }
-                size={18}
-                color={fit.status === "free" ? C.green : C.maroon}
-              />
-              <Text style={[s.small, { flex: 1 }]}>
-                {fit.status === "free"
-                  ? "Fits your availability"
-                  : fit.status === "conflict"
-                    ? "Schedule conflict"
-                    : "Availability unknown"}
-              </Text>
-            </View>
             <Text style={[s.meta, { lineHeight: 21 }]} numberOfLines={2}>
               {reason}
             </Text>
@@ -540,131 +495,6 @@ export default function Home() {
       </View>
     );
   }
-  const addBlock = () => {
-    void run(async () => {
-      const draft = await backend.previewAvailability({
-        profile,
-        block: {
-          kind: "recurring",
-          weekday,
-          start: blockStart,
-          end: blockEnd,
-          availability: blockKind,
-        },
-      });
-      await saveProfile(draft);
-    });
-  };
-  const busyBlock = () => {
-    void run(async () => {
-      const draft = await backend.previewAvailability({
-        profile,
-        block: {
-          kind: "dated",
-          date: busyDate,
-          start: blockStart,
-          end: blockEnd,
-        },
-      });
-      await saveProfile(draft);
-    });
-  };
-  const availabilityEditor = (
-    <View style={s.panel}>
-      <Text style={s.sectionTitle}>Make room for campus life</Text>
-      <Text style={s.body}>
-        Tell Gobbler when you’re available or busy. All times are Eastern. An
-        empty schedule means unknown availability.
-      </Text>
-      <View style={s.wrap}>
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d, i) => (
-          <Chip
-            key={d}
-            label={d}
-            active={weekday === i + 1}
-            onPress={() => setWeekday(i + 1)}
-          />
-        ))}
-      </View>
-      <View style={s.wrap}>
-        <Chip
-          label="Available"
-          active={blockKind === "free"}
-          onPress={() => setBlockKind("free")}
-        />
-        <Chip
-          label="Busy"
-          active={blockKind === "busy"}
-          onPress={() => setBlockKind("busy")}
-        />
-      </View>
-      <View style={s.wrap}>
-        <View style={{ flex: 1, minWidth: 120 }}>
-          <Field
-            label="From (HH:mm)"
-            value={blockStart}
-            onChange={setBlockStart}
-          />
-        </View>
-        <View style={{ flex: 1, minWidth: 120 }}>
-          <Field
-            label="Until (HH:mm)"
-            value={blockEnd}
-            onChange={setBlockEnd}
-          />
-        </View>
-      </View>
-      <Button label="Add recurring block" secondary onPress={addBlock} />
-      {profile.recurring.map((b) => (
-        <View key={b.id} style={[s.row, { justifyContent: "space-between" }]}>
-          <Text style={s.body}>
-            {["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][b.weekday]} ·{" "}
-            {b.start}–{b.end} · {b.kind === "free" ? "Available" : "Busy"}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={"Remove " + b.weekday + " " + b.start}
-            onPress={() =>
-              saveProfile({
-                ...profile,
-                recurring: profile.recurring.filter((x) => x.id !== b.id),
-              })
-            }
-          >
-            <Ionicons name="close-circle-outline" size={24} color={C.maroon} />
-          </Pressable>
-        </View>
-      ))}
-      <View style={s.divider} />
-      <Text style={s.label}>One-time busy block</Text>
-      <Field
-        label="Date (YYYY-MM-DD)"
-        value={busyDate}
-        onChange={setBusyDate}
-      />
-      <Text style={s.meta}>Uses the From and Until times above.</Text>
-      <Button label="Add busy block" secondary onPress={busyBlock} />
-      {profile.busy.map((b) => (
-        <View style={[s.row, { justifyContent: "space-between" }]} key={b.id}>
-          <Text style={s.meta}>
-            {date(b.start)} – {date(b.end, "h:mm a")}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Remove busy block"
-            onPress={() =>
-              saveProfile({
-                ...profile,
-                busy: profile.busy.filter((x) => x.id !== b.id),
-              })
-            }
-          >
-            <Ionicons name="close-circle-outline" size={24} color={C.maroon} />
-          </Pressable>
-        </View>
-      ))}
-    </View>
-  );
   return (
     <View testID={page === "timeline" && !selected ? "timeline-home" : undefined} style={s.root}>
       <ScrollView
@@ -715,7 +545,7 @@ export default function Home() {
           </View>
           {!mobile && !!user && page !== "landing" && page !== "auth" && (
             <View style={s.row}>
-              {(["timeline", "discover", "saved", "schedule", "gobbler"] as Page[]).map(
+              {(["timeline", "discover", "saved", "gobbler"] as Page[]).map(
                 (p) => (
                   <Pressable
                     accessibilityRole="button"
@@ -782,7 +612,7 @@ export default function Home() {
               },
             ]}
           >
-            {(["timeline", "discover", "saved", "schedule", "gobbler"] as Page[]).map(
+            {(["timeline", "discover", "saved", "gobbler"] as Page[]).map(
               (p) => (
                 <Pressable
                   key={p}
@@ -1011,7 +841,7 @@ export default function Home() {
               )}
               {!!discovery.sportsTicker?.length && (
                 <View style={{ gap: 10 }}>
-                  <Text style={s.sectionTitle}>HokieSports — latest source schedule</Text>
+                  <Text style={s.sectionTitle}>HokieSports — latest events</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ gap: 12 }}>
                     {discovery.sportsTicker.map(event => (
                       <Pressable key={event.id} accessibilityRole="button" accessibilityLabel={`View ${event.title}`} onPress={() => viewEvent(event)} style={[s.panel, { width: 290, gap: 8 }]}>
@@ -1125,10 +955,10 @@ export default function Home() {
                   {selected.links?.map((link, index) => <Button key={`${link.url}:${index}`} secondary label={`${link.label || link.kind} ↗`} onPress={() => Linking.openURL(link.url)} />)}
                   {selected.sources.map(source => <Button key={`${source.source}:${source.sourceId}`} secondary label={`${source.label || source.source} ↗`} onPress={() => Linking.openURL(source.url)} />)}
                 </View>
-                <View style={s.fit}>
+                <View style={s.recommendationNote}>
                   <Text style={s.body}>
                     {selectedReason || ranked.find((x) => x.event.id === selected.id)?.reason ||
-                      "Schedule information is unavailable. Please refresh."}
+                      "Explore this event for more details."}
                   </Text>
                 </View>
                 <Text style={s.meta}>
@@ -1255,39 +1085,6 @@ export default function Home() {
               )}
             </>
           )}
-          {user && page === "schedule" && !selected && (
-            <>
-              <Text style={s.eyebrowText}>
-                MAKE ROOM FOR SOMETHING GOOD
-              </Text>
-              <Text accessibilityRole="header" style={s.pageTitle}>
-                Your week, with possibilities
-              </Text>
-              <Text style={s.body}>
-                Saved events and the availability you choose to share, together.
-              </Text>
-              <View style={[s.columns, mobile && { flexDirection: "column" }]}>
-                <View style={{ flex: 1, gap: 16 }}>
-                  {discovery.schedule.map((item) => (
-                    <EventCard key={item.event.id} item={item} compact />
-                  ))}
-                  {!saved.length && (
-                    <View style={s.panel}>
-                      <Text style={s.body}>
-                        Save an event to see how it fits your week.
-                      </Text>
-                      <Button
-                        secondary
-                        label="Explore events"
-                        onPress={() => go("discover")}
-                      />
-                    </View>
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>{availabilityEditor}</View>
-              </View>
-            </>
-          )}
           {user && page === "gobbler" && !selected && (
             <>
               <View
@@ -1299,7 +1096,7 @@ export default function Home() {
                 </Text>
                 <Text style={[s.body, { textAlign: "center", maxWidth: 580 }]}>
                   Tell me what you have in mind. I’ll look through current
-                  listings and check them against the availability you shared.
+                  listings for events that match your interests.
                 </Text>
               </View>
               <View
@@ -1336,7 +1133,7 @@ export default function Home() {
                 />
                 <Text style={s.meta}>
                   {profile.aiEnabled
-                    ? "Gemini can match your question to campus events. Schedule checks and explanations come from app records."
+                    ? "Gemini can match your question to campus events. Event details and explanations come from app records."
                     : "Gobbler uses deterministic matching. Enable Gemini in Settings to interpret more natural questions."}
                 </Text>
               </View>
@@ -1461,7 +1258,6 @@ export default function Home() {
                       free tier may use prompts to improve its products.
                     </Text>
                   </View>
-                  {availabilityEditor}
                 </View>
                 <View style={{ flex: 1, gap: 24 }}>
                   <View style={s.panel}>
@@ -1513,7 +1309,6 @@ export default function Home() {
                                 recommendations: [],
                                 filtered: [],
                                 savedRecommendations: [],
-                                schedule: [],
                               });
                               setProfile(emptyProfile);
                               setSaved([]);
@@ -1543,7 +1338,6 @@ export default function Home() {
                                 recommendations: [],
                                 filtered: [],
                                 savedRecommendations: [],
-                                schedule: [],
                               });
                               setProfile(emptyProfile);
                               setSaved([]);
@@ -1771,7 +1565,7 @@ const s = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
   },
-  fit: {
+  recommendationNote: {
     flexDirection: "row",
     gap: 9,
     alignItems: "center",

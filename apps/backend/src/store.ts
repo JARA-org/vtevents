@@ -22,6 +22,13 @@ export async function connectDB() {
   });
   await mongoClient.connect();
   db = mongoClient.db(config.db);
+  // v4 retirement migration: trusted startup only; removes obsolete personal
+  // blocks; empty legacy columns keep rollback compatible. Atomic per profile, idempotent
+  // across retries/restarts; storage failure aborts startup. No provider/model I/O.
+  await db.collection("profiles").updateMany(
+    { $or: [{ recurring: { $exists: true, $ne: [] } }, { busy: { $exists: true, $ne: [] } }] },
+    { $set: { recurring: [], busy: [] } },
+  );
   // One-time migration: existing watches start at their original activation time,
   // never at the beginning of channel history. Missing timestamps start now.
   const legacyWatches = db

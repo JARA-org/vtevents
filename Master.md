@@ -426,3 +426,14 @@ export remains available; it has no connection to a provider account.
 Campus listing status presents friendly labels: Up to date, Listings available,
 More listings on the way, or Coming soon. Raw technical errors are not displayed
 in this panel. Backend health and logs retain accurate diagnostic information.
+
+
+## Complete personal schedule retirement (September 20, 2026 — latest)
+
+Remove ALL personal schedule features throughout the app and backend. This
+supersedes the earlier decision to retain manual availability. Remove navigation,
+forms, busy/free blocks, conflict/unknown-availability badges, fit scoring,
+schedule-derived recommendations and assistant claims. Adding an event to a
+calendar remains available through ICS download. Event dates and date-based
+discovery remain. Background ingestion/queue timing is infrastructure, not a
+personal schedule feature. Contract v4 and its migration govern this retirement.

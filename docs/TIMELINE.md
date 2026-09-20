@@ -61,7 +61,7 @@ Ties favor less represented categories, organizers and source families across th
 selected set, then existing recommendation score and start time. Without expressed
 interests this yields a diverse set including academic/career categories when
 available. Popularity and "major event" significance are not fabricated from titles.
-Returned items retain authoritative availability/reason and matched-interest tags;
+Returned items retain evidence-backed explanations and matched-interest tags;
 the client only renders them. Existing event/recommendation DTO meanings and the
 legacy discovery endpoint are unchanged. The grid's existing 60-result cap remains.
 

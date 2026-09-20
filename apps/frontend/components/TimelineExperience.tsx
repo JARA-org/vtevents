@@ -581,13 +581,6 @@ export function TimelineExperience({
                             {event.location || "Location available at source"}
                           </p>
                         </div>
-                        <p className="tl-fit">
-                          {item.recommendation.fit.status === "free"
-                            ? "✓ Fits your availability"
-                            : item.recommendation.fit.status === "conflict"
-                              ? "Schedule conflict"
-                              : "Availability unknown"}
-                        </p>
                         <p className="tl-explanation">
                           {item.recommendation.reason}
                         </p>

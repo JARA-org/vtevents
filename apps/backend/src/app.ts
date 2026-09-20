@@ -24,8 +24,6 @@ import {
   discoverEvents,
   timelineSchema,
   discoverTimeline,
-  availabilitySchema,
-  previewAvailability,
 } from "./discovery.js";
 import { config, HttpError } from "./config.js";
 import { db, database, mongoClient } from "./store.js";
@@ -164,14 +162,7 @@ export function createApp() {
   const profile = async (id: string, name = "Hokie") => {
     const p = await database().collection("profiles").findOne({ userId: id });
     if (!p) return { ...emptyProfile, name };
-    // v3 read migration: retired provider blocks never influence availability.
-    // Session-scoped, read-only; preserve manual blocks and validate everything else.
-    const parsed = profileSchema.safeParse({ ...p,
-      busy: Array.isArray(p.busy)
-        ? p.busy.filter((block: unknown) => !block || typeof block !== "object" ||
-          !("source" in block) || block.source === "manual")
-        : p.busy,
-    });
+    const parsed = profileSchema.safeParse(p);
     // A stored record that no longer validates is a server fault, not a bad form
     // submission: report it as unavailable and log the failing fields only.
     if (!parsed.success) {
@@ -239,7 +230,7 @@ export function createApp() {
   };
   app.get("/api/bootstrap", (_req, res) => {
     const view: BootstrapView = {
-      contractVersion: 3,
+      contractVersion: 4,
       categories: [...categories],
       timezone: CAMPUS_TZ,
       emptyProfile,
@@ -249,8 +240,9 @@ export function createApp() {
   app.post("/api/profile/validate", protect, (req, res) =>
     res.json(profileSchema.parse(req.body)),
   );
-  app.post("/api/availability/preview", protect, (req, res) =>
-    res.json(previewAvailability(availabilitySchema.parse(req.body))),
+  // Authenticated stale clients receive a terminal response, with no domain effects.
+  app.all("/api/availability/preview", protect, (_req, res) =>
+    res.status(410).json({ message: "This feature has been retired. Please refresh the app." }),
   );
   app.post("/api/discovery", protect, async (req, res) => {
     const input = discoverySchema.parse(req.body);
@@ -346,13 +338,12 @@ export function createApp() {
       feedback: Object.fromEntries(feedback.map((f) => [f.eventId, f.value])),
     });
   });
+  // Empty legacy storage columns support rollback; they are never read or returned by v4.
   app.put("/api/profile", protect, async (req, res) => {
     const p = profileSchema.parse(req.body);
-    if (p.busy.some((b) => b.source !== "manual"))
-      throw new HttpError(400, "Only manual busy blocks can be edited here.");
     await database()
       .collection("profiles")
-      .updateOne({ userId: res.locals.user.id }, { $set: p }, { upsert: true });
+      .updateOne({ userId: res.locals.user.id }, { $set: { ...p, recurring: [], busy: [] } }, { upsert: true });
     res.json(p);
   });
   app.get("/api/recommendations", protect, async (_req, res) => {

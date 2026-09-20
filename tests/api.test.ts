@@ -139,7 +139,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
     assert.equal(live.status, 200);
     assert.ok(live.body.events.every((e: any) => e.mode === "live"));
     const bootstrap = await request(app).get("/api/bootstrap");
-    assert.equal(bootstrap.body.contractVersion, 3);
+    assert.equal(bootstrap.body.contractVersion, 4);
     assert.equal("demoProfile" in bootstrap.body, false);
     assert.ok(bootstrap.body.categories.includes("Sports"));
     const forged = await a
@@ -169,7 +169,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
             },
           })
       ).status,
-      400,
+      410,
     );
     assert.equal(
       (
@@ -259,6 +259,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
     const ics = await a.get("/api/events/live-test-1/ics");
     assert.equal(ics.status, 200);
     assert.match(ics.text, /BEGIN:VCALENDAR/);
+    assert.match(ics.headers["content-disposition"], /attachment;.*\.ics/);
     const discover = await a
       .post("/api/discovery")
       .set("Origin", origin)
@@ -331,12 +332,16 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
       const oldBusy = { id: "retired-busy", start: event.start,
         end: event.end, source: "google" };
       await db.collection("profiles").updateOne({ userId: me.user.id }, { $set: { busy: [oldBusy] } });
-      assert.deepEqual((await a.get("/api/me")).body.profile.busy, []);
+      assert.equal("busy" in (await a.get("/api/me")).body.profile, false);
       const clean = await a.post("/api/discovery").set("Origin", origin).send({});
       assert.equal(clean.status, 200);
-      assert.notEqual(clean.body.savedRecommendations[0].fit.status, "conflict");
+      assert.equal("fit" in clean.body.savedRecommendations[0], false);
+      assert.equal("schedule" in clean.body, false);
       assert.equal((await a.put("/api/profile").set("Origin", origin)
-        .send({ ...pa, busy: [oldBusy] })).status, 400);
+        .send({ ...pa, busy: [oldBusy], recurring: [{ kind: "free" }] })).status, 200);
+      const stored = await db.collection("profiles").findOne({ userId: me.user.id });
+      assert.deepEqual(stored!.busy, []);
+      assert.deepEqual(stored!.recurring, []);
     } finally { globalThis.fetch = savedFetch; }
     const { askGobbler } = await import("../apps/backend/src/assistant.js");
     process.env.GEMINI_API_KEY = "synthetic-test-key";

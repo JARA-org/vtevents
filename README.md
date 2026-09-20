@@ -4,9 +4,9 @@
 
 ## Current delivery status
 
-**Live: https://vtevents.us.** The Expo website and Node API run on the existing Vultr server with Caddy HTTPS, MongoDB Atlas M0 and Gemini free-tier API. Production account/profile persistence, live discovery, saves, ICS, grounded Gemini responses and account deletion passed on 2026-09-19. Browser onboarding, details, schedule conflicts and mobile calendar download passed; profiles, saves and sessions survived an app restart.
+**Live: https://vtevents.us.** The Expo website and Node API run on the existing Vultr server with Caddy HTTPS, MongoDB Atlas M0 and Gemini free-tier API. Production account/profile persistence, live discovery, saves, ICS, grounded Gemini responses and account deletion passed on 2026-09-19. Browser onboarding, details and mobile calendar download passed; profiles, saves and sessions survived an app restart.
 
-**Current scope:** authenticated event discovery, manual availability, saved plans and calendar-file downloads. Setup asks for interests only. Provider account connections and remote calendar writes have been retired in contract v3. See [the migration](docs/BACKEND_CONTRACTS.md#active-v3-migration) and [current handoff](NEXT_AGENT_PROMPT.md) before operating the deployment. The owner's $0-beyond-credits requirement remains in force; Vultr hard spending protection is still unverified.
+**Current scope:** authenticated event discovery, saved plans and calendar-file downloads. Setup asks for interests only. Provider account connections and remote calendar writes remain retired; personal scheduling is removed in contract v4. See [the migration](docs/BACKEND_CONTRACTS.md#active-v4-migration) and [current handoff](NEXT_AGENT_PROMPT.md) before operating the deployment. The owner's $0-beyond-credits requirement remains in force; Vultr hard spending protection is still unverified.
 
 Existing private source repository: https://github.com/JARA-org/vtevents. The repository name is preserved; the application display name and app slug are `My Gobbler` / `my-gobbler`. Existing cloud resource names and calendar UIDs retain their original identifiers for compatibility. See `CHANGELOG.md` and `MAKEOVER_HANDOFF.md` for the local visual refresh.
 
@@ -27,13 +27,13 @@ For Atlas, copy `.env.example` to ignored `.env`, fill real backend values secur
 ## What works
 
 - Responsive Expo Router/React Native/TypeScript website, original turkey mascot, landing page and required account sign-in.
-- Better Auth email/password sign-in, persistent profiles, editable interests, recurring availability, one-time busy blocks, saves and feedback.
+- Better Auth email/password sign-in, persistent profiles, editable interests, saves and feedback.
 - Public event discovery, filters, details, provenance, freshness, cancellation handling and cross-source deduplication.
-- Deterministic recommendations and grounded Gobbler responses. Optional backend-only Gemini interprets questions and ranks up to 40 public event candidates; unknown IDs are rejected, and explanations and schedule facts come from stored records.
-- Schedule conflicts and explicit unknown availability. America/New_York campus display; UTC timestamps and retained source timezone.
+- Deterministic recommendations and grounded Gobbler responses. Optional backend-only Gemini interprets questions and ranks up to 40 public event candidates; unknown IDs are rejected, and explanations and event facts come from stored records.
+- America/New_York event display, UTC timestamps and retained source timezone.
 - Working ICS download with stable UIDs, escaping and line folding.
 - Account deletion, analytics outbox and public source refresh job endpoint.
-- Gobbler favicon and optional ElevenLabs narration of up to three stored public event summaries. Authenticated requests, shared audio cache, strict character allowance and explicit playback; no private schedule sent. Live audio and authenticated endpoint verified on the Free plan; TTS-only key capped at 8,000 credits per refresh period.
+- Gobbler favicon and optional ElevenLabs narration of up to three stored public event summaries. Authenticated requests, shared audio cache, strict character allowance and explicit playback; no private account details sent. Live audio and authenticated endpoint verified on the Free plan; TTS-only key capped at 8,000 credits per refresh period.
 
 See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE.md), [resource inventory](docs/RESOURCES.md), and [verification walkthrough](docs/VERIFICATION.md).
 

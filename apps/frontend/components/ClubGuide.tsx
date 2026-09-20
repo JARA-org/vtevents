@@ -5,7 +5,7 @@ import { Button, Gobbler, Pressable } from "./ui";
 import { C, font } from "./theme";
 
 /** Static product documentation for club representatives. Presentation only: no
- * provider calls, no eligibility or schedule decisions, and no publication rules
+ * provider calls, no domain decisions, and no publication rules
  * evaluated here. Every behaviour described is enforced by the backend. */
 type Step = {
   icon: React.ComponentProps<typeof Ionicons>["name"];
