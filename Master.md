@@ -499,3 +499,13 @@ consent, reports partial/unavailable indexing, and rechecks visibility after mod
 latency. Discord vectors are request-local and never archived. Ask Gobbler uses
 semantic candidates but only returns cards when the query requests events.
 See docs/SEMANTIC_SEARCH.md for the implemented ports, limits and privacy behavior.
+
+## Undated Discord announcements (September 20, 2026 — latest)
+
+If an event announcement has no day/date expression, default to its original
+provider posting day in America/New_York. This supersedes the earlier requirement
+for a temporal expression. Extraction represents missing date evidence as an empty
+string; backend validation checks the posting-day default and records its reason.
+Edits and processing delays never move this date. Explicit or ambiguous date
+expressions cannot be replaced with this default. Grouped announcements use the
+original timestamp of the identified event message. Title and venue remain required.

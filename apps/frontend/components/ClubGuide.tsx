@@ -65,7 +65,7 @@ const steps: Step[] = [
     icon: "megaphone-outline",
     title: "4. Write an announcement it can publish",
     body: [
-      "Include a date it can pin down. “tonight”, “next Friday” and “October 3” all work — it reads them against the moment you posted, in Blacksburg time. A date it cannot resolve confidently is left unpublished rather than guessed.",
+      "“tonight”, “next Friday” and “October 3” all work — Gobbler reads them against the moment you posted, in Blacksburg time. If you leave out the day, it assumes the day you originally posted. Edits and delayed processing do not change that default. A stated but ambiguous date stays unpublished.",
       "Include a place: a physical venue, or say it is online. A Zoom or Meet link counts as an online venue.",
       "The title and description come from your own words — Gobbler quotes you rather than writing its own copy.",
       "Times are optional. A clear range like “6:00 PM – 8:00 PM” is used as-is. Without one, the event publishes with its time marked to be confirmed instead of an invented start.",

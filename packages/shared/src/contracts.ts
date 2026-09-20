@@ -859,6 +859,7 @@ export interface DiscordEventCandidate {
   onlineUrl: string | null;
   isOnline: boolean;
   evidence: {
+    /** Empty only for an undated Discord announcement defaulted to its trusted campus-local posting day. */
     date: string;
     title: string;
     location: string | null;

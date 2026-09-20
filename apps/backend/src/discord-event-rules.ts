@@ -22,7 +22,7 @@ const proposal = z
     isOnline: z.boolean(),
     evidence: z
       .object({
-        date: quote,
+        date: z.union([quote, z.literal("")]),
         title: quote,
         location: quote.nullable(),
         online: quote.nullable(),
@@ -82,7 +82,19 @@ export function validateDiscordCandidate(
   )
     return null;
   const explicit = explicitDiscordDate(p.evidence.date);
-  if (explicit) {
+  if (p.evidence.date === "") {
+    // Absence is interpreted by extraction; the fallback date itself is fixed by
+    // authenticated provider metadata, never by model reasoning or processing time.
+    if (!context || context.timezone !== "America/New_York") return null;
+    const posted = DateTime.fromISO(context.postedAt, { setZone: true }).setZone(context.timezone);
+    if (!posted.isValid || p.date !== posted.toISODate()) return null;
+    // Do not let omission of date evidence erase an explicit or ambiguous day.
+    // URLs are not date expressions (e.g. a video id may contain numbers).
+    const prose = text.replace(/https?:\/\/\S+/gi, "")
+      .replace(/\b\d{1,2}:[0-5]\d\s*(?:AM|PM)?/gi, "");
+    if (/\b(today|tonight|tomorrow|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun|week|weekend|month|year|days?|weeks?|months?|january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec|soon|sometime|later)\b|\b\d{1,2}[/-]\d{1,2}\b|\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}(st|nd|rd|th)\b/i.test(prose)) return null;
+    p.dateReasoning = "No day specified; defaults to the original posting date in America/New_York.";
+  } else if (explicit) {
     if (explicit !== p.date) return null;
   } else {
     if (!context || !p.dateReasoning) return null;

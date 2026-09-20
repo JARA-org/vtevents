@@ -399,6 +399,26 @@ test("Discord adapter only GETs designated resources, validates guild, and honor
   assert.equal(calls, 1);
 });
 
+test("undated announcements default only to their original campus posting day", () => {
+  const announcement = "Chess night at 5:30-6:30PM in Squires";
+  const value = { ...proposal, date: "2026-09-19", onlineUrl: null, isOnline: false,
+    evidence: { ...proposal.evidence, date: "", online: null } };
+  const context = { postedAt: "2026-09-20T01:00:00Z", timezone: "America/New_York" };
+  const result = validateDiscordCandidate(value, announcement, context);
+  assert.equal(result?.date, "2026-09-19");
+  assert.match(result!.dateReasoning!, /original posting date/);
+  assert.equal(validateDiscordCandidate({ ...value, date: "2026-09-20" }, announcement, context), null);
+  assert.equal(validateDiscordCandidate(value, announcement), null);
+  assert.equal(validateDiscordCandidate(value, announcement, { ...context, postedAt: "invalid" }), null);
+  for (const day of ["tomorrow", "next Friday", "soon", "September 25", "2026-09-25", "February 30, 2026"])
+    assert.equal(validateDiscordCandidate(value, `${announcement} ${day}`, context), null);
+  const grouped = { ...context, messages: [{ messageId: "1", text: announcement, createdAt: context.postedAt }] };
+  assert.equal(validateDiscordCandidate(value, announcement, grouped), null);
+  assert.equal(validateDiscordCandidate({ ...value, dateMessageId: "1" }, announcement, grouped)?.date, "2026-09-19");
+  assert.equal(validateDiscordCandidate({ ...value, date: "2026-12-31" }, announcement,
+    { ...context, postedAt: "2027-01-01T02:00:00Z" })?.date, "2026-12-31");
+});
+
 test("relative dates use original posting time in campus timezone, including midnight, DST and year rollover", () => {
   const infer = (phrase: string, date: string, postedAt: string) => {
     const announcement = `Chess night ${phrase} at Squires`;

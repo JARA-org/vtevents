@@ -7,6 +7,10 @@ collector, and optional AI interpretation with deterministic qualification. It d
 
 ## Install My Gobbler in your server
 
+Undated event announcements default to the original posting day in Blacksburg
+time. Edits and delayed processing preserve that day. Stated but ambiguous dates
+remain unpublished; this default does not override explicit date evidence.
+
 A member with **Manage Server** permission can [add Gobbler to Discord](https://discord.com/oauth2/authorize?client_id=1550934717719781436&scope=bot%20applications.commands&permissions=66560&integration_type=0).
 Choose the server and authorize **View Channel** and **Read Message History**.
 An App Directory listing is not required. Then run `/gobbler setup` and complete
