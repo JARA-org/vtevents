@@ -10,3 +10,8 @@
 www.{$GOBBLER_DOMAIN} {
   redir https://{$GOBBLER_DOMAIN}{uri} permanent
 }
+
+# Additional owned entry points share the canonical authentication origin.
+mygobbler.us, www.mygobbler.us {
+  redir https://{$GOBBLER_DOMAIN}{uri} temporary
+}
