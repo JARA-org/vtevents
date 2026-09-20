@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Platform, Text, View } from "react-native";
 import { DateTime } from "luxon";
 import type { CampusEvent, TimelineItem, TimelineView } from "@gobbler/shared";
@@ -60,6 +60,7 @@ export function TimelineExperience({
   const [reduced, setReduced] = useState(false);
   const [pinned, setPinned] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
+  const openId = pinned || hovered;
   const track = useRef<HTMLDivElement>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const dragging = useRef<Range | null>(null);
@@ -159,11 +160,34 @@ export function TimelineExperience({
     return () => cancelAnimationFrame(frame);
   }, [pinned, vertical, reduced]);
 
+  // Keep outward-opening details reachable even in a short landscape viewport.
+  useLayoutEffect(() => {
+    if (Platform.OS !== "web" || vertical || !openId) return;
+    const extra = document.getElementById(`timeline-extra-${openId}`);
+    const bubble = extra?.parentElement;
+    if (!extra || !bubble) return;
+    const fit = () => {
+      const bounds = bubble.getBoundingClientRect();
+      const headerBottom = document.querySelector('[data-testid="app-header"]')
+        ?.getBoundingClientRect().bottom || 0;
+      const room = bubble.closest(".side-a")
+        ? bounds.top - Math.max(12, headerBottom + 8)
+        : window.innerHeight - bounds.bottom - 12;
+      extra.style.setProperty("--tl-extra-room", `${Math.max(44, room)}px`);
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    window.addEventListener("scroll", fit, true);
+    return () => {
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("scroll", fit, true);
+    };
+  }, [openId, vertical]);
+
   const start = draft ? Math.min(draft.anchor, draft.end) : 0;
   const end = draft ? Math.max(draft.anchor, draft.end) : 6;
   const populated = phase === "populating" || phase === "ready";
   const selecting = phase === "select";
-  const openId = pinned || hovered;
   const selectionLabel =
     view && draft
       ? start === end
@@ -281,11 +305,18 @@ export function TimelineExperience({
     >
       <header className="tl-heading">
         <h1>Your featured timeline.</h1>
-        <p className="tl-subtitle">
-          {populated
-            ? `${selectionLabel} · ${view?.items.length || 0} events`
-            : "Select a date range to see featured events."}
-        </p>
+        <div className="tl-date-toolbar">
+          <p className="tl-subtitle">
+            {populated
+              ? `${selectionLabel} · ${view?.items.length || 0} events`
+              : "Select a date range to see featured events."}
+          </p>
+          {populated && (
+            <button className="tl-change" onClick={changeDates} disabled={phase !== "ready"}>
+              <span aria-hidden="true">↻</span> Change dates
+            </button>
+          )}
+        </div>
       </header>
 
       {populated && vertical && (
@@ -647,9 +678,6 @@ export function TimelineExperience({
             className={`tl-followups ${phase === "ready" ? "visible" : ""}`}
             inert={phase !== "ready"}
           >
-            <button className="tl-change" onClick={changeDates}>
-              Change dates
-            </button>
             <button className="tl-discover" onClick={onDiscover}>
               Discover more <span aria-hidden="true">↗</span>
             </button>

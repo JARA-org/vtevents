@@ -402,8 +402,9 @@ when available. First-day weighting gives 4/2/2/2 for four adequately populated 
 Selection and ranking remain deterministic backend queries, never browser logic.
 
 Bubbles start with title, time and a small interest indicator. Hover/focus/tap reveals
-location, small thumbnail and existing Save/Details/Calendar actions. Change dates
-sits above a subdued Discover more link. Discover more opens the original two-column
+location, small thumbnail and existing Save/Details/Calendar actions. Top-row details
+expand upward; bottom-row details expand downward. Change dates sits beside the
+selected date range in a visible bordered button. Discover more opens the original two-column
 grid with all upcoming events, preserving search/category/day controls. Keep VT
 colors with a creamier, restrained surface. Respect reduced motion and keyboard
 access; maintain sign-in, permissions and explicit calendar-write confirmation.

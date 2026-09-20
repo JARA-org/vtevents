@@ -24,9 +24,12 @@ system typography. No external animation library, model or generated media is us
   Expanding a bubble scrolls its controls into view in portrait.
 - Hover or keyboard focus reveals a small thumbnail, location, explanation and
   Save/Details/Calendar. Click/tap pins expansion; a second click/tap opens details.
-  Outside interaction or Escape dismisses expansion. Existing calendar confirmation
+  Horizontal top-row details open upward and bottom-row details open downward;
+  short viewports scroll the details within the available space. Outside interaction
+  or Escape dismisses expansion. Existing calendar confirmation
   and idempotency are unchanged; expanding never writes a calendar.
-- Change dates refreshes the current seven-day selector without the entrance.
+- Change dates sits beside the selected range in a bordered button and refreshes
+  the current seven-day selector without the entrance.
   Discover more restores the original discovery grid with all upcoming events and
   its existing search/category/day filters. It does not inherit selected dates.
 - Empty selected ranges show an honest empty state. Failed reads show unavailable
