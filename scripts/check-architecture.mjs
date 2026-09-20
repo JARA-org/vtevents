@@ -63,7 +63,6 @@ const edges = {
     "analytics",
     "jobs",
     "security",
-    "narration",
     "discord-bot-http",
   ],
   "server.ts": [
@@ -133,11 +132,9 @@ const edges = {
     "discord-bot-store",
     "discord-collection-store",
   ],
-  "narration.ts": ["domain", "store", "config"],
   "analytics.ts": ["store", "security"],
   "jobs.ts": ["coordinator"],
   "contract-check.ts": [
-    "narration",
     "domain",
     "coordinator",
     "sources",

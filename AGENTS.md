@@ -82,7 +82,7 @@ Read `packages/shared/src/contracts.ts` before changing any interface.
 - Architecture checks enforce type-only shared code, client import/transport
   boundaries, and backend dependencies. They cannot prove the meaning of every
   expression: also review code for duplicated or hidden business logic.
-- Contract checks preserve the historical v1 types and check historical v2 against `tests/fixtures/contracts-v2.json` historical v3 against `tests/fixtures/contracts-v3.json`, historical v4 against `tests/fixtures/contracts-v4.json`, and active v5 against `tests/fixtures/contracts-v5.json`. Never
+- Contract checks preserve the historical v1 types and check historical v2 against `tests/fixtures/contracts-v2.json` historical v3 against `tests/fixtures/contracts-v3.json`, historical v4 against `tests/fixtures/contracts-v4.json`, historical v5 against `tests/fixtures/contracts-v5.json`, and active v6 against `tests/fixtures/contracts-v6.json`. Never
   regenerate that baseline to silence a failure. Keep it as the original v1
   compatibility floor; add a separate baseline for a new major version.
 - Test API behavior, access isolation, effects, and existing client compatibility.
@@ -142,4 +142,6 @@ Historical contract definitions remain immutable; never restore their features.
 The latest user request also retires Add to calendar and ICS downloads under v5.
 Remove export actions, panels, callbacks, serialization and calendar analytics.
 Preserve event dates, date filters, source ingestion and Save/Details actions.
-This supersedes the earlier ICS exception; see the active v5 migration.
+This supersedes the earlier ICS exception; see the historical v5 migration.
+
+Event narration is retired under v6. Do not restore audio generation, playback or provider configuration. Keep v1–v5 contracts and fixtures as immutable history; see docs/BACKEND_CONTRACTS.md.

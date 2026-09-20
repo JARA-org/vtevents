@@ -67,81 +67,6 @@ const eventTime = (e: CampusEvent) =>
 const date = (s: string, fmt = "ccc, LLL d · h:mm a") =>
   DateTime.fromISO(s).setZone(CAMPUS_TZ).toFormat(fmt);
 
-function GobblerVoice({ ids, enabled }: { ids: string[]; enabled: boolean }) {
-  const reportError = useError();
-  const [audioUrl, setAudioUrl] = useState(""),
-    [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState("");
-  const selection = ids.join("|");
-  useEffect(() => {
-    setAudioUrl("");
-    setNotice("");
-  }, [selection]);
-  useEffect(
-    () => () => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-    },
-    [audioUrl],
-  );
-  if (Platform.OS !== "web" || !ids.length) return null;
-  return (
-    <View style={{ gap: 10 }}>
-      <Button
-        label="Listen to Gobbler"
-        icon="volume-high-outline"
-        secondary
-        disabled={!enabled || busy || !!audioUrl}
-        loading={busy}
-        onPress={async () => {
-          reportError("");
-          setBusy(true);
-          setNotice("");
-          try {
-            const audio = await backend.narrate({ eventIds: ids });
-            setAudioUrl(
-              URL.createObjectURL(
-                new Blob([audio.bytes], { type: audio.contentType }),
-              ),
-            );
-            setNotice("Your audio is ready. Press play to listen.");
-          } catch (e) {
-            reportError(
-              e instanceof Error
-                ? e.message
-                : "Voice is unavailable. You can still read the events below.",
-            );
-          } finally {
-            setBusy(false);
-          }
-        }}
-      />
-      <Text style={s.meta}>
-        {enabled
-          ? "Reads the first three public event summaries using ElevenLabs. Your question and personal details are not sent."
-          : "ElevenLabs narration is available for signed-in students when the voice service is connected."}
-      </Text>
-      {!!notice && (
-        <Text accessibilityLiveRegion="polite" style={s.meta}>
-          {notice}
-        </Text>
-      )}
-      {!!audioUrl &&
-        React.createElement("audio", {
-          controls: true,
-          src: audioUrl,
-          "aria-label": "Gobbler event narration",
-          style: { maxWidth: "100%", width: 360 },
-        })}
-      <Text
-        accessibilityRole="link"
-        style={[s.meta, { textDecorationLine: "underline" }]}
-        onPress={() => Linking.openURL("https://elevenlabs.io")}
-      >
-        Voice powered by ElevenLabs
-      </Text>
-    </View>
-  );
-}
 export default function Home() {
   const setError = useError();
   const { width } = useWindowDimensions(),
@@ -1097,13 +1022,6 @@ export default function Home() {
                 onDiscover={() => go("discover")} onSaved={() => go("saved")} onSettings={() => go("settings")} />
               {answer && (
                 <>
-                  {!!answer.recommendations.length && <View style={s.panel}>
-                    <GobblerVoice
-                      key={answer.answer}
-                      ids={answer.recommendations.map((item) => item.event.id)}
-                      enabled={!!user && !!health.voice}
-                    />
-                  </View>}
                   <View style={s.eventGrid}>
                     {answer.recommendations.map((item) => (
                       <EventCard key={item.event.id} item={item} />

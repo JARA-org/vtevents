@@ -102,15 +102,6 @@ export async function connectDB() {
       .collection("source_snapshots")
       .createIndex({ source: 1 }, { unique: true }),
     db.collection("ai_budget").createIndex({ day: 1 }, { unique: true }),
-    db.collection("voice_budget").createIndex({ month: 1 }, { unique: true }),
-    db.collection("voice_cache").createIndex({ key: 1 }, { unique: true }),
-    db
-      .collection("voice_cache")
-      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-    db.collection("voice_locks").createIndex({ key: 1 }, { unique: true }),
-    db
-      .collection("voice_locks")
-      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     db
       .collection("analytics_deletions")
       .createIndex({ pseudonym: 1 }, { unique: true }),

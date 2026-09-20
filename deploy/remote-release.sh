@@ -35,7 +35,10 @@ docker image inspect "$previous_image" > /dev/null
 
 mkdir -p "$release"
 tar --extract --gzip --file "$incoming/release.tar.gz" --directory "$release" --no-same-owner
-install -m 0600 "$previous_env" "$release/.env.production"
+# Retired narration credentials must not reach the replacement container.
+# Preserve the previous release configuration for rollback.
+sed '/^ELEVENLABS_/d' "$previous_env" > "$release/.env.production"
+chmod 0600 "$release/.env.production"
 docker load --input "$release/image.tar.gz" > /dev/null
 docker image inspect "$GOBBLER_IMAGE" > /dev/null
 # Runtime image has Node; no host Node installation or production secret upload needed.

@@ -25,7 +25,7 @@ test("Vultr release preserves settings and rolls back failed replacement or smok
       const driver = `set -euo pipefail
 cd ${quote(shellRoot)}
 mkdir -p bin lock opt/old/deploy opt/gobbler-incoming/${releaseId} bundle/deploy
-printf 'production-secret-stays-on-host' > opt/old/.env.production
+printf 'production-secret-stays-on-host\\nELEVENLABS_API_KEY=retired-test-key\\nELEVENLABS_VOICE_ID=retired-voice\\n' > opt/old/.env.production
 touch opt/old/deploy/compose.yaml bundle/deploy/compose.yaml bundle/image.tar.gz
 tar -czf opt/gobbler-incoming/${releaseId}/release.tar.gz -C bundle .
 cat > bin/id <<'STUB'
@@ -75,7 +75,8 @@ bash release.sh ${releaseId}
       assert.equal(calls.includes("/opt/old/deploy/compose.yaml up"), ["health", "smoke", "rollback", "restart"].includes(scenario));
       if (scenario === "preflight") assert.ok(!calls.includes(" up "));
       assert.ok(!calls.includes("down") && !calls.includes(" caddy"));
-      assert.equal(readFileSync(join(dir, "opt/old/.env.production"), "utf8"), "production-secret-stays-on-host");
+      assert.equal(readFileSync(join(dir, "opt/old/.env.production"), "utf8"), "production-secret-stays-on-host\nELEVENLABS_API_KEY=retired-test-key\nELEVENLABS_VOICE_ID=retired-voice\n");
+      assert.equal(readFileSync(join(dir, `opt/gobbler-releases/${releaseId}/.env.production`), "utf8"), "production-secret-stays-on-host\n");
       assert.equal(existsSync(join(dir, `opt/gobbler-releases/${releaseId}/DEPLOYED`)), scenario === "success");
       if (scenario === "rollback") assert.match(result.stderr, /Rollback failed/);
     }

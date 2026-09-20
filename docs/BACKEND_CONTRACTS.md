@@ -118,14 +118,6 @@ retain their response fields except the explicitly retired demo bootstrap field.
 Its historical compatibility floor is `tests/fixtures/contracts-v2.json`.
 Do not overwrite either floor to bypass failures.
 
-Voice (`narrate`) returns opaque audio bytes and MIME type, an explicit non-JSON
-transport exception. The server validates up to 40 candidate IDs and narrates the
-first three unique public events; budget reservation and provider/cache effects
-stay on the backend. Discord owner operations list owned servers, retrieve allowed
-channels, and persist validated policy with cache invalidation. Their routes,
-inputs, outputs and effects are declared in `HttpApi`; internal ownership is
-specified by `NarrationService` and `DiscordPolicyService`.
-
 ## Discord server-bot migration
 
 The user's revised design retires Discord account linking and its channel-owner
@@ -240,7 +232,7 @@ version 4. The v1/v2/v3 contracts and original fixtures are immutable historical
 references; the current compatibility floor is `tests/fixtures/contracts-v4.json`.
 
 
-## Active v5 migration
+## Historical v5 migration
 
 The user has now retired all Add to calendar actions, including the timeline
 button, event-details button, download panel, native sharing, landing-page copy
@@ -271,3 +263,19 @@ confirmation is the only assistant-related preference write; the model has no
 write tools. `AssistantStateRepository` owns facts and atomic budget reservations.
 The general planned persistent-conversation/memory APIs remain unimplemented.
 See [Ask Gobbler](ASK_GOBBLER.md) for exact limits, failures and deployment gating.
+
+## Active v6 migration: narration retirement
+
+Event narration is removed: no player, audio transport, provider adapter,
+credentials, budget/cache/lease initialization or narration module port remains.
+Contract v6 removes `HttpApi.narrate`, `NarrationService`, `AudioData`,
+`BackendModules.narration` and `HealthView.voice`. Bootstrap advertises version 6.
+The complete former contract is frozen in `legacy/contracts-v5.ts`; v1–v5
+fixtures remain unchanged. The v6 baseline is a separate immutable file.
+
+Ship frontend and backend together. Stale clients' `POST /api/narration` requires
+a session and returns 410 `FEATURE_RETIRED` for any JSON payload. It has no event
+lookup, provider call, audio response or domain write. Retries are safe and
+terminal; there is no transaction. Existing event/account operations retain their
+behavior. Historical database collections remain unread; this change does not
+drop production data, deploy the application or revoke an external provider key.

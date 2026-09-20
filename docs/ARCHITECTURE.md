@@ -15,7 +15,7 @@ Node.js / Express / TypeScript
 
 `apps/frontend` contains Expo UI; `apps/backend/src` contains the modular Node backend; `packages/shared/src/contracts.ts` contains type-only boundary contracts. `apps/backend/src/domain.ts` owns runtime validation and deterministic recommendation rules. The frontend uses the typed HTTP client and renders backend-produced discovery results, after account sign-in.
 
-Collections: public `events` and `source_snapshots`; private `profiles`, `saved`, `feedback`; operational `outbox`, `analytics_deletions`, `ai_budget`, `voice_budget`, `voice_cache`, `voice_locks`; Better Auth's `user`, `session`, `account`, `verification`. Unique indexes enforce saved user/event identity and one AI budget counter per UTC day.
+Collections: public `events` and `source_snapshots`; private `profiles`, `saved`, `feedback`; operational `outbox`, `analytics_deletions`, `ai_budget`; Better Auth's `user`, `session`, `account`, `verification`. Unique indexes enforce saved user/event identity and one AI budget counter per UTC day.
 
 Source snapshots remain separate until deduplication. A MongoDB transaction replaces a successful source snapshot, upserts the canonical event projection, and removes absent records. Failed/partial refreshes preserve the previous snapshot. Provenance aliases preserve canonical event IDs across source updates or disappearing duplicates. Stored snapshots are capped below MongoDB's document-size limit.
 
@@ -25,7 +25,6 @@ Untrusted descriptions are plain text. Gemini receives at most 40 public candida
 
 Free hosting cannot guarantee uninterrupted jobs. In-process refresh runs when awake; the optional six-hour Actions trigger wakes the Node service after billing constraints are verified. Background failures are caught and redacted. Analytics interactions remain local in MongoDB, using the historical outbox collection name and a 30-day TTL. Account deletion installs a pseudonymous suppression marker and deletes local interactions. There is no remote analytics exporter or retry worker.
 
-Optional ElevenLabs narration accepts only current stored public event IDs. Code renders titles, campus-local times and locations; personal details, user questions and arbitrary client text are excluded. The backend reserves a bounded monthly character allowance before each request, disables automatic retries, coalesces concurrent requests with a database lease and caches bounded MP3 audio for24hours. The frontend requires explicit playback and includes attribution. Provider credentials stay server-side.
 
 The selected deployment is one Node container behind Caddy HTTPS on Vultr, packaged in deploy/compose.yaml. Atlas remains external. No instance is running: the owner's zero-over-credit hard-cap requirement is not met by the observed Vultr limits, and free-compute approval is pending. In-process jobs will run continuously while the selected host is up; Mongo preserves retry state across restarts.
 

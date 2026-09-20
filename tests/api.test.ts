@@ -42,6 +42,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
     const health = await request(app).get("/api/health");
     assert.equal(health.status, 200);
     assert.equal(health.body.database, true);
+    assert.equal("voice" in health.body, false);
     assert.equal(health.headers["cache-control"], "no-store");
     const originalCommand = store.database().command;
     store.database().command = async () => {
@@ -139,7 +140,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
     assert.equal(live.status, 200);
     assert.ok(live.body.events.every((e: any) => e.mode === "live"));
     const bootstrap = await request(app).get("/api/bootstrap");
-    assert.equal(bootstrap.body.contractVersion, 5);
+    assert.equal(bootstrap.body.contractVersion, 6);
     assert.equal("demoProfile" in bootstrap.body, false);
     assert.ok(bootstrap.body.categories.includes("Sports"));
     const forged = await a
@@ -181,24 +182,29 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
       404,
     );
     const me = (await a.get("/api/me")).body;
-    assert.equal(
-      (
-        await a
-          .post("/api/narration")
-          .set("Origin", origin)
-          .send({ eventIds: ["demo-1"] })
-      ).status,
-      404,
-    );
-    assert.equal(
-      (
-        await a
-          .post("/api/narration")
-          .set("Origin", origin)
-          .send({ eventIds: ["demo-1"], text: "arbitrary private text" })
-      ).status,
-      400,
-    );
+    const originalFetch = global.fetch;
+    let narrationProviderCalls = 0;
+    global.fetch = async () => {
+      narrationProviderCalls++;
+      throw new Error("Retired narration must not contact any provider");
+    };
+    try {
+      for (const body of [
+        { eventIds: ["demo-1"] },
+        { eventIds: ["demo-1"], text: "arbitrary private text" },
+        {},
+      ]) {
+        const retired = await a.post("/api/narration").set("Origin", origin).send(body);
+        assert.equal(retired.status, 410);
+        assert.equal(retired.body.code, "FEATURE_RETIRED");
+        assert.match(retired.headers["content-type"], /application\/json/);
+      }
+      assert.equal(narrationProviderCalls, 0);
+      const collections = await store.database().listCollections().toArray();
+      assert.equal(collections.some((collection) => collection.name.startsWith("voice_")), false);
+    } finally {
+      global.fetch = originalFetch;
+    }
     const db = store.database();
     const coordinator = await import("../apps/backend/src/coordinator.js");
     await coordinator.restoreSources();

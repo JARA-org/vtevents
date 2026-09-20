@@ -55,7 +55,7 @@ Google app/client/API/scopes/test user are configured and secret deployed. Perso
 
 45 tests/typechecks/contracts pass; production image built on Vultr. Public HTTPS smoke and real account/preferences/live discovery/save/ICS/Gemini/deletion flow pass. Browser desktop/mobile onboarding/details/calendar export and schedule conflict pass. App restart retained session/profile/save and refreshed both official feeds. Production web bundle has zero known-secret matches.
 
-Google OAuth client/API/testing consent and owner test user are now configured and deployed; production initiation checks pass. Personal consent/live calendar sync/write and public OAuth verification remain. Other remaining work: VT Canvas developer key, Discord bot credentials/install/collection publication, auth email verification/recovery, audible voice QA. Vultr hard spending cap remains unverified under owner's $0-over-credit limit. Old Gemini key was deleted after owner approval; Vultr API key rotation remains a security follow-up. See NEXT_AGENT_PROMPT.md and docs/RESOURCES.md for exact state. Earlier entries below are historical and superseded.
+Google OAuth client/API/testing consent and owner test user are now configured and deployed; production initiation checks pass. Personal consent/live calendar sync/write and public OAuth verification remain. Other remaining work: VT Canvas developer key, Discord bot credentials/install/collection publication, auth email verification/recovery. Vultr hard spending cap remains unverified under owner's $0-over-credit limit. Old Gemini key was deleted after owner approval; Vultr API key rotation remains a security follow-up. See NEXT_AGENT_PROMPT.md and docs/RESOURCES.md for exact state. Earlier entries below are historical and superseded.
 
 ---
 
@@ -106,18 +106,18 @@ Implement shared scheduling/event model, integration modules and security, front
 
 - Provisioned and tested Atlas M0 Free with database-scoped application user, cluster restriction and workstation /32 network rule. Real signup/preferences/saves/ICS/deletion flow passed against Atlas.
 - Verified real Gemini recommendations from stored event IDs using the free project. Public source refresh yielded 2,219 GobblerConnect / 349 Sports records and 1,502 discoverable events. Private schedule context stays in normal application code.
-- Added Gobbler favicon and optional ElevenLabs narration with public-event-only payloads, authenticated endpoint, monthly character reservation, cache/concurrency control, size bound and explicit playback. Provider live setup is still pending.
+- Gobbler favicon.
 - Added non-root Docker build and Caddy/Compose HTTPS deployment package. Docker Desktop engine was unavailable, so container build is not yet verified.
 - User chose Vultr and explicitly requires $0 beyond credits with a hard cap. Verified $100 MLH credit but no credit-zero stop cap; submitted Free Tier application. User explicitly declined Render fallback and asked to keep hosting pending. No VM or public deployment exists.
 - Discord app creation completed after user CAPTCHA: application1550880609491222639; branding description saved. No server authorization/channel selection or bot credentials yet.
 - 22/22 tests, typechecks and production build passed. Current live-backed landing inspected at1280x720 and390x844 with no overflow; favicon linked correctly. Disposable cloud QA account deleted through the app.
 - Updated resource inventory and takeover prompt. V1 is not fully deployed; provider setup, auth email recovery/verification and production HTTPS QA remain.
-- Follow-up: ElevenLabs Free plan verified, TTS-only capped key provisioned and real narration/cache/authenticated HTTP endpoint passed. User confirmed age and completed Discord CAPTCHA.
+- User confirmed age and completed Discord CAPTCHA.
 - User clarified that each Discord server owner configures allowed channels. Replaced global allowlist with current-owner-authorized per-guild settings, student selection and fresh membership/visibility checks. Restricted channels fail closed. Added owner settings UI and meaningful authorization/revocation tests; latest23/23 suite passes.
 
 ## Final browser checkpoint
 
-The local Atlas-backed UI completed signup, saved interests, live discovery, grounded Friday-after-five recommendations and ElevenLabs generation. It displayed “Your audio is ready” and the native audio player. Clicking Play crashed the Codex in-app browser tab; the cause is not yet established, so audible playback is NOT claimed verified. The app recovered in a fresh tab, and its disposable browser QA account was deleted through Settings. A standard browser playback check is still required.
+The local Atlas-backed UI completed signup, saved interests, live discovery and grounded recommendations. Its disposable browser QA account was deleted through Settings.
 
 Source checkpoint ace873f was pushed to JARA-org/vtevents/main; local and remote SHAs matched. Known credential values were absent from all 56 tracked/untracked source candidates and the built frontend (99 files total). Secrets remain ignored.
 
@@ -127,7 +127,7 @@ Pulled f6a4cfd and preserved v2/Discord changes. Fixed Discord production prefli
 
 Owner selected vtevents.us and signed into Porkbun. Root A now 45.77.222.255; www CNAME vtevents.us; both externally verified. Existing Vultr vtevents-production VM found (Ubuntu 24.04, 2GB, New Jersey), created outside this checkout. No new paid resources. $0-over-credit/hard-cap constraint persists and no cap is verified.
 
-SSH times out because the cloud firewall permits previous workstation 45.3.88.247/32; current workstation is 73.171.46.27. Prepared narrow SSH rule and Atlas VM /32 entry; browser policy requires at-action confirmations. Existing root credential privately recovered; no replacement key or server reinstall performed. Production env is ignored and owner-readable, with Atlas, ElevenLabs and fresh app secrets; Gemini replacement pending personal Create key action. Public deployment remains incomplete.
+SSH times out because the cloud firewall permits previous workstation 45.3.88.247/32; current workstation is 73.171.46.27. Prepared narrow SSH rule and Atlas VM /32 entry; browser policy requires at-action confirmations. Existing root credential privately recovered; no replacement key or server reinstall performed. Production env is ignored and owner-readable, with Atlas and fresh app secrets; Gemini replacement pending personal Create key action. Public deployment remains incomplete.
 
 Deployment QA also found and fixed one-hour stale HTML caching. Current v2 mobile/desktop landing inspected; API/deployment regression tests5/5, typecheck and production build pass after fix. Full suite44/44 passed before the final cache fix. Source/frontend scan includes production/recovery secrets and reports zero matches. Pending security grants/key rotation remain owner actions.
 
@@ -191,3 +191,10 @@ all 114 Linux tests, architecture and immutable v1–v5 contract checks, fronten
 backend typechecks and the Linux application build. Test MongoDB was downloaded
 before parallel tests to avoid a temporary download-lock race. Deployment is
 triggered by the user-authorized push to main; check its Actions run for status.
+
+## Event narration retirement (September 20, 2026 — latest)
+
+Event narration is retired under contract v6. Remove its player, audio transport,
+provider adapter, credentials and budget/cache/lease initialization. Historical
+contracts remain immutable; stale authenticated requests receive a no-effect 410.
+This supersedes all earlier narration setup and playback tasks.
