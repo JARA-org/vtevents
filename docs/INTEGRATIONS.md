@@ -84,3 +84,36 @@ A Free Edition workspace has been created. Its console blocks automated browser 
 - https://render.com/docs/blueprint-spec
 
 Google setup checkpoint: owner approved Cloud terms, API User Data Policy, web-client creation, Calendar API activation and the sole test user `surlezrulez@gmail.com`. External/testing consent, production web client, exact callback and the two scopes above are configured. Secrets stored only in ignored local/production env; app recreated and HTTPS smoke passed. Backend initiation verified correct callback, PKCE S256, state and scopes. **Personal consent, live sync and calendar writes are not yet verified.** Billing/trial not enabled. [Google Calendar standard usage is free](https://developers.google.com/workspace/calendar/api/guides/quota); paid quota increases are not authorized. [Testing-mode refresh tokens expire after seven days](https://developers.google.com/identity/protocols/oauth2#expiration), so test users may need to reconnect. Public OAuth verification/publishing remains separate from website deployment.
+
+## Account email delivery (2026-09-20)
+
+Password recovery and email verification use Better Auth one-hour tokens. Open
+`/recover` for recovery or `/recover?verify=1` to resend verification. Successful
+password reset revokes all existing sessions. Unknown accounts receive the same
+reset response. Existing accounts are not locked out by this rollout.
+
+Set backend-only `RESEND_API_KEY` and `AUTH_EMAIL_FROM` together, after verifying a
+sending domain in Resend. Use the free plan; do not enable paid overages. The
+MongoDB `account_email_outbox` encrypts recipients and links, deduplicates links,
+leases deliveries, retries up to five times, and expires records after one hour.
+Provider idempotency keys protect ambiguous retries. Account deletion removes
+queued messages. The worker runs every ten seconds inside the existing backend.
+`GET /api/account-email` reports configuration availability, not inbox delivery.
+
+The adapter and authentication lifecycle are tested. Actual sending is NOT yet
+verified: free Resend signup terms approval, domain DNS verification and a sending
+key remain pending. No messages are sent while configuration is absent.
+
+## Discord production checkpoint (2026-09-20)
+
+Only Discord fields from the supplied env were applied; production auth,
+encryption and analytics secrets were preserved. Gateway state is connected.
+Application MyGobbler now uses `https://vtevents.us/api/discord/interactions`;
+Discord accepted endpoint validation. Guild commands were registered in Gobbler
+Test. Message Content intent is enabled. No teammate Discord code was changed.
+
+No public announcement channels are selected. Each server owner must run
+`/gobbler setup`, finish club linking, and select channels with `/gobbler watch`
+using its public-channel confirmation. Full event publication testing awaits an
+owner-selected channel and test announcement. Do not select private channels or
+post on an owner's behalf without explicit instructions.

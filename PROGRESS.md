@@ -135,3 +135,15 @@ Deployment QA also found and fixed one-hour stale HTML caching. Current v2 mobil
 Owner explicitly requested generating/installing a replacement deployment key without replacing the server. Generated Ed25519 key in ignored owner-only work/my-little-gobbler-deploy and prepared an idempotent public-key installation script. Saved and verified cloud firewall SSH22 from current workstation73.171.46.27/32, preserving existing rules. TCP22 became reachable after propagation; existing root password authentication is disabled (public keys only). No remote login or key installation has succeeded yet.
 
 Vultr View Console opens no usable popup in this in-app browser, including after fresh-page retry. Official docs confirm Reinstall SSH Keys wipes the server; it was not used. Prepared narrow API allowlist entry73.171.46.27/32 and requested at-action confirmation to obtain the supported instance console link. No API grant saved yet. A temporary read-only inspection of another existing key exposed a Delete confirmation; it was cancelled without mutation. Existing root recovery password appeared in a copy-residue accessibility field; owner informed and rotation required after access recovery. No password/secret added to source.
+
+### 2026-09-20 account email and Discord checkpoint
+- Discord-only supplied env merged; existing production keys preserved. Gateway
+  connected, production interaction endpoint verified by Discord, test guild
+  commands registered. Server owner must select public channels; no code edits.
+- Implemented recovery/verification UI, Better Auth lifecycle hooks, encrypted
+  expiring leased retry outbox and optional deployment configuration pair.
+- All 60 tests passed, including verification, password reset single-use/session
+  revocation, non-enumerating reset response, encryption and retry idempotency.
+- Local Expo/backend build and typechecks passed. Resend signup consent is pending;
+  provider delivery, Google personal consent and Databricks authorization remain
+  external dependencies. Do not call this a fully completed public launch.

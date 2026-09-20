@@ -86,3 +86,8 @@ Tests use an isolated disposable MongoDB replica set, synthetic accounts and moc
 - Account deletion removes account data and credentials and queues remote analytics erasure. A pseudonymous suppression marker is retained to prevent delayed analytics writes from restoring erased activity; erasure retries during outages. Calendar events already written to external services remain in those services. Disconnect attempts token revocation and reports if manual provider revocation is still needed.
 
 Production launch remains gated on cost-safe Vultr hosting, credential rotation, remaining provider testing, campus/server approvals where needed, and final deployed verification. Email verification and password recovery are also still pending before a broad public launch.
+
+Account recovery UI and encrypted mail outbox are implemented. Configure backend
+`RESEND_API_KEY` and verified `AUTH_EMAIL_FROM` together to enable delivery;
+otherwise `/recover` clearly reports unavailable. See docs/INTEGRATIONS.md for
+free-plan setup dependencies and verification limits.

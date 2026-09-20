@@ -364,6 +364,14 @@ export interface HttpApi {
   >;
   /** POST /api/auth/sign-out. Invalidates session/cookie. */
   signOut: Operation<Record<string, never>, { success: boolean }>;
+  /** Public configuration query; no mail sent. */
+  accountEmail: Operation<void, { available: boolean }>;
+  /** Better Auth validates origin/rate limits; response never discloses account existence. Queues expiring mail. */
+  requestPasswordReset: Operation<{ email: string; redirectTo: string }, { status: boolean; message?: string }>;
+  /** Better Auth validates one-use token and password; revokes existing sessions. */
+  resetPassword: Operation<{ token: string; newPassword: string }, { status: boolean }>;
+  /** Better Auth validates owner/email; queues a verification link with limited lifetime. */
+  sendVerificationEmail: Operation<{ email: string; callbackURL: string }, { status: boolean }>;
 }
 export interface AuthResult extends Extensible {
   user: UserSummary;

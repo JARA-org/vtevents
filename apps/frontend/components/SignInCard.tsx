@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { Button, Field, Gobbler, Pressable } from "./ui";
 import { C, font } from "./theme";
@@ -45,6 +46,19 @@ export function SignInCard({
         </Text>
       </View>
       <View style={{ gap: 20, marginTop: 8 }}>
+        {!signUp && (
+          <Link href="/recover" style={{ color: C.maroon, paddingVertical: 8 }}>
+            Forgot your password?
+          </Link>
+        )}
+        {!signUp && (
+          <Link
+            href="/recover?verify=true"
+            style={{ color: C.maroon, paddingVertical: 8 }}
+          >
+            Verify your email address
+          </Link>
+        )}
         {signUp && (
           <Field
             label="Your name"

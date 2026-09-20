@@ -101,6 +101,7 @@ export function checkProductionConfig(text, domain) {
   }
   for (const pair of [
     ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    ["RESEND_API_KEY", "AUTH_EMAIL_FROM"],
     ["CANVAS_CLIENT_ID", "CANVAS_CLIENT_SECRET"],
     ["DISCORD_CLIENT_ID", "DISCORD_PUBLIC_KEY", "DISCORD_BOT_TOKEN"],
     ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"],
@@ -146,7 +147,10 @@ export function checkProductionConfig(text, domain) {
     ["DISCORD_AI_GUILD_DAILY_LIMIT", 20],
     ["DISCORD_AI_GUILD_HOURLY_LIMIT", 5],
   ]) {
-    if (values[key] && (!/^\d+$/.test(values[key]) || Number(values[key]) > maximum))
+    if (
+      values[key] &&
+      (!/^\d+$/.test(values[key]) || Number(values[key]) > maximum)
+    )
       errors.push(`${key}: must be an integer from 0 to ${maximum}.`);
   }
   return { values, errors };

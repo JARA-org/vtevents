@@ -53,6 +53,21 @@ async function request<K extends keyof HttpApi>(
 }
 const id = encodeURIComponent;
 export const backend: BackendClient = {
+  accountEmail: () => request<"accountEmail">("/account-email"),
+  requestPasswordReset: (input) =>
+    request<"requestPasswordReset">(
+      "/auth/request-password-reset",
+      "POST",
+      input,
+    ),
+  resetPassword: (input) =>
+    request<"resetPassword">("/auth/reset-password", "POST", input),
+  sendVerificationEmail: (input) =>
+    request<"sendVerificationEmail">(
+      "/auth/send-verification-email",
+      "POST",
+      input,
+    ),
   editClubEvent: ({ eventId, ...input }) =>
     request<"editClubEvent">(`/clubs/events/${id(eventId)}`, "PATCH", input),
   myClubs: () => request<"myClubs">("/clubs/mine"),
