@@ -76,14 +76,13 @@ This checkpoint supersedes older local/deployment-pending entries below; those a
 
 ## Two-minute demo
 
-1. Open the landing page and create a disposable demonstration account. The current v2 app requires sign-in; anonymous sample mode was retired.
-2. Select interests and add recurring free/busy blocks. Continue to discovery.
-3. Search/filter live listings. Open an event and explain its fit/unknown/conflict note and source provenance.
-4. Save it; open **Saved** and **Schedule** to see the same record.
-5. Choose **Add to calendar**, review the event and destination, and download ICS.
-6. Opt in to Gemini and ask Gobbler a day/time or interest question. Recommendations reference stored live event IDs; a provider failure uses the deterministic fallback.
-7. Show Settings and distinguish configured providers from blocked connections. Do not use the owner's personal calendar or private Discord content in the demonstration.
-8. Delete the disposable account through Settings after the walkthrough.
+1. Open the landing page and create a disposable demonstration account. Sign-in is required.
+2. Select interests and continue to discovery.
+3. Search/filter listings. Open an event and review its interest explanation and source provenance.
+4. Save it and open **Saved**. Event details and expanded timeline cards offer Save/Details/source actions without calendar actions.
+5. Opt in to Gemini and ask Gobbler an event-date or interest question. Recommendations reference stored live event IDs.
+6. Show Settings and friendly campus listing statuses.
+7. Delete the disposable account through Settings after the walkthrough.
 
 ## Live cloud verification checkpoint
 
@@ -166,3 +165,15 @@ A disposable local browser account verified interests-only setup, navigation
 without Schedule, Settings without availability controls, discovery cards without
 fit/conflict badges, and event details with Add to calendar. Clicking Download
 calendar file successfully started the download. No real user account was changed.
+
+## Calendar action retirement (v5)
+
+Removed timeline/detail export controls, download/share handling, landing and
+assistant prompts, backend ICS serialization, the active export contract/port and
+calendar-addition analytics. Event dates, source ingestion and saving remain.
+Architecture, historical v1–v4/active v5 compatibility, typecheck and production
+build pass. Updated API tests verify authenticated 410 with no attachment, anonymous
+401, retirement independent of event existence, and rejected calendar analytics
+without outbox writes. API integration passes after correcting its Origin header.
+The other 109 local tests pass; the existing Linux deployment-shell test requires
+`mapfile`, absent in macOS system Bash. Linux CI validates that test before deploy.

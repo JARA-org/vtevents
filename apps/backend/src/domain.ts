@@ -254,59 +254,6 @@ export function curateTimelineRecommendations(
   return picked;
 }
 
-export function eventICS(e: CampusEvent) {
-  const esc = (v: string) =>
-    v
-      .replace(/\\/g, "\\\\")
-      .replace(/\r?\n/g, "\\n")
-      .replace(/;/g, "\\;")
-      .replace(/,/g, "\\,");
-  const stamp = (v: string) =>
-    DateTime.fromISO(v).toUTC().toFormat("yyyyMMdd'T'HHmmss'Z'");
-  const lines = [
-    "BEGIN:VCALENDAR",
-    "VERSION:2.0",
-    "PRODID:-//My Gobbler//Campus Events//EN",
-    "CALSCALE:GREGORIAN",
-    "BEGIN:VEVENT",
-    `UID:${e.id}@my-little-gobbler`,
-    `DTSTAMP:${stamp(e.updatedAt)}`,
-    e.timeTBD || e.allDay
-      ? `DTSTART;VALUE=DATE:${DateTime.fromISO(e.start).setZone(e.timezone).toFormat("yyyyMMdd")}`
-      : `DTSTART:${stamp(e.start)}`,
-    ...(e.end && !e.timeTBD && !e.allDay ? [`DTEND:${stamp(e.end)}`] : []),
-    ...(e.end && e.allDay && !e.timeTBD
-      ? [
-          `DTEND;VALUE=DATE:${DateTime.fromISO(e.end).setZone(e.timezone).toFormat("yyyyMMdd")}`,
-        ]
-      : []),
-    `SUMMARY:${esc(e.title)}`,
-    `DESCRIPTION:${esc((e.timeTBD ? "Start time is to be confirmed.\n" : "") + e.description + (e.onlineUrl ? "\nJoin online: " + e.onlineUrl : e.isOnline ? "\nOnline attendance; link not supplied." : "") + "\nSource: " + e.sources[0].url)}`,
-    ...(e.location ? [`LOCATION:${esc(e.location)}`] : []),
-    `URL:${e.sources[0].url}`,
-    `STATUS:${e.status === "cancelled" ? "CANCELLED" : "CONFIRMED"}`,
-    "END:VEVENT",
-    "END:VCALENDAR",
-  ];
-  return (
-    lines
-      .map((line) => {
-        let out = "",
-          count = 0;
-        for (const ch of line) {
-          const size = new TextEncoder().encode(ch).length;
-          if (count + size > 74) {
-            out += "\r\n ";
-            count = 1;
-          }
-          out += ch;
-          count += size;
-        }
-        return out;
-      })
-      .join("\r\n") + "\r\n"
-  );
-}
 export function questionFilter(query: string) {
   const q = query.toLowerCase(),
     days = [

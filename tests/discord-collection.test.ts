@@ -6,7 +6,7 @@ import {
 } from "../apps/backend/src/discord-event-rules.js";
 import { collectDiscordMessages } from "../apps/backend/src/discord-collector.js";
 import { createDiscordReader } from "../apps/backend/src/discord-reader.js";
-import { eventSchema, eventICS } from "../apps/backend/src/domain.js";
+import { eventSchema } from "../apps/backend/src/domain.js";
 import { testEvents } from "./fixtures/events.js";
 import { deduplicate } from "../apps/backend/src/sources.js";
 import type {
@@ -167,7 +167,7 @@ test("Discord qualification requires an explicit valid full date, event text, an
     "online without supplied URL",
   );
 });
-test("online attendance is additive, coexists with physical location, and survives validation/ICS", () => {
+test("online attendance is additive, coexists with physical location, and survives validation", () => {
   const event = eventSchema.parse({
     ...testEvents()[0],
     location: "Squires",
@@ -186,10 +186,6 @@ test("online attendance is additive, coexists with physical location, and surviv
       },
     ])[0].onlineUrl,
     event.onlineUrl,
-  );
-  assert.match(
-    eventICS(event).replace(/\r\n /g, ""),
-    /Join online: https:\/\/example.org\/join/,
   );
   assert.throws(() =>
     eventSchema.parse({ ...event, onlineUrl: "javascript:alert(1)" }),

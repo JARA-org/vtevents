@@ -32,14 +32,13 @@ const initialPhase = (): Phase => {
 
 /** Presentation and untrusted date-range draft only. The typed backend owns all
  * dates, eligibility, interest matching, curation and chronological ordering.
- * Existing callbacks handle authenticated Save/Details/Calendar user intents. */
+ * Existing callbacks handle authenticated Save/Details user intents. */
 export function TimelineExperience({
   active,
   saved,
   busy,
   onSave,
   onDetails,
-  onCalendar,
   onDiscover,
 }: {
   active: boolean;
@@ -47,7 +46,6 @@ export function TimelineExperience({
   busy: boolean;
   onSave: (event: CampusEvent) => void;
   onDetails: (event: CampusEvent, reason?: string) => void;
-  onCalendar: (event: CampusEvent, reason?: string) => void;
   onDiscover: () => void;
 }) {
   const [phase, setPhase] = useState<Phase>(initialPhase);
@@ -600,14 +598,6 @@ export function TimelineExperience({
                             }
                           >
                             Details ↗
-                          </button>
-                          <button
-                            aria-label={`Add ${event.title} to calendar`}
-                            onClick={() =>
-                              onCalendar(event, item.recommendation.reason)
-                            }
-                          >
-                            Calendar +
                           </button>
                         </div>
                       </div>

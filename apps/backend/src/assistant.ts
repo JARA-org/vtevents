@@ -147,7 +147,7 @@ export async function askGobbler(
     engine,
     notice,
     answer: ranked.length
-      ? `I found ${ranked.length} ${ranked.length === 1 ? "option" : "options"} to explore. Open an event for details or add it to your calendar.`
+      ? `I found ${ranked.length} ${ranked.length === 1 ? "option" : "options"} to explore. Open an event for details or save it for later.`
       : "I don’t have a matching event in the current listings." + (historyAnswer || " Try another day or a broader search."),
     recommendations: ranked,
   };

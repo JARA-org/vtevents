@@ -8,7 +8,6 @@ import {
   StyleSheet,
   useWindowDimensions,
   Linking,
-  Share,
   ActivityIndicator,
   Platform,
   Image,
@@ -168,7 +167,6 @@ export default function Home() {
     [dateFilter, setDateFilter] = useState("Any day"),
     [selected, setSelected] = useState<CampusEvent | null>(null),
     [selectedReason, setSelectedReason] = useState(""),
-    [calendar, setCalendar] = useState(false),
     [loading, setLoading] = useState(false),
     [toast, setToast] = useState(""),
     [sources, setSources] = useState<Record<string, SourceHealth>>({}),
@@ -209,7 +207,6 @@ export default function Home() {
   const go = (p: Page) => {
     setPage(p);
     setSelected(null);
-    setCalendar(false);
     setError("");
     if (Platform.OS === "web") {
       document.title = "My Gobbler";
@@ -389,31 +386,9 @@ export default function Home() {
   const viewEvent = (e: CampusEvent, reason = "") => {
     setSelectedReason(reason);
     setSelected(e);
-    setCalendar(false);
     if (user)
       backend.track({ kind: "event_view", eventId: e.id }).catch(() => {});
   };
-  const download = (e: CampusEvent) =>
-    run(async () => {
-      const calendarText = await backend.exportCalendar({
-        eventId: e.id,
-      });
-      if (Platform.OS === "web") {
-        const url = URL.createObjectURL(
-          new Blob([calendarText], { type: "text/calendar;charset=utf-8" }),
-        );
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `my-gobbler-${e.id}.ics`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-        notify(
-          "Calendar download started. Open the file in your calendar to finish.",
-        );
-      } else await Share.share({ message: calendarText, title: e.title });
-    });
   function EventCard({
     item,
     compact = false,
@@ -750,7 +725,6 @@ export default function Home() {
           {user && <View style={page === "timeline" && !selected ? undefined : { display: "none" }}>
             <TimelineExperience key={user.id} active={page === "timeline" && !selected}
               saved={saved} busy={loading} onSave={toggleSave} onDetails={viewEvent}
-              onCalendar={(event, reason) => { viewEvent(event, reason); setCalendar(true); }}
               onDiscover={() => { setSearch(""); setCategory("All interests"); setDateFilter("Any day"); go("discover"); }} />
           </View>}
           {user && page === "discover" && !selected && (
@@ -893,7 +867,6 @@ export default function Home() {
                 accessibilityRole="button"
                 onPress={() => {
                   setSelected(null);
-                  setCalendar(false);
                 }}
               >
                 <Text style={s.linkText}>← Back to events</Text>
@@ -982,11 +955,6 @@ export default function Home() {
                     onPress={() => toggleSave(selected)}
                   />
                   <Button
-                    label="Add to calendar"
-                    icon="calendar-outline"
-                    onPress={() => setCalendar(true)}
-                  />
-                  <Button
                     secondary
                     label="Original source ↗"
                     onPress={() => Linking.openURL(selected.sources[0].url)}
@@ -1029,25 +997,6 @@ export default function Home() {
                   ))}
                 </View>
               </View>
-              {calendar && (
-                <View style={s.panel}>
-                  <Text style={s.sectionTitle}>
-                    Bring this along to your calendar
-                  </Text>
-                  <Text style={s.body}>
-                    {selected.title}
-                    {"\n"}
-                    {eventTime(selected)} ET{"\n"}
-                    {selected.location || "Location to be confirmed"}
-                  </Text>
-                  <Text style={s.meta}>
-                    Download the file, then open it in your calendar app to import.
-                  </Text>
-                  <Button disabled={loading} loading={loading}
-                    label="Download calendar file" onPress={() => download(selected)}
-                  />
-                </View>
-              )}
             </View>
           )}
           {user && page === "saved" && !selected && (
@@ -1253,7 +1202,7 @@ export default function Home() {
                     <Text style={s.meta}>
                       When enabled, your typed question, selected interest
                       categories, and public event listings are sent to Google
-                      Gemini. Don’t include private details. Calendar contents,
+                      Gemini. Don’t include private details. Account identifiers,
                       tokens, and private source text are never sent. Google’s
                       free tier may use prompts to improve its products.
                     </Text>

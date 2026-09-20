@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { DateTime } from "luxon";
 import {
   emptyProfile,
-  eventICS,
   eventSchema,
   recommendations,
 } from "../apps/backend/src/domain.js";
@@ -28,16 +27,6 @@ test("retired personal blocks have no effect on recommendations", () => {
   assert.deepEqual(recommendations([e], legacy), clean);
   assert.equal("fit" in clean[0], false);
   assert.doesNotMatch(clean[0].reason, /schedule|availability|conflict/i);
-});
-test("all-day ICS preserves exclusive end date across multiple days", () => {
-  const text = eventICS({
-    ...e,
-    allDay: true,
-    start: "2026-09-25T04:00:00Z",
-    end: "2026-09-28T04:00:00Z",
-  });
-  assert.match(text, /DTSTART;VALUE=DATE:20260925/);
-  assert.match(text, /DTEND;VALUE=DATE:20260928/);
 });
 test("deduplication splits keep unique IDs when source records diverge", () => {
   const other = {
@@ -114,12 +103,6 @@ test("source identity survives a time or title correction", () => {
     end: "2026-09-26T22:00:00Z",
   };
   assert.equal(reconcileEvents([updated], [e])[0].id, e.id);
-});
-test("ICS export escapes content and has stable UID", () => {
-  const s = eventICS({ ...e, title: "Hello, Hokies;\nBEGIN:VEVENT" });
-  assert.match(s, /SUMMARY:Hello\\, Hokies\\;\\nBEGIN:VEVENT/);
-  assert.equal((s.match(/\r\nBEGIN:VEVENT\r\n/g) || []).length, 1);
-  assert.match(s, new RegExp(`UID:${e.id}@my-little-gobbler`));
 });
 test("ICS normalization preserves timezone and cancelled status", () => {
   const raw =

@@ -23,11 +23,10 @@ system typography. No external animation library, model or generated media is us
   at the verified sizes. Portrait has a vertical, draggable/native-scroll rail.
   Expanding a bubble scrolls its controls into view in portrait.
 - Hover or keyboard focus reveals a small thumbnail, location, explanation and
-  Save/Details/Calendar. Click/tap pins expansion; a second click/tap opens details.
+  Save/Details. Click/tap pins expansion; a second click/tap opens details.
   Horizontal top-row details open upward and bottom-row details open downward;
   short viewports scroll the details within the available space. Outside interaction
-  or Escape dismisses expansion. Existing calendar confirmation
-  and idempotency are unchanged; expanding never writes a calendar.
+  or Escape dismisses expansion. Expanding only changes the visible details.
 - Change dates sits beside the selected range in a bordered button and refreshes
   the current seven-day selector without the entrance.
   Discover more restores the original discovery grid with all upcoming events and

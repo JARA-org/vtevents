@@ -14,7 +14,6 @@ SELECT event_id,
   count_if(kind = 'recommendation_impression') AS impressions,
   count_if(kind = 'event_view') AS views,
   count_if(kind = 'save') AS saves,
-  count_if(kind = 'calendar_addition') AS calendar_additions,
   count_if(kind = 'recommendation_feedback') AS feedback
 FROM workspace.default.gobbler_interactions
 WHERE occurred_at >= current_timestamp() - INTERVAL 30 DAYS

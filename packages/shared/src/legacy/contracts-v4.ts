@@ -1,5 +1,5 @@
 /**
- * My Gobbler boundary contracts, version 5 (calendar actions retired).
+ * My Gobbler boundary contracts, version 4 (personal schedules retired).
  * This file contains wire data and interfaces ONLY: no validation, fetching,
  * matching, storage, SDK imports, secrets, fixtures, or business implementation.
  * Dates on the wire are ISO strings, never Date/Luxon/Mongo objects.
@@ -153,7 +153,7 @@ export interface BootstrapView extends Extensible {
   categories: Category[];
   timezone: string;
   emptyProfile: Profile;
-  contractVersion: 5;
+  contractVersion: 4;
 }
 export interface EventList extends Extensible {
   mode: Mode;
@@ -234,6 +234,7 @@ export type AnalyticsKind =
   | "recommendation_impression"
   | "event_view"
   | "save"
+  | "calendar_addition"
   | "recommendation_feedback";
 /** Actual HTTP contract. Body/query types are transport inputs, NOT authorization. */
 export interface Operation<Input, Output> {
@@ -275,6 +276,8 @@ export interface HttpApi {
   bootstrap: Operation<void, BootstrapView>;
   /** GET /api/events?mode=. Authenticated listings; no writes. */
   listEvents: Operation<{ mode: Mode }, EventList>;
+  /** GET /api/events/:id/ics?mode=. Returns calendar text; does NOT write any calendar. */
+  exportCalendar: Operation<{ eventId: Id }, string>;
   /** GET /api/me. Session-scoped profile/saves/feedback; no writes. */
   getAccount: Operation<void, AccountView>;
   /** PUT /api/profile. Validates/replaces the caller's profile; returns persisted profile. */
@@ -349,7 +352,7 @@ export interface Page<T> extends Extensible {
   nextCursor: string | null;
 }
 export interface Capabilities extends Extensible {
-  contractVersion: 5;
+  contractVersion: 4;
   availableOperations: string[];
 }
 export type Visibility =
@@ -378,7 +381,7 @@ export interface FieldConflict extends Extensible {
   reason: string;
 }
 export interface SuggestedAction extends Extensible {
-  kind: "view_event" | "save_event" | "open_source";
+  kind: "view_event" | "save_event" | "prepare_calendar" | "open_source";
   label: string;
   eventId?: Id;
   url?: string;
@@ -636,6 +639,7 @@ export interface BackendModules {
   profiles: ProfileRepository;
   preferences: PreferenceRepository;
   identity: IdentityService;
+  calendar: CalendarService;
   conversations: ConversationRepository;
   clubs: ClubService;
   news: NewsService;
@@ -679,6 +683,10 @@ export interface IdentityService {
     input: { confirmation: "DELETE" },
     context: RequestContext,
   ): Promise<{ deleted: boolean; remoteCleanupPending: boolean }>;
+}
+export interface CalendarService {
+  /** Pure export serialization; no external writes. */
+  export(input: { event: CampusEvent }): string;
 }
 export interface ConversationRepository {
   /** Scoped read; no writes. */

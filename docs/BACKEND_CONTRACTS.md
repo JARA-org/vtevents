@@ -13,7 +13,7 @@ Each `HttpApi` entry includes input, output, route, and effects. The browser's
 | Responsibility  | Functions                                                              | Effects / ownership                                                                     |
 | --------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Application     | health, bootstrap                                                      | Read server status and form/category defaults                                           |
-| Events          | listEvents, exportCalendar                                             | Read listings; serialize ICS without writing a calendar                                 |
+| Events          | listEvents                                             | Read listings                                 |
 | Discovery       | discover, getRecommendations                                           | Backend search, date filtering, ranking and saved-event projections       |
 | Account         | getAccount, updateProfile, validateProfile, deleteAccount              | Session-owned persistence; validation is pure; deletion is irreversible                 |
 | Preferences     | setSaved, submitFeedback                                               | Persist desired state/feedback; enqueue associated analytics                            |
@@ -24,7 +24,7 @@ Each `HttpApi` entry includes input, output, route, and effects. The browser's
 | Maintenance     | runJobs                                                                | Server-only refresh and outbox processing                                               |
 
 Transport inputs use strings for dates and IDs. JSON endpoints return their
-declared DTO directly. ICS returns `text/calendar`. Errors use a non-2xx HTTP
+declared DTO directly. Errors use a non-2xx HTTP
 status and `ApiError.message`; optional structured error fields are reserved for
 future additive support. Validation errors are 400, session failures 401, access
 failures 403, missing records 404, conflicts 409, and unavailable services 5xx.
@@ -54,7 +54,7 @@ implementation. There are no browser stubs that return fake success.
 ## Backend module boundaries
 
 `BackendModules` declares source adapters, event/profile/preference repositories,
-coordinator, extraction, recommendations, identity, calendar-file export, assistant, conversations/memory, clubs, news, analytics,
+coordinator, extraction, recommendations, identity, assistant, conversations/memory, clubs, news, analytics,
 and jobs. Each port documents its allowed effects and return value.
 
 The current backend remains a set of flat modules, with persistence still present
@@ -95,13 +95,13 @@ imports in the frontend, imports outside UI boundaries, non-UI dependencies,
 frontend network calls outside the transport, and undeclared backend dependencies.
 It also rejects known migrated business operations if copied back into UI.
 
-`npm run check:contracts` checks the preserved v1 definitions and v2 definitions and the active v4 floor. Both run as part of typecheck,
+`npm run check:contracts` checks the preserved v1–v4 definitions and the active v5 floor. Both run as part of typecheck,
 tests, and build, including the existing CI workflow. Static checks cannot prove
 that arbitrary new code is free of business logic; review remains mandatory.
 
 Tests exercise server discovery, request validation and session
 isolation, type compatibility, and intentional boundary violations. Ranking,
-matching and ICS generation run on the backend. A static-only deployment
+matching run on the backend. A static-only deployment
 cannot run those features; host Node and frontend together or route `/api` to Node.
 
 Repository-wide instructions are in `AGENTS.md`, with `agent.md` pointing to it.
@@ -142,7 +142,7 @@ See `DISCORD_BOT.md` for the migration and setup.
 Neither replaces `location`; hybrid events carry both. Missing new fields preserve
 old behavior. `onlineUrl` must be an HTTP(S) attendance link without embedded
 credentials. `isOnline` supports known-online events with an unavailable link.
-Runtime validation, event details and ICS preserve the link. Existing `sources[].url` remains the evidence/source URL.
+Runtime validation and event details preserve the link. Existing `sources[].url` remains the evidence/source URL.
 
 New backend ports separate GET-only Discord transport (`DiscordMessageReader`),
 persistence/leases/budgets (`DiscordCollectionRepository`), interpretation
@@ -197,7 +197,7 @@ provider effects. Campus listing status uses friendly presentation labels while
 backend health retains accurate diagnostic status and errors.
 
 
-## Active v4 migration
+## Historical v4 migration
 
 The user's clarified request removes the entire personal scheduling feature.
 There is no Schedule page, availability editor, busy/free form, conflict badge,
@@ -223,3 +223,26 @@ columns empty. No provider calls or AI spending are involved in this migration.
 Deploy frontend and backend together and reload open tabs. Bootstrap advertises
 version 4. The v1/v2/v3 contracts and original fixtures are immutable historical
 references; the current compatibility floor is `tests/fixtures/contracts-v4.json`.
+
+
+## Active v5 migration
+
+The user has now retired all Add to calendar actions, including the timeline
+button, event-details button, download panel, native sharing, landing-page copy
+and assistant suggestions. This supersedes the v4 exception for ICS downloads.
+Discovery, event dates, date filtering, saved events and source links remain.
+Public ICS ingestion still reads campus listings; it is unrelated to personal
+calendar export and remains an internal source adapter.
+
+Contract v5 removes `HttpApi.exportCalendar`, the `CalendarService` port,
+`BackendModules.calendar`, `SuggestedAction.prepare_calendar` and the
+`calendar_addition` analytics kind. The v4 definitions are frozen under
+`packages/shared/src/legacy/contracts-v4.ts`, with their original fixture unchanged.
+The new immutable v5 baseline is separate. Bootstrap advertises version 5.
+
+Frontend and backend ship together. For cached older clients, authenticated
+`GET /api/events/:id/ics` returns 410 `FEATURE_RETIRED` with no file, event lookup,
+provider access, analytics or other effects, regardless of event ID. Anonymous
+requests still require sign-in. Repeating the request is safe. Retired analytics
+submissions fail validation without enqueueing. No stored account or event data
+needs migration, and no external calendar is contacted or modified.

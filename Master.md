@@ -437,3 +437,14 @@ schedule-derived recommendations and assistant claims. Adding an event to a
 calendar remains available through ICS download. Event dates and date-based
 discovery remain. Background ingestion/queue timing is infrastructure, not a
 personal schedule feature. Contract v4 and its migration govern this retirement.
+
+
+## Calendar action retirement (September 20, 2026 — latest)
+
+Remove Add to calendar everywhere, including the timeline's Calendar + action,
+event-details button, download panel, native share flow and promotional/assistant
+copy. Retire the export implementation and calendar-addition analytics. This
+supersedes the earlier requirement to preserve ICS downloads. Preserve saving
+favorites, viewing event details, event dates/date filters and public source
+collectors. Contract v5 freezes v4 as history and keeps a no-effect authenticated
+410 guard for stale clients requesting the old download route.

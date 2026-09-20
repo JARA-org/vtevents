@@ -45,11 +45,7 @@ async function request<K extends keyof HttpApi>(
       contentType: response.headers.get("content-type")!,
     } as HttpApi[K]["output"];
   }
-  return (
-    response.headers.get("content-type")?.includes("text/calendar")
-      ? await response.text()
-      : await response.json()
-  ) as HttpApi[K]["output"];
+  return await response.json() as HttpApi[K]["output"];
 }
 const id = encodeURIComponent;
 export const backend: BackendClient = {
@@ -92,8 +88,6 @@ export const backend: BackendClient = {
   health: () => request<"health">("/health"),
   bootstrap: () => request<"bootstrap">("/bootstrap"),
   listEvents: (input) => request<"listEvents">(`/events?mode=${input.mode}`),
-  exportCalendar: (input) =>
-    request<"exportCalendar">(`/events/${id(input.eventId)}/ics`),
   getAccount: () => request<"getAccount">("/me"),
   updateProfile: (input) => request<"updateProfile">("/profile", "PUT", input),
   validateProfile: (input) =>

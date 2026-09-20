@@ -6,9 +6,9 @@
 
 **Live: https://vtevents.us.** The Expo website and Node API run on the existing Vultr server with Caddy HTTPS, MongoDB Atlas M0 and Gemini free-tier API. Production account/profile persistence, live discovery, saves, ICS, grounded Gemini responses and account deletion passed on 2026-09-19. Browser onboarding, details and mobile calendar download passed; profiles, saves and sessions survived an app restart.
 
-**Current scope:** authenticated event discovery, saved plans and calendar-file downloads. Setup asks for interests only. Provider account connections and remote calendar writes remain retired; personal scheduling is removed in contract v4. See [the migration](docs/BACKEND_CONTRACTS.md#active-v4-migration) and [current handoff](NEXT_AGENT_PROMPT.md) before operating the deployment. The owner's $0-beyond-credits requirement remains in force; Vultr hard spending protection is still unverified.
+**Current scope:** authenticated event discovery and saved plans. Setup asks for interests only. Provider account connections and remote calendar writes remain retired; personal scheduling and calendar actions are removed in contract v5. See [the migration](docs/BACKEND_CONTRACTS.md#active-v5-migration) and [current handoff](NEXT_AGENT_PROMPT.md) before operating the deployment. The owner's $0-beyond-credits requirement remains in force; Vultr hard spending protection is still unverified.
 
-Existing private source repository: https://github.com/JARA-org/vtevents. The repository name is preserved; the application display name and app slug are `My Gobbler` / `my-gobbler`. Existing cloud resource names and calendar UIDs retain their original identifiers for compatibility. See `CHANGELOG.md` and `MAKEOVER_HANDOFF.md` for the local visual refresh.
+Existing private source repository: https://github.com/JARA-org/vtevents. The repository name is preserved; the application display name and app slug are `My Gobbler` / `my-gobbler`. Existing cloud resource names retain their original identifiers for compatibility. See `CHANGELOG.md` and `MAKEOVER_HANDOFF.md` for the local visual refresh.
 
 ## Run locally
 

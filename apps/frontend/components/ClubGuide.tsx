@@ -97,7 +97,7 @@ const steps: Step[] = [
       "Open your club workspace, sign in, find the event card and choose Edit event. You can correct the title, description, start date and time, end date and time, physical location, online link and categories.",
       "Times are Blacksburg time. Leave the end date blank for a same-day event; overnight and multi-day ranges are fine.",
       "Your correction sticks: later refreshes of the Discord source will not overwrite it, and each change is kept with an audit record.",
-      "Edits change the My Gobbler listing only. They never alter your Discord message and never touch anyone's personal calendar.",
+      "Edits change the My Gobbler listing only. They never alter your Discord message.",
     ],
   },
   {

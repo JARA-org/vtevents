@@ -6,7 +6,6 @@ export const analyticsKinds = [
   "recommendation_impression",
   "event_view",
   "save",
-  "calendar_addition",
   "recommendation_feedback",
 ] as const;
 export async function track(userId: string, kind: string, eventId: string) {

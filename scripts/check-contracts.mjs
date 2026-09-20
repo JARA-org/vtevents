@@ -3,10 +3,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-for (const version of [1, 2, 3, 4]) {
+for (const version of [1, 2, 3, 4, 5]) {
   const path = resolve(
     root,
-    version < 4
+    version < 5
       ? `packages/shared/src/legacy/contracts-v${version}.ts`
       : "packages/shared/src/contracts.ts",
   );
@@ -49,12 +49,12 @@ for (const version of [1, 2, 3, 4]) {
           .printNode(ts.EmitHint.Unspecified, node.type, tree),
       };
   }
-  if (version === 4 && process.argv.includes("--initialize-v4")) {
+  if (version === 5 && process.argv.includes("--initialize-v5")) {
     // Initialization only. Never overwrite a committed baseline.
     writeFileSync(baseline, JSON.stringify(current, null, 2) + "\n", {
       flag: "wx",
     });
-    console.log("Initialized immutable v4 contract baseline.");
+    console.log("Initialized immutable v5 contract baseline.");
   } else {
     const old = JSON.parse(readFileSync(baseline, "utf8"));
     const failures = [];

@@ -10,7 +10,6 @@ import { existsSync } from "node:fs";
 import {
   emptyProfile,
   profileSchema,
-  eventICS,
   recommendations,
   categories,
   CAMPUS_TZ,
@@ -230,7 +229,7 @@ export function createApp() {
   };
   app.get("/api/bootstrap", (_req, res) => {
     const view: BootstrapView = {
-      contractVersion: 4,
+      contractVersion: 5,
       categories: [...categories],
       timezone: CAMPUS_TZ,
       emptyProfile,
@@ -313,16 +312,10 @@ export function createApp() {
   });
   app.get("/api/deadlines", protect, (_req, res) => res.json({deadlines:liveDeadlines()}));
   app.get("/api/public-memory", protect, async (req,res) => res.json(await searchPublicMemory(z.string().max(200).parse(req.query.q||""))));
-  app.get("/api/events/:id/ics", protect, async (req, res) => {
-    if (req.query.mode && req.query.mode !== "live")
-      throw new HttpError(400, "Unsupported event mode.");
-    const e = await currentEvent(String(req.params.id));
-    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="my-gobbler-${e.id.replace(/[^a-zA-Z0-9-]/g, "")}.ics"`,
-    );
-    res.send(eventICS(e));
+  // Historical clients receive an explicit retirement response. Authenticated,
+  // no event lookup, provider access, download, analytics or other effects; safe to retry.
+  app.get("/api/events/:id/ics", protect, (_req, res) => {
+    res.status(410).json({ message: "Calendar downloads have been retired.", code: "FEATURE_RETIRED" });
   });
   app.get("/api/me", protect, async (_req, res) => {
     const id = res.locals.user.id;

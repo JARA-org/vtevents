@@ -139,7 +139,7 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
     assert.equal(live.status, 200);
     assert.ok(live.body.events.every((e: any) => e.mode === "live"));
     const bootstrap = await request(app).get("/api/bootstrap");
-    assert.equal(bootstrap.body.contractVersion, 4);
+    assert.equal(bootstrap.body.contractVersion, 5);
     assert.equal("demoProfile" in bootstrap.body, false);
     assert.ok(bootstrap.body.categories.includes("Sports"));
     const forged = await a
@@ -256,10 +256,15 @@ test("authenticated API isolation, CSRF, persistence, connection retirement and 
     });
     assert.equal((await b.get("/api/private-context")).status, 410);
     assert.equal((await a.get("/api/private-context")).status, 410);
+    const exportEffectsBefore = await db.collection("outbox").countDocuments();
     const ics = await a.get("/api/events/live-test-1/ics");
-    assert.equal(ics.status, 200);
-    assert.match(ics.text, /BEGIN:VCALENDAR/);
-    assert.match(ics.headers["content-disposition"], /attachment;.*\.ics/);
+    assert.equal(ics.status, 410);
+    assert.equal(ics.body.code, "FEATURE_RETIRED");
+    assert.equal(ics.headers["content-disposition"], undefined);
+    assert.doesNotMatch(ics.text, /BEGIN:VCALENDAR/);
+    assert.equal((await a.get("/api/events/missing/ics")).status, 410);
+    assert.equal((await a.post("/api/analytics").set("Origin", origin).send({ kind: "calendar_addition", eventId: "live-test-1" })).status, 400);
+    assert.equal(await db.collection("outbox").countDocuments(), exportEffectsBefore);
     const discover = await a
       .post("/api/discovery")
       .set("Origin", origin)
