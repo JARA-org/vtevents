@@ -13,7 +13,6 @@ import type * as coordinator from "./coordinator.js";
 import type * as sources from "./sources.js";
 import type * as assistant from "./assistant.js";
 import type * as discovery from "./discovery.js";
-import type * as integrations from "./integrations.js";
 type Assert<T extends true> = T;
 type Extends<A, B> = [A] extends [B] ? true : false;
 type Output<K extends keyof HttpApi> = HttpApi[K]["output"];
@@ -43,24 +42,6 @@ type Checks = [
     Extends<
       Parameters<typeof discovery.previewAvailability>[0],
       AvailabilityInput
-    >
-  >,
-  Assert<
-    Extends<
-      Awaited<ReturnType<typeof integrations.syncCalendar>>,
-      Output<"syncConnection">
-    >
-  >,
-  Assert<
-    Extends<
-      Awaited<ReturnType<typeof integrations.addCalendar>>,
-      Output<"addCalendar">
-    >
-  >,
-  Assert<
-    Extends<
-      Awaited<ReturnType<typeof integrations.disconnect>>,
-      Output<"disconnect">
     >
   >,
 ];

@@ -6,7 +6,7 @@
 
 **Live: https://vtevents.us.** The Expo website and Node API run on the existing Vultr server with Caddy HTTPS, MongoDB Atlas M0 and Gemini free-tier API. Production account/profile persistence, live discovery, saves, ICS, grounded Gemini responses and account deletion passed on 2026-09-19. Browser onboarding, details, schedule conflicts and mobile calendar download passed; profiles, saves and sessions survived an app restart.
 
-**The full requested V1 remains incomplete:** Google Calendar personal consent/live testing and public OAuth verification, university-approved Canvas access, Discord installation/collection, Databricks ingestion/dashboard, and email verification/password recovery remain outstanding. The current team-approved v2 requires sign-in and has retired anonymous demo mode. The owner's $0-beyond-credits requirement remains in force, but a Vultr hard spending cap is still **unverified**; no additional paid resources were created. See [current handoff](NEXT_AGENT_PROMPT.md) before operating or extending the deployment.
+**Current scope:** authenticated event discovery, manual availability, saved plans and calendar-file downloads. Setup asks for interests only. Provider account connections and remote calendar writes have been retired in contract v3. See [the migration](docs/BACKEND_CONTRACTS.md#active-v3-migration) and [current handoff](NEXT_AGENT_PROMPT.md) before operating the deployment. The owner's $0-beyond-credits requirement remains in force; Vultr hard spending protection is still unverified.
 
 Existing private source repository: https://github.com/JARA-org/vtevents. The repository name is preserved; the application display name and app slug are `My Gobbler` / `my-gobbler`. Existing cloud resource names and calendar UIDs retain their original identifiers for compatibility. See `CHANGELOG.md` and `MAKEOVER_HANDOFF.md` for the local visual refresh.
 
@@ -31,8 +31,8 @@ For Atlas, copy `.env.example` to ignored `.env`, fill real backend values secur
 - Public event discovery, filters, details, provenance, freshness, cancellation handling and cross-source deduplication.
 - Deterministic recommendations and grounded Gobbler responses. Optional backend-only Gemini interprets questions and ranks up to 40 public event candidates; unknown IDs are rejected, and explanations and schedule facts come from stored records.
 - Schedule conflicts and explicit unknown availability. America/New_York campus display; UTC timestamps and retained source timezone.
-- Working ICS download with stable UIDs, escaping and line folding. Connected-calendar confirmation and duplicate prevention.
-- OAuth connection paths, encrypted credentials/private context, sync/disconnect, account deletion, analytics outbox and refresh job endpoint.
+- Working ICS download with stable UIDs, escaping and line folding.
+- Account deletion, analytics outbox and public source refresh job endpoint.
 - Gobbler favicon and optional ElevenLabs narration of up to three stored public event summaries. Authenticated requests, shared audio cache, strict character allowance and explicit playback; no private schedule sent. Live audio and authenticated endpoint verified on the Free plan; TTS-only key capped at 8,000 credits per refresh period.
 
 See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE.md), [resource inventory](docs/RESOURCES.md), and [verification walkthrough](docs/VERIFICATION.md).
@@ -47,7 +47,7 @@ See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE
 2. Create a Render Blueprint from this private JARA repository using `render.yaml`. It defines one **Free** Node web service serving the Expo export and backend on the same origin. Verify there is **no payment method / billable overage**, or a real hard spending cap, before enabling usage. No paid background worker or cron resource is needed. Render free services sleep after inactivity and can take about a minute to wake.
 3. Set `APP_ORIGIN` to the exact assigned HTTPS origin. Configure `MONGODB_URI`, `BETTER_AUTH_SECRET`, `TOKEN_ENCRYPTION_KEY` (64 hex characters), `ANALYTICS_SALT`, and `JOB_SECRET` in secret storage. Render-generated values can cover all except the hex encryption key and external credentials.
 4. Create a Gemini key on a project **without billing**. Set `GEMINI_API_KEY` and verify the selected free-tier model. The backend caps requests at `GEMINI_DAILY_LIMIT=100`; provider quotas may be lower. A budget alert alone is not a hard cap. No paid fallback.
-5. Configure integration credentials and redirect URLs as described in `docs/INTEGRATIONS.md`. Google sign-in is not required for the app’s own Better Auth email/password accounts.
+5. Configure supported service credentials as described in `docs/INTEGRATIONS.md`. App accounts use Better Auth email/password sign-in.
 6. Build command: `npm ci --include=dev && npm run build`. Start: `npm start`. Health: `/api/health`. Verify the HTTPS core flow with a disposable account, then delete that account.
 7. Refresh runs hourly while the process is awake and at startup. To refresh sleeping services every six hours, verify included GitHub Actions minutes and hard cost constraints, set repository variable `GOBBLER_URL`, secret `GOBBLER_JOB_SECRET`, and variable `GOBBLER_JOBS_ENABLED=true`. The scheduled workflow invokes `/api/jobs`. GitHub schedules are best-effort. Checks are manually dispatched until organization billing constraints are verified.
 
@@ -73,17 +73,16 @@ npm test
 npm run build
 ```
 
-Tests use an isolated disposable MongoDB replica set, synthetic accounts and mocked calendar writes. They do not access personal accounts. See verification notes for performed browser checks and exact limitations.
+Tests use an isolated disposable MongoDB replica set, synthetic accounts and provider-retirement checks. They do not access personal accounts. See verification notes for performed browser checks and exact limitations.
 
 ## Privacy and operational limits
 
 - Passwords are hashed by Better Auth. Session cookies are HTTP-only, secure in production, and protected by trusted origins and origin validation.
-- OAuth uses expiring, single-use, user-bound state; Google also uses PKCE. Provider tokens and fetched private context are AES-256-GCM encrypted. Keep the encryption key backed up securely; rotating it requires re-encrypting or reconnecting.
 - Shared public event records contain no personal calendar or Discord data. Every private API derives its owner from the authenticated session.
 - Gemini receives opted-in typed questions, selected interest categories, and bounded public event text. Calendar contents, user identity, saves, credentials and Discord content are excluded. Its free-tier terms may allow use of prompts for product improvement; this is disclosed before opt-in. Requests have a unique daily budget record and SDK retries are disabled.
 - Analytics contains pseudonymous IDs, event IDs, action types and timestamps. No raw calendar text, messages or tokens. Failures queue for bounded retries and do not break the app.
 - Demo mode and its browser storage have been removed. Public source links lead to the original listing.
-- Account deletion removes account data and credentials and queues remote analytics erasure. A pseudonymous suppression marker is retained to prevent delayed analytics writes from restoring erased activity; erasure retries during outages. Calendar events already written to external services remain in those services. Disconnect attempts token revocation and reports if manual provider revocation is still needed.
+- Account deletion removes account data and credentials and queues remote analytics erasure. A pseudonymous suppression marker is retained to prevent delayed analytics writes from restoring erased activity; erasure retries during outages. Historical retired-connection records are also deleted locally; there are no remote provider calls.
 
 Production launch remains gated on cost-safe Vultr hosting, credential rotation, remaining provider testing, campus/server approvals where needed, and final deployed verification. Email verification and password recovery are also still pending before a broad public launch.
 

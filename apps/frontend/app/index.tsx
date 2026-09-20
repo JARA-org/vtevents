@@ -21,8 +21,6 @@ import type {
   Category,
   DiscoveryView,
   Recommendation,
-  ConnectionView,
-  PrivateContextView,
   AssistantReply,
   UserSummary,
   SourceHealth,
@@ -37,6 +35,7 @@ import { Landing } from "../components/Landing";
 import { ClubGuide } from "../components/ClubGuide";
 import { TimelineExperience } from "../components/TimelineExperience";
 import { EventCover } from "../components/EventCover";
+import { sourceStatusText, sourceLabel } from "../components/source-status";
 import { deadlineText } from "../components/event-presentation";
 // Blank UI form state only; domain defaults are returned by bootstrap.
 const blankProfile: Profile = {
@@ -173,10 +172,8 @@ export default function Home() {
     [selected, setSelected] = useState<CampusEvent | null>(null),
     [selectedReason, setSelectedReason] = useState(""),
     [calendar, setCalendar] = useState(false),
-    [destination, setDestination] = useState("ics"),
     [loading, setLoading] = useState(false),
     [toast, setToast] = useState(""),
-    [connections, setConnections] = useState<ConnectionView[]>([]),
     [sources, setSources] = useState<Record<string, SourceHealth>>({}),
     [health, setHealth] = useState<Partial<HealthView>>({}),
     [query, setQuery] = useState(""),
@@ -193,7 +190,6 @@ export default function Home() {
       DateTime.now().setZone(CAMPUS_TZ).toISODate()!,
     ),
     [deleteText, setDeleteText] = useState(""),
-    [privateContext, setPrivateContext] = useState<PrivateContextView[]>([]),
     [deadlines, setDeadlines] = useState<CampusDeadline[]>([]),
     [deadlineStatus, setDeadlineStatus] = useState("Loading deadlines…"),
     [discovery, setDiscovery] = useState<DiscoveryView>({
@@ -356,10 +352,8 @@ export default function Home() {
   useEffect(() => {
     if (page === "settings" && user) {
       void run(async () => {
-        const d = await backend.listConnections(undefined);
-        setConnections(d.connections);
+        const d = await backend.health(undefined);
         setSources(d.sources);
-        setPrivateContext(await backend.getPrivateContext(undefined));
       });
     }
   }, [page]);
@@ -910,7 +904,6 @@ export default function Home() {
                   />
                 ))}
               </View>
-              {availabilityEditor}
               <Button
                 label="Find my campus moments"
                 onPress={() =>
@@ -1217,51 +1210,11 @@ export default function Home() {
                     {eventTime(selected)} ET{"\n"}
                     {selected.location || "Location to be confirmed"}
                   </Text>
-                  <View style={s.wrap}>
-                    <Chip
-                      label="Download ICS"
-                      active={destination === "ics"}
-                      onPress={() => setDestination("ics")}
-                    />
-                    {["google", "canvas"].map((p) => (
-                      <Chip
-                        key={p}
-                        label={
-                          p === "google"
-                            ? "Google · primary calendar"
-                            : "Canvas · personal calendar"
-                        }
-                        active={destination === p}
-                        onPress={() => setDestination(p)}
-                      />
-                    ))}
-                  </View>
                   <Text style={s.meta}>
-                    {destination === "ics"
-                      ? "Destination: a calendar app of your choice. Download the file, then open it to import."
-                      : `Destination: your connected ${destination === "google" ? "Google primary" : "Canvas personal"} calendar. This will create one event.`}
+                    Download the file, then open it in your calendar app to import.
                   </Text>
-                  <Button
-                    disabled={loading}
-                    loading={loading}
-                    label={
-                      destination === "ics"
-                        ? "Download calendar file"
-                        : `Confirm: add to ${destination === "google" ? "Google" : "Canvas"}`
-                    }
-                    onPress={() =>
-                      destination === "ics"
-                        ? download(selected)
-                        : run(async () => {
-                            await backend.addCalendar({
-                              eventId: selected.id,
-                              destination: destination as "google" | "canvas",
-                              confirmed: true,
-                            });
-                            notify("Event added to your calendar.");
-                            setCalendar(false);
-                          })
-                    }
+                  <Button disabled={loading} loading={loading}
+                    label="Download calendar file" onPress={() => download(selected)}
                   />
                 </View>
               )}
@@ -1311,9 +1264,7 @@ export default function Home() {
                 Your week, with possibilities
               </Text>
               <Text style={s.body}>
-                Saved events and availability, together. Calendar connections
-                contribute busy time; they don’t automatically confirm your free
-                time.
+                Saved events and the availability you choose to share, together.
               </Text>
               <View style={[s.columns, mobile && { flexDirection: "column" }]}>
                 <View style={{ flex: 1, gap: 16 }}>
@@ -1450,7 +1401,7 @@ export default function Home() {
             <>
               <Text style={s.eyebrowText}>YOUR GOBBLER, YOUR WAY</Text>
               <Text accessibilityRole="header" style={s.pageTitle}>
-                Preferences & connections
+                Preferences
               </Text>
               <View style={[s.columns, mobile && { flexDirection: "column" }]}>
                 <View style={{ flex: 1, gap: 24 }}>
@@ -1514,120 +1465,6 @@ export default function Home() {
                 </View>
                 <View style={{ flex: 1, gap: 24 }}>
                   <View style={s.panel}>
-                    <Text style={s.sectionTitle}>Your campus connections</Text>
-                    <Text style={s.body}>
-                      You’re always in control. Calendar writes require your
-                      confirmation.
-                    </Text>
-                    {!user ? (
-                      <Button
-                        label="Sign in to connect"
-                        onPress={() => go("auth")}
-                      />
-                    ) : (
-                      connections.map((c) => (
-                        <View
-                          style={{
-                            gap: 12,
-                            paddingVertical: 14,
-                            borderTopWidth: 1,
-                            borderColor: C.line,
-                          }}
-                          key={c.provider}
-                        >
-                          <Text style={s.sectionTitle}>
-                            {c.provider === "google"
-                              ? "Google Calendar"
-                              : c.provider === "canvas"
-                                ? "Canvas"
-                                : "Discord announcements"}
-                          </Text>
-                          <Text style={s.meta}>
-                            {c.status ||
-                              (c.configured
-                                ? "Not connected"
-                                : "Unavailable")}{" "}
-                            {c.lastSync
-                              ? `· Last synced ${date(c.lastSync)}`
-                              : ""}
-                          </Text>
-                          {!c.configured && (
-                            <Text style={s.body}>{c.blocker}</Text>
-                          )}
-                          <View style={s.wrap}>
-                            <Button
-                              secondary
-                              disabled={!c.configured || loading}
-                              label={c.status ? "Reconnect" : "Connect"}
-                              onPress={() =>
-                                run(async () => {
-                                  const d = await backend.connect({
-                                    provider: c.provider,
-                                  });
-                                  await Linking.openURL(d.url);
-                                })
-                              }
-                            />
-                            {c.status && (
-                              <>
-                                <Button
-                                  secondary
-                                  label="Sync now"
-                                  onPress={() =>
-                                    run(async () => {
-                                      await backend.syncConnection({
-                                        provider: c.provider,
-                                      });
-                                      const d =
-                                        await backend.listConnections(
-                                          undefined,
-                                        );
-                                      setConnections(d.connections);
-                                      setPrivateContext(
-                                        await backend.getPrivateContext(
-                                          undefined,
-                                        ),
-                                      );
-                                      notify("Sync complete.");
-                                    })
-                                  }
-                                />
-                                <Button
-                                  secondary
-                                  label="Disconnect"
-                                  onPress={() =>
-                                    run(async () => {
-                                      const d = await backend.disconnect({
-                                        provider: c.provider,
-                                      });
-                                      setConnections(
-                                        (
-                                          await backend.listConnections(
-                                            undefined,
-                                          )
-                                        ).connections,
-                                      );
-                                      setPrivateContext(
-                                        await backend.getPrivateContext(
-                                          undefined,
-                                        ),
-                                      );
-                                      notify(
-                                        d.revoked
-                                          ? "Disconnected and access revoked."
-                                          : "Disconnected locally. You can also revoke access in the provider’s settings.",
-                                      );
-                                    })
-                                  }
-                                />
-                              </>
-                            )}
-                          </View>
-                        </View>
-                      ))
-                    )}
-                  </View>
-                  <View style={s.panel}>
                     <Text style={s.sectionTitle}>Discord server bot</Text>
                     <Text style={s.body}>
                       No Discord account linking is needed. A server admin
@@ -1644,49 +1481,20 @@ export default function Home() {
                     {Object.entries(sources).map(([key, value]) => (
                       <View key={key} style={{ gap: 6 }}>
                         <Text style={s.label}>
-                          {key === "gobblerconnect"
-                            ? "GobblerConnect"
-                            : key === "vt-sports" ? "HokieSports" : key}{" "}
-                          · {value.status}
+                          {sourceLabel(key)}{" "}
+                          · {sourceStatusText(value.status)}
                         </Text>
-                        <Text style={s.meta}>
-                          {value.lastSync
-                            ? "Last checked " + date(value.lastSync)
-                            : value.error || "Awaiting first refresh"}
-                        </Text>
+                        {!!value.lastSync && (
+                          <Text style={s.meta}>Last checked {date(value.lastSync)}</Text>
+                        )}
                       </View>
                     ))}
                   </View>
-                  {privateContext.map((ctx) => (
-                    <View style={s.panel} key={ctx.provider}>
-                      <Text style={s.sectionTitle}>
-                        Private {ctx.provider} updates
-                      </Text>
-                      <Text style={s.meta}>
-                        Visible only to your account. Synced{" "}
-                        {date(ctx.syncedAt)}
-                      </Text>
-                      {ctx.courses?.map((c) => (
-                        <Text key={c.id} style={s.body}>
-                          {c.name}
-                        </Text>
-                      ))}
-                      {ctx.announcements?.slice(0, 15).map((a) => (
-                        <Pressable
-                          key={a.id}
-                          accessibilityRole="link"
-                          onPress={() => Linking.openURL(a.url)}
-                        >
-                          <Text style={s.linkText}>{a.title || a.text}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ))}
                   <View style={s.panel}>
                     <Text style={s.sectionTitle}>Your data, your choice</Text>
                     <Text style={s.body}>
                       {
-                        "Delete your profile, saved events, connections, and private schedule from My Gobbler. Events already added to external calendars remain there."
+                        "Delete your profile, saved events, and preferences from My Gobbler."
                       }
                     </Text>
                     {user && (
@@ -1699,8 +1507,6 @@ export default function Home() {
                               await backend.signOut({});
                               setUser(null);
                               setSelected(null);
-                              setConnections([]);
-                              setPrivateContext([]);
                               setFeedback({});
                               setAnswer(null);
                               setDiscovery({
@@ -1731,8 +1537,6 @@ export default function Home() {
                               });
                               setUser(null);
                               setSelected(null);
-                              setConnections([]);
-                              setPrivateContext([]);
                               setFeedback({});
                               setAnswer(null);
                               setDiscovery({

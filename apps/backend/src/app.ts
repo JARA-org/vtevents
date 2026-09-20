@@ -36,22 +36,12 @@ import { searchPublicMemory } from "./public-memory.js";
 import { askGobbler } from "./assistant.js";
 import { narrate, voiceReady } from "./narration.js";
 import { analyticsKinds, track, eraseAnalytics } from "./analytics.js";
-import {
-  Provider,
-  startOAuth,
-  finishOAuth,
-  syncCalendar,
-  providerReady,
-  addCalendar,
-  disconnect,
-  withPrivateContext,
-} from "./integrations.js";
 import { registerDiscordBotRoutes } from "./discord-bot-http.js";
 import { discordPublication } from "./discord-publication.js";
 import { clubAccounts } from "./club-accounts.js";
 import { accountEmailReady, queueAccountEmail } from "./account-email.js";
 import { runJobs } from "./jobs.js";
-import { unseal, pseudonym } from "./security.js";
+import { pseudonym } from "./security.js";
 export function createApp() {
   const app = express();
   app.set("trust proxy", 1);
@@ -174,7 +164,14 @@ export function createApp() {
   const profile = async (id: string, name = "Hokie") => {
     const p = await database().collection("profiles").findOne({ userId: id });
     if (!p) return { ...emptyProfile, name };
-    const parsed = profileSchema.safeParse(p);
+    // v3 read migration: retired provider blocks never influence availability.
+    // Session-scoped, read-only; preserve manual blocks and validate everything else.
+    const parsed = profileSchema.safeParse({ ...p,
+      busy: Array.isArray(p.busy)
+        ? p.busy.filter((block: unknown) => !block || typeof block !== "object" ||
+          !("source" in block) || block.source === "manual")
+        : p.busy,
+    });
     // A stored record that no longer validates is a server fault, not a bad form
     // submission: report it as unavailable and log the failing fields only.
     if (!parsed.success) {
@@ -242,7 +239,7 @@ export function createApp() {
   };
   app.get("/api/bootstrap", (_req, res) => {
     const view: BootstrapView = {
-      contractVersion: 2,
+      contractVersion: 3,
       categories: [...categories],
       timezone: CAMPUS_TZ,
       emptyProfile,
@@ -259,7 +256,7 @@ export function createApp() {
     const input = discoverySchema.parse(req.body);
     const id = res.locals.user.id;
     const [p, saved, feedback] = await Promise.all([
-      withPrivateContext(id, await profile(id)),
+      profile(id),
       database().collection("saved").find({ userId: id }).toArray(),
       database().collection("feedback").find({ userId: id }).toArray(),
     ]);
@@ -281,7 +278,7 @@ export function createApp() {
     }
     const id = res.locals.user.id;
     const [p, saved, feedback] = await Promise.all([
-      withPrivateContext(id, await profile(id)),
+      profile(id),
       database().collection("saved").find({ userId: id }).toArray(),
       database().collection("feedback").find({ userId: id }).toArray(),
     ]);
@@ -360,7 +357,7 @@ export function createApp() {
   });
   app.get("/api/recommendations", protect, async (_req, res) => {
     const id = res.locals.user.id,
-      p = await withPrivateContext(id, await profile(id)),
+      p = await profile(id),
       saved = await database()
         .collection("saved")
         .find({ userId: id })
@@ -421,7 +418,7 @@ export function createApp() {
         return;
       }
       const id = res.locals.user.id,
-        p = await withPrivateContext(id, await profile(id));
+        p = await profile(id);
       const [saved, feedback] = await Promise.all([
         database().collection("saved").find({ userId: id }).toArray(),
         database().collection("feedback").find({ userId: id }).toArray(),
@@ -461,61 +458,15 @@ export function createApp() {
       res.type("audio/mpeg").send(audio);
     },
   );
-  app.get("/api/connections", protect, async (_req, res) => {
-    const rows = await database()
-      .collection("connections")
-      .find(
-        { userId: res.locals.user.id },
-        { projection: { provider: 1, status: 1, lastSync: 1, channels: 1 } },
-      )
-      .toArray();
-    res.json({
-      connections: ["google", "canvas"].map((provider) => ({
-        provider,
-        configured: providerReady(provider as Provider),
-        ...rows.find((r) => r.provider === provider),
-        blocker:
-          provider === "canvas"
-            ? "University-enabled OAuth developer key required."
-            : "Google OAuth client and consent configuration required.",
-      })),
-      sources: sourceStatus,
-      analytics: process.env.DATABRICKS_TOKEN ? "configured" : "unavailable",
-    });
-  });
-  app.post("/api/connections/:provider/connect", protect, async (req, res) => {
-    const p = z.enum(["google", "canvas"]).parse(req.params.provider);
-    res.json({
-      url: await startOAuth(res.locals.user.id, p),
-    });
-  });
-  app.get("/api/connections/:provider/callback", protect, async (req, res) => {
-    const p = z.enum(["google", "canvas"]).parse(req.params.provider);
-    if (req.query.error)
-      return res.redirect("/?page=settings&connection=cancelled");
-    const state = z.string().parse(req.query.state),
-      code = z.string().parse(req.query.code);
-    await finishOAuth(res.locals.user.id, p, state, code);
-    res.redirect("/?page=settings&connection=connected");
-  });
-  app.post("/api/connections/:provider/sync", protect, async (req, res) => {
-    const p = z.enum(["google", "canvas"]).parse(req.params.provider);
-    try {
-      res.json(await syncCalendar(res.locals.user.id, p));
-    } catch (error) {
-      await database()
-        .collection("connections")
-        .updateOne(
-          { userId: res.locals.user.id, provider: p },
-          { $set: { status: "error", lastAttempt: new Date() } },
-        );
-      throw error;
-    }
-  });
-  app.delete("/api/connections/:provider", protect, async (req, res) => {
-    const p = z.enum(["google", "canvas"]).parse(req.params.provider);
-    res.json(await disconnect(res.locals.user.id, p));
-  });
+  // Retirement guard for stale clients. After session authentication, handlers
+  // have no provider, database, model or write effects; retries are terminal.
+  app.all([
+    "/api/connections", "/api/connections/:provider",
+    "/api/connections/:provider/connect", "/api/connections/:provider/callback",
+    "/api/connections/:provider/sync", "/api/private-context", "/api/calendar",
+  ], protect, (_req, res) => res.status(410).json({
+    message: "Campus connections have been retired. Please refresh the app.",
+  }));
   // Retired OAuth/channel-management routes never reinterpret old private consent as public consent.
   app.all(
     [
@@ -530,41 +481,6 @@ export function createApp() {
           "Discord is now a server bot. Configure channels inside Discord.",
       }),
   );
-  app.get("/api/private-context", protect, async (_q, r) => {
-    const rows = await database()
-      .collection("private_context")
-      .find({
-        userId: r.locals.user.id,
-        provider: { $in: ["google", "canvas"] },
-      })
-      .toArray();
-    const contexts = [];
-    for (const row of rows) {
-      const content = unseal(row.encrypted);
-      contexts.push({
-        provider: row.provider,
-        syncedAt: row.syncedAt,
-        ...content,
-      });
-    }
-    r.json(contexts);
-  });
-  app.post("/api/calendar", protect, async (req, res) => {
-    const body = z
-      .object({
-        eventId: z.string(),
-        destination: z.enum(["google", "canvas"]),
-        confirmed: z.literal(true),
-      })
-      .parse(req.body);
-    res.json(
-      await addCalendar(
-        res.locals.user.id,
-        body.destination,
-        await currentEvent(body.eventId),
-      ),
-    );
-  });
   app.delete("/api/account", protect, async (req, res) => {
     z.object({ confirmation: z.literal("DELETE") }).parse(req.body);
     if (Date.now() - new Date(res.locals.session.createdAt).getTime() > 300000)
@@ -576,7 +492,6 @@ export function createApp() {
     const { ObjectId } = await import("mongodb");
     const identifiers = ObjectId.isValid(id) ? [id, new ObjectId(id)] : [id];
     await eraseAnalytics(id);
-    for (const p of ["google", "canvas"] as const) await disconnect(id, p);
     for (const name of [
       "account_email_outbox",
       "profiles",

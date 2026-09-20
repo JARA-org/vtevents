@@ -106,19 +106,7 @@ export async function connectDB() {
     db
       .collection("saved")
       .createIndex({ userId: 1, eventId: 1 }, { unique: true }),
-    db
-      .collection("connections")
-      .createIndex({ userId: 1, provider: 1 }, { unique: true }),
-    db
-      .collection("oauth_states")
-      .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
-    db
-      .collection("calendar_writes")
-      .createIndex({ userId: 1, eventId: 1, destination: 1 }, { unique: true }),
     db.collection("outbox").createIndex({ nextAttempt: 1 }),
-    db
-      .collection("private_context")
-      .createIndex({ userId: 1, provider: 1 }, { unique: true }),
     db
       .collection("feedback")
       .createIndex({ userId: 1, eventId: 1 }, { unique: true }),

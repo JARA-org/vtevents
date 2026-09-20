@@ -82,7 +82,7 @@ Read `packages/shared/src/contracts.ts` before changing any interface.
 - Architecture checks enforce type-only shared code, client import/transport
   boundaries, and backend dependencies. They cannot prove the meaning of every
   expression: also review code for duplicated or hidden business logic.
-- Contract checks preserve the historical v1 types and check active v2 against `tests/fixtures/contracts-v2.json`. Never
+- Contract checks preserve the historical v1 types and check historical v2 against `tests/fixtures/contracts-v2.json` and active v3 against `tests/fixtures/contracts-v3.json`. Never
   regenerate that baseline to silence a failure. Keep it as the original v1
   compatibility floor; add a separate baseline for a new major version.
 - Test API behavior, access isolation, effects, and existing client compatibility.
@@ -121,3 +121,12 @@ Read Master.md in root to understand ideas and specifications before making chan
 Public website ingestion must use the operator-owned public source registry, conditional public-fetch adapter and persisted page checkpoints. Do not reintroduce full snapshot replacement after partial scans, model calls for unchanged/structured data, arbitrary URL crawling, or invented event dates. Preserve event/deadline separation, source identity, rich optional fields, conflicts, owner corrections and partial/unavailable health. A failed or ambiguous source is not an empty authoritative snapshot.
 
 Public site-wide memory is evidence-derived website history, separate from user memory. Keep nested field allowlists and content-hash idempotency. Do not archive revocable Discord input until its opt-out/deletion fences and withdrawal cleanup are integrated. Observed organizer names never establish club claims or membership. New remote agents require ANS verification plus independent authorization; deterministic in-process adapters do not need model agents or pretend ANS identities.
+
+
+## Current provider retirement
+
+The user-authorized v3 migration in docs/BACKEND_CONTRACTS.md retires campus account
+connections, private provider context and remote calendar writes. Do not restore
+these integrations. Keep v1/v2 definitions and fixtures as historical compatibility
+references only. Setup collects interests; manual availability and ICS export
+remain. This supersedes earlier implementation plans for the retired providers.

@@ -101,7 +101,7 @@ test("ANS fails closed on revoked, missing, or mismatched identities", async () 
   );
   const { verifier, requests } = fixture();
   await assert.rejects(
-    verifier.verifyCaller("canvas", { authorized: true, certificatePem: cert }),
+    verifier.verifyCaller("assistant", { authorized: true, certificatePem: cert }),
   );
   await assert.rejects(
     verifier.verifyCaller("discord", {
@@ -154,20 +154,10 @@ test("scope policy prevents private-context leakage and calendar writes", () => 
     kind: "public_events",
     visibility: "public",
   });
-  agentHandoffPolicy.authorize(
-    {
-      sender: "canvas",
-      recipient: "assistant",
-      kind: "private_context",
-      visibility: "user",
-      userId: "alice",
-    },
-    "alice",
-  );
   assert.throws(() =>
     agentHandoffPolicy.authorize(
       {
-        sender: "canvas",
+        sender: "assistant",
         recipient: "assistant",
         kind: "private_context",
         visibility: "user",
@@ -178,7 +168,7 @@ test("scope policy prevents private-context leakage and calendar writes", () => 
   );
   assert.throws(() =>
     agentHandoffPolicy.authorize({
-      sender: "canvas",
+      sender: "assistant",
       recipient: "coordinator",
       kind: "public_events",
       visibility: "public",
@@ -188,7 +178,7 @@ test("scope policy prevents private-context leakage and calendar writes", () => 
     agentHandoffPolicy.authorize(
       {
         sender: "assistant",
-        recipient: "google-calendar",
+        recipient: "coordinator",
         kind: "calendar_write",
         visibility: "user",
         userId: "alice",

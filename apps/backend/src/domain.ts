@@ -35,7 +35,6 @@ export const sourceSchema = z.object({
     "gobblerconnect",
     "vt-sports",
     "vt-events",
-    "canvas",
     "discord",
   ]),
   sourceId: z.string().min(1),
@@ -197,7 +196,7 @@ export const busySchema = z
     id: z.string(),
     start: instant,
     end: instant,
-    source: z.enum(["manual", "google", "canvas"]),
+    source: z.literal("manual"),
   })
   .refine((x) => Date.parse(x.end) > Date.parse(x.start));
 export const profileSchema = z.object({

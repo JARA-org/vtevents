@@ -109,27 +109,10 @@ export const backend: BackendClient = {
     request<"submitFeedback">("/feedback", "POST", input),
   askAssistant: (input) => request<"askAssistant">("/assistant", "POST", input),
   track: (input) => request<"track">("/analytics", "POST", input),
-  listConnections: () => request<"listConnections">("/connections"),
-  connect: (input) =>
-    request<"connect">(
-      `/connections/${id(input.provider)}/connect`,
-      "POST",
-      {},
-    ),
-  syncConnection: (input) =>
-    request<"syncConnection">(
-      `/connections/${id(input.provider)}/sync`,
-      "POST",
-      {},
-    ),
-  disconnect: (input) =>
-    request<"disconnect">(`/connections/${id(input.provider)}`, "DELETE"),
   listDiscordChannels: () =>
     request<"listDiscordChannels">("/discord/channels"),
   selectDiscordChannels: (input) =>
     request<"selectDiscordChannels">("/discord/channels", "PUT", input),
-  getPrivateContext: () => request<"getPrivateContext">("/private-context"),
-  addCalendar: (input) => request<"addCalendar">("/calendar", "POST", input),
   deleteAccount: (input) =>
     request<"deleteAccount">("/account", "DELETE", input),
   signUp: (input) => request<"signUp">("/auth/sign-up/email", "POST", input),

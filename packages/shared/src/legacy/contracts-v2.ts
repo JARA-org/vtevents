@@ -1,5 +1,5 @@
 /**
- * My Gobbler boundary contracts, version 3 (provider connections retired).
+ * My Gobbler boundary contracts, version 2 (authenticated app).
  * This file contains wire data and interfaces ONLY: no validation, fetching,
  * matching, storage, SDK imports, secrets, fixtures, or business implementation.
  * Dates on the wire are ISO strings, never Date/Luxon/Mongo objects.
@@ -28,8 +28,10 @@ export type Category =
   | "Community"
   | "Career"
   | "Food & fun";
+export type Provider = "google" | "canvas" | "discord";
+export type CalendarProvider = "google" | "canvas";
 export type SourceName =
-  "gobblerconnect" | "vt-sports" | "vt-events" | "discord";
+  "gobblerconnect" | "vt-sports" | "vt-events" | "canvas" | "discord";
 export interface SourceReference extends Extensible {
   providerId?: string;
   label?: string;
@@ -118,7 +120,7 @@ export interface BusyBlock extends Extensible {
   id: Id;
   start: Instant;
   end: Instant;
-  source: "manual";
+  source: "manual" | "google" | "canvas";
 }
 export interface Profile extends Extensible {
   name: string;
@@ -173,7 +175,7 @@ export interface BootstrapView extends Extensible {
   categories: Category[];
   timezone: string;
   emptyProfile: Profile;
-  contractVersion: 3;
+  contractVersion: 2;
 }
 export interface EventList extends Extensible {
   mode: Mode;
@@ -231,6 +233,19 @@ export interface AssistantReply extends Extensible {
   citations?: Citation[];
   suggestedActions?: SuggestedAction[];
 }
+export interface ConnectionView extends Extensible {
+  provider: Provider;
+  configured: boolean;
+  blocker: string;
+  status?: string;
+  lastSync?: Instant | null;
+  channels?: Id[];
+}
+export interface ConnectionsView extends Extensible {
+  connections: ConnectionView[];
+  sources: Record<string, SourceHealth>;
+  analytics: string;
+}
 export interface DiscordChannel extends Extensible {
   id: Id;
   name: string;
@@ -243,6 +258,26 @@ export interface Announcement extends Extensible {
   text?: string;
   channel?: string;
   timestamp?: Instant;
+}
+export interface PrivateContextView extends Extensible {
+  provider: Provider;
+  syncedAt: Instant;
+  busy?: BusyBlock[];
+  announcements?: Announcement[];
+  courses?: { id: string | number; name: string }[];
+  coverageStart?: Instant;
+  coverageEnd?: Instant;
+}
+export interface SyncResult extends Extensible {
+  busyCount?: number;
+  courseCount?: number;
+  announcementCount?: number;
+  announcements?: number;
+  coverageEnd?: Instant;
+}
+export interface CalendarWriteResult extends Extensible {
+  id: Id;
+  duplicate: boolean;
 }
 export interface ApiError extends Extensible {
   message: string;
@@ -337,13 +372,37 @@ export interface HttpApi {
   askAssistant: Operation<{ query: string }, AssistantReply>;
   /** POST /api/analytics. Queues pseudonymous event; delivery is eventual. */
   track: Operation<{ kind: AnalyticsKind; eventId: Id }, { ok: boolean }>;
+  /** GET /api/connections. Session-scoped readiness/status; excludes credentials. */
+  listConnections: Operation<void, ConnectionsView>;
+  /** POST /api/connections/:provider/connect. Persists expiring OAuth state; returns redirect URL. */
+  connect: Operation<{ provider: Provider }, { url: string }>;
+  /** GET /api/connections/:provider/callback. Consumes state, stores encrypted credentials, redirects. */
+  finishConnection: Operation<
+    { provider: Provider; state: string; code: string },
+    { redirectUrl: string }
+  >;
+  /** POST /api/connections/:provider/sync. Reads provider, replaces private snapshot/status. */
+  syncConnection: Operation<{ provider: Provider }, SyncResult>;
+  /** DELETE /api/connections/:provider. Deletes local context/tokens; attempts remote revocation. */
+  disconnect: Operation<
+    { provider: Provider },
+    { disconnected: boolean; revoked: boolean }
+  >;
   /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. GET /api/discord/channels. Provider reads; returns only authorized announcement channels. */
   listDiscordChannels: Operation<void, { channels: DiscordChannel[] }>;
   /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. PUT /api/discord/channels. Validates access and persists selected channels. */
   selectDiscordChannels: Operation<{ channels: Id[] }, { ok: boolean }>;
+  /** GET /api/private-context. Decrypts ONLY caller's context; no writes. */
+  getPrivateContext: Operation<void, PrivateContextView[]>;
+  /** POST /api/calendar. Requires confirmation; creates remote entry + idempotency record/analytics.
+   * Ambiguous Canvas writes stay locked; do not blindly retry. */
+  addCalendar: Operation<
+    { eventId: Id; destination: CalendarProvider; confirmed: true },
+    CalendarWriteResult
+  >;
   /** DELETE /api/account. Recent session + DELETE required; local deletion/remote cleanup, irreversible. */
   deleteAccount: Operation<{ confirmation: "DELETE" }, { deleted: boolean }>;
-  /** POST /api/jobs. Server credential only; refreshes public snapshots and drains outbox. */
+  /** POST /api/jobs. Server credential only; refreshes snapshots/context and drains outbox. */
   runJobs: Operation<void, { ok: boolean }>;
   /** Better Auth endpoints: create session/account; cookies managed by server. */
   signUp: Operation<
@@ -372,7 +431,7 @@ export interface AuthResult extends Extensible {
   url?: string;
 }
 export type BackendClient = {
-  [K in Exclude<keyof HttpApi, "runJobs">]: (
+  [K in Exclude<keyof HttpApi, "runJobs" | "finishConnection">]: (
     input: HttpApi[K]["input"],
   ) => Promise<HttpApi[K]["output"]>;
 };
@@ -387,7 +446,7 @@ export interface Page<T> extends Extensible {
   nextCursor: string | null;
 }
 export interface Capabilities extends Extensible {
-  contractVersion: 3;
+  contractVersion: 2;
   availableOperations: string[];
 }
 export type Visibility =
@@ -465,6 +524,21 @@ export interface Memory extends Extensible {
   updatedAt: Instant;
   expiresAt: Instant | null;
 }
+export interface CalendarDraft extends Extensible {
+  id: Id;
+  eventId: Id;
+  destination: CalendarProvider;
+  title: string;
+  description: string;
+  location: string | null;
+  start: Instant | null;
+  end: Instant | null;
+  allDay: boolean;
+  timezone: string;
+  warnings: string[];
+  canSubmit: boolean;
+  revision: string;
+}
 export interface JobReceipt extends Extensible {
   id: Id;
   state: "queued" | "running" | "succeeded" | "failed";
@@ -526,6 +600,29 @@ export interface PlannedBackendServices {
   }): Promise<Memory>;
   /** Delete caller's memory and derived retrieval entries. */
   forget(input: { memoryId: Id }): Promise<{ deleted: boolean }>;
+  /** Store editable draft with incomplete times; never writes to provider. */
+  prepareCalendar(input: {
+    eventId: Id;
+    destination: CalendarProvider;
+  }): Promise<CalendarDraft>;
+  /** Update draft using optimistic revision; validates provider requirements, no external write. */
+  editCalendarDraft(input: {
+    draftId: Id;
+    revision: string;
+    changes: Partial<
+      Pick<
+        CalendarDraft,
+        "title" | "description" | "location" | "start" | "end" | "allDay"
+      >
+    >;
+  }): Promise<CalendarDraft>;
+  /** Confirm validated draft; idempotent external write, receipt persisted; ambiguous writes remain pending. */
+  commitCalendarDraft(input: {
+    draftId: Id;
+    revision: string;
+    requestId: Id;
+    confirmed: true;
+  }): Promise<JobReceipt>;
   /** Read caller's operation status; no repeat external write. */
   getOperation(input: { operationId: Id }): Promise<JobReceipt>;
   /** Queue caller's export; persists job and scoped export artifact. */
@@ -648,6 +745,20 @@ export interface RecommendationService {
     now: Instant;
   }): Recommendation[];
 }
+export interface PrivateContextService {
+  /** Reads caller-authorized context; may decrypt internally, never returns tokens. */
+  read(context: RequestContext): Promise<PrivateContextView[]>;
+  /** Reads provider and replaces scoped context; no writes to public event store. */
+  sync(
+    input: { provider: Provider },
+    context: RequestContext,
+  ): Promise<SyncResult>;
+  /** Deletes scoped local context; caller coordinates remote revocation separately. */
+  remove(
+    input: { provider: Provider },
+    context: RequestContext,
+  ): Promise<{ deleted: boolean }>;
+}
 export interface AssistantService {
   /** Reads authorized evidence, may call AI/store conversation; NEVER mutates event facts or external calendars. */
   answer(
@@ -679,11 +790,13 @@ export interface BackendModules {
   extraction: ExtractionService;
   scheduling: SchedulingService;
   recommendations: RecommendationService;
+  privateContext: PrivateContextService;
   assistant: AssistantService;
   analytics: AnalyticsService;
   profiles: ProfileRepository;
   preferences: PreferenceRepository;
   identity: IdentityService;
+  connections: ConnectionService;
   calendar: CalendarService;
   conversations: ConversationRepository;
   clubs: ClubService;
@@ -729,9 +842,43 @@ export interface IdentityService {
     context: RequestContext,
   ): Promise<{ deleted: boolean; remoteCleanupPending: boolean }>;
 }
+export interface ConnectionService {
+  /** Reads scoped status, excludes credentials. */
+  list(context: RequestContext): Promise<ConnectionView[]>;
+  /** Persists expiring state/PKCE; no connection established until callback. */
+  begin(
+    input: { provider: Provider },
+    context: RequestContext,
+  ): Promise<{ url: string }>;
+  /** Atomically consumes state, exchanges code, encrypts tokens. Never returns tokens. */
+  finish(
+    input: { provider: Provider; state: string; code: string },
+    context: RequestContext,
+  ): Promise<ConnectionView>;
+  /** Deletes local connection/context, attempts remote revocation, reports outcome. */
+  disconnect(
+    input: { provider: Provider },
+    context: RequestContext,
+  ): Promise<{ disconnected: boolean; revoked: boolean }>;
+}
 export interface CalendarService {
   /** Pure export serialization; no external writes. */
   export(input: { event: CampusEvent }): string;
+  /** Stores draft; preserves unknown times and returns validation warnings. */
+  prepare(
+    input: { eventId: Id; destination: CalendarProvider },
+    context: RequestContext,
+  ): Promise<CalendarDraft>;
+  /** Validates/revises draft under optimistic concurrency; no provider write. */
+  revise(
+    input: { draft: CalendarDraft; expectedRevision: string },
+    context: RequestContext,
+  ): Promise<CalendarDraft>;
+  /** Explicit confirmation + idempotency key; persists receipt and provider write outcome. */
+  commit(
+    input: { draftId: Id; revision: string; confirmed: true; requestId: Id },
+    context: RequestContext,
+  ): Promise<JobReceipt>;
 }
 export interface ConversationRepository {
   /** Scoped read; no writes. */
@@ -1152,7 +1299,7 @@ export interface DiscordTriggerQueue {
 }
 
 /** Backend-only agent identity. A role is operator policy, never an LLM assertion. */
-export type AgentRole = "vt-events" | "gobblerconnect" | "vt-sports" | "discord" | "coordinator" | "assistant";
+export type AgentRole = "vt-events" | "gobblerconnect" | "vt-sports" | "discord" | "canvas" | "google-calendar" | "coordinator" | "assistant";
 export interface AnsPeerPin {
   role: AgentRole;
   agentId: string;

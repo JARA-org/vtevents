@@ -8,8 +8,7 @@ outputs against those types during compilation.
 ## Implemented public functions
 
 Each `HttpApi` entry includes input, output, route, and effects. The browser's
-`BackendClient` excludes worker jobs and the provider callback. Existing HTTP
-response shapes are preserved; new view endpoints are additive.
+`BackendClient` excludes worker jobs. Existing event and account response shapes are preserved; see the v3 retirement below.
 
 | Responsibility  | Functions                                                              | Effects / ownership                                                                     |
 | --------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -20,21 +19,16 @@ response shapes are preserved; new view endpoints are additive.
 | Availability    | previewAvailability                                                    | Normalize and validate a form draft, including local timezone ambiguity; no persistence |
 | Preferences     | setSaved, submitFeedback                                               | Persist desired state/feedback; enqueue associated analytics                            |
 | Assistant       | askAssistant                                                           | Authenticated matching may spend model budget                                           |
-| Connections     | listConnections, connect, finishConnection, syncConnection, disconnect | OAuth state/tokens, provider reads, private snapshots, revocation                       |
 | Discord         | listDiscordChannels, selectDiscordChannels                             | Verify server/channel access; persist allowed selections                                |
-| Private context | getPrivateContext                                                      | Return only the session owner's context, never tokens                                   |
-| Calendars       | addCalendar                                                            | Confirmed provider write with persisted deduplication state                             |
 | Analytics       | track                                                                  | Pseudonymous outbox enqueue, eventual external delivery                                 |
 | Authentication  | signUp, signIn, signOut                                                | Better Auth owns account/session/cookie changes                                         |
 | Maintenance     | runJobs                                                                | Server-only refresh and outbox processing                                               |
 
 Transport inputs use strings for dates and IDs. JSON endpoints return their
-declared DTO directly. ICS returns `text/calendar`; OAuth callback redirects to
-the declared destination (it is not a JSON endpoint). Errors use a non-2xx HTTP
+declared DTO directly. ICS returns `text/calendar`. Errors use a non-2xx HTTP
 status and `ApiError.message`; optional structured error fields are reserved for
 future additive support. Validation errors are 400, session failures 401, access
-failures 403, missing records 404, conflicts 409, and unavailable services 5xx
-(existing provider-expiry paths can return 409).
+failures 403, missing records 404, conflicts 409, and unavailable services 5xx.
 
 The typed client is a compile-time boundary, not runtime trust. The backend still
 validates untrusted requests, checks permissions and determines side effects.
@@ -44,14 +38,12 @@ response is required before UI treats a live mutation as committed.
 ## Planned interfaces (not implemented routes)
 
 `PlannedBackendServices` covers capabilities, event details/history, sports ticker,
-clubs/news, conversations/messages, personal memory, editable calendar drafts,
+clubs/news, conversations/messages, personal memory,
 operation receipts, and account export. These are specifications for subsequent
 implementation. There are no browser stubs that return fake success.
 
 - Queries return records or cursor pages and do not implicitly refresh providers.
 - AI conversation/extraction may spend budget and must be declared accordingly.
-- Calendar draft preparation/editing cannot create provider events. Commit needs
-  explicit confirmation, a revision, and an idempotency key.
 - Message and memory writes use caller scope; conversation deletion reports
   separately retained memories instead of silently implying all memory is erased.
 - Unknown dates remain unknown; precision metadata supplements existing event
@@ -63,12 +55,11 @@ implementation. There are no browser stubs that return fake success.
 ## Backend module boundaries
 
 `BackendModules` declares source adapters, event/profile/preference repositories,
-coordinator, extraction, scheduling, recommendations, identity, connections,
-private context, calendar, assistant, conversations/memory, clubs, news, analytics,
+coordinator, extraction, scheduling, recommendations, identity, calendar-file export, assistant, conversations/memory, clubs, news, analytics,
 and jobs. Each port documents its allowed effects and return value.
 
 The current backend remains a set of flat modules, with persistence still present
-in `app.ts`, `coordinator.ts`, and integration modules. Those existing dependencies
+in `app.ts`, `coordinator.ts`, and source modules. Those existing dependencies
 are listed explicitly in the architecture checker. This change does not pretend
 to have implemented all planned ports or migrated every database access. Future
 changes should extract the relevant repository/adapter rather than expand that
@@ -105,7 +96,7 @@ imports in the frontend, imports outside UI boundaries, non-UI dependencies,
 frontend network calls outside the transport, and undeclared backend dependencies.
 It also rejects known migrated business operations if copied back into UI.
 
-`npm run check:contracts` checks the preserved v1 definitions and the active v2 floor. Both run as part of typecheck,
+`npm run check:contracts` checks the preserved v1 definitions and v2 definitions and the active v3 floor. Both run as part of typecheck,
 tests, and build, including the existing CI workflow. Static checks cannot prove
 that arbitrary new code is free of business logic; review remains mandatory.
 
@@ -116,16 +107,16 @@ cannot run those features; host Node and frontend together or route `/api` to No
 
 Repository-wide instructions are in `AGENTS.md`, with `agent.md` pointing to it.
 
-## Active v2 migration
+## Historical v2 migration
 
 The explicitly requested removal of demo mode retires anonymous event discovery,
 client-supplied discovery profiles/preferences, and the demo assistant endpoint.
-The active contract advertises version 2. Previous definitions remain in
+That contract advertised version 2. Previous definitions remain in
 `packages/shared/src/legacy/contracts-v1.ts`, checked against the unchanged
 `contracts-v1.json` reference; this is a historical type reference, not a running
 legacy/demo API. Deploy frontend and backend together. Existing signed-in calls
 retain their response fields except the explicitly retired demo bootstrap field.
-The active additive compatibility floor is `tests/fixtures/contracts-v2.json`.
+Its historical compatibility floor is `tests/fixtures/contracts-v2.json`.
 Do not overwrite either floor to bypass failures.
 
 Voice (`narrate`) returns opaque audio bytes and MIME type, an explicit non-JSON
@@ -140,8 +131,7 @@ specified by `NarrationService` and `DiscordPolicyService`.
 
 The user's revised design retires Discord account linking and its channel-owner
 HTTP operations. Those historical DTOs remain for compatibility/reference;
-channel-management routes return 410, and generic account connection routes now
-accept Google/Canvas only. New bot commands use `DiscordBotRepository`, independent
+channel-management and all generic account connection routes return 410. New bot commands use `DiscordBotRepository`, independent
 of app-user identity. The bot only reads Discord resources: app-side watch,
 unwatch, individual submission, and exclusion policies never mutate Discord
 settings or messages. No collector/model is enabled in this first milestone.
@@ -153,8 +143,7 @@ See `DISCORD_BOT.md` for the migration and setup.
 Neither replaces `location`; hybrid events carry both. Missing new fields preserve
 old behavior. `onlineUrl` must be an HTTP(S) attendance link without embedded
 credentials. `isOnline` supports known-online events with an unavailable link.
-Runtime validation, event details, ICS, and confirmed provider-calendar descriptions
-preserve the link. Existing `sources[].url` remains the evidence/source URL.
+Runtime validation, event details and ICS preserve the link. Existing `sources[].url` remains the evidence/source URL.
 
 New backend ports separate GET-only Discord transport (`DiscordMessageReader`),
 persistence/leases/budgets (`DiscordCollectionRepository`), interpretation
@@ -177,3 +166,33 @@ Club listing now includes additive `canCreate?: boolean`; absence means creation
 `DiscordMessageTrigger` is an ID-only Gateway notification. `DiscordTriggerQueue` owns durable coalescing, due-job leases, race-safe completion and deletion withdrawals; none of its operations invoke AI. The existing collector accepts optional exact targets for event-driven processing and never scans history in that mode. The legacy polling port remains for compatibility/tests but production schedules only triggered queue work. `DiscordCollectionInspection.listenerStatus` is additive; absence indicates the older server implementation.
 
 `DiscordTextExtractor.propose` accepts additive optional `DiscordExtractionContext` (trusted postedAt/timezone). `DiscordEventCandidate.dateReasoning` is optional and required by runtime validation for inferred dates; explicit-date callers remain compatible. The collector and publication service validate inferred dates with the original message timestamp, never edit or processing time. Fingerprints include context and extraction-policy version. Model interpretation handles language; ordinary backend validation handles obvious calendar arithmetic and weekday consistency.
+
+
+## Active v3 migration
+
+The user-authorized retirement removes campus provider connections, private provider
+context and remote calendar writes. `contracts.ts` now advertises version 3 and
+contains only the remaining operations; the browser transport has no connection
+methods. Existing v1 and v2 definitions live under `src/legacy/` and their original
+JSON baselines are unchanged. The new v3 floor is `tests/fixtures/contracts-v3.json`.
+These historical files are type references, not running integrations.
+
+Deploy frontend and backend together. The old connection, callback, sync,
+private-context and remote-write routes require authentication and return HTTP 410
+with a refresh message. They never read credentials, exchange codes, contact a
+provider or mutate provider state. Other account/event routes retain their behavior.
+The bootstrap version is 3; stale clients must refresh for the current feature set.
+
+Profile reads ignore retired non-manual busy blocks before validation, so they
+cannot affect recommendations or lock out an existing account. New profile writes
+accept only manual busy blocks. There is no private-context merge, credential
+refresh, provider sync job or provider ANS role. Account deletion still removes
+historical local connection/context/write/state records to avoid orphaning private
+data. This change does not connect to a production database or revoke grants at
+external services; any persisted historical records remain unread until account
+deletion. No source text is moved into public event records.
+
+Onboarding asks only for interests. Manual availability remains on the schedule
+and preferences pages. Calendar-file export remains backend-generated and has no
+provider effects. Campus listing status uses friendly presentation labels while
+backend health retains accurate diagnostic status and errors.

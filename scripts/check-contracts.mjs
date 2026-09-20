@@ -3,11 +3,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-for (const version of [1, 2]) {
+for (const version of [1, 2, 3]) {
   const path = resolve(
     root,
-    version === 1
-      ? "packages/shared/src/legacy/contracts-v1.ts"
+    version < 3
+      ? `packages/shared/src/legacy/contracts-v${version}.ts`
       : "packages/shared/src/contracts.ts",
   );
   const baseline = resolve(root, `tests/fixtures/contracts-v${version}.json`);
@@ -49,12 +49,12 @@ for (const version of [1, 2]) {
           .printNode(ts.EmitHint.Unspecified, node.type, tree),
       };
   }
-  if (version === 2 && process.argv.includes("--initialize-v2")) {
+  if (version === 3 && process.argv.includes("--initialize-v3")) {
     // Initialization only. Never overwrite a committed baseline.
     writeFileSync(baseline, JSON.stringify(current, null, 2) + "\n", {
       flag: "wx",
     });
-    console.log("Initialized immutable v2 contract baseline.");
+    console.log("Initialized immutable v3 contract baseline.");
   } else {
     const old = JSON.parse(readFileSync(baseline, "utf8"));
     const failures = [];

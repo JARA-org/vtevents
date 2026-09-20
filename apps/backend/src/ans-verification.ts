@@ -14,8 +14,6 @@ const role = z.enum([
   "gobblerconnect",
   "vt-sports",
   "discord",
-  "canvas",
-  "google-calendar",
   "coordinator",
   "assistant",
 ]);

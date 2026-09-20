@@ -409,3 +409,20 @@ grid with all upcoming events, preserving search/category/day controls. Keep VT
 colors with a creamier, restrained surface. Respect reduced motion and keyboard
 access; maintain sign-in, permissions and explicit calendar-write confirmation.
 See docs/TIMELINE.md for implementation scope, including web/native distinction.
+
+
+## Provider retirement and simpler setup (September 20, 2026 — latest)
+
+Google Calendar, Canvas and the campus connections feature are removed from the
+product. This supersedes all earlier provider integration, private course/context,
+OAuth, sync and remote calendar-write plans in this document. Do not restore them
+as planned features or configure their credentials. Contract v3 removes their
+active types and ports; v1/v2 definitions are historical references only.
+
+Initial setup asks for interests, without the schedule editor. Manual availability
+remains available later on the schedule and preferences pages. Calendar-file
+export remains available; it has no connection to a provider account.
+
+Campus listing status presents friendly labels: Up to date, Listings available,
+More listings on the way, or Coming soon. Raw technical errors are not displayed
+in this panel. Backend health and logs retain accurate diagnostic information.

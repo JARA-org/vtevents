@@ -162,7 +162,7 @@ test("public memory retains history idempotently, isolates scope, and distinguis
     );
     await assert.rejects(
       memory.recordPublicMemory(
-        [{ ...event, sources: [{ ...event.sources[0], source: "canvas" }] }],
+        [{ ...event, sources: [{ ...event.sources[0], source: "retired-private-provider" as never }] }],
         [],
       ),
       /public source/,

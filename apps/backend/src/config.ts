@@ -33,7 +33,7 @@ export async function remote(url: string, init: RequestInit = {}) {
         throw new HttpError(
           res.status === 401 || res.status === 403 ? 409 : 502,
           res.status === 401 || res.status === 403
-            ? "Connection expired or permission unavailable. Reconnect to continue."
+            ? "The source is not available right now. Please try again later."
             : "The source could not be reached. Please try again.",
         );
       }

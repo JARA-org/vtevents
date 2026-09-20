@@ -37,7 +37,7 @@ export async function smokeDeployment(origin, request = fetch) {
       accept: "application/json",
       validate: async (r) => {
         const b = await r.json();
-        return b.contractVersion === 2 && Array.isArray(b.categories);
+        return b.contractVersion === 3 && Array.isArray(b.categories);
       },
     },
     ...["/api/me", "/api/events", "/api/recommendations"].map((path) => ({

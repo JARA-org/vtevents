@@ -15,7 +15,6 @@ import {
   normalizeICS,
 } from "../apps/backend/src/sources.js";
 import { seal, unseal } from "../apps/backend/src/security.js";
-import { writeKey } from "../apps/backend/src/integrations.js";
 import { askGobbler } from "../apps/backend/src/assistant.js";
 import { reconcileEvents } from "../apps/backend/src/coordinator.js";
 const e = {
@@ -280,9 +279,4 @@ test("token encryption is authenticated and randomizes ciphertext", () => {
   assert.notEqual(a, b);
   assert.equal(unseal(a).token, "not-a-real-token");
   assert.throws(() => unseal(a.slice(0, -5) + "aaaaa"));
-});
-test("calendar key is stable, scoped to user and destination", () => {
-  assert.equal(writeKey("u", "e", "google"), writeKey("u", "e", "google"));
-  assert.notEqual(writeKey("u", "e", "google"), writeKey("v", "e", "google"));
-  assert.notEqual(writeKey("u", "e", "google"), writeKey("u", "e", "canvas"));
 });

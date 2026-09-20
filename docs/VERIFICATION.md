@@ -1,3 +1,5 @@
+> Current scope, September 20, 2026: provider account connections and remote calendar writes are retired. Setup collects interests only; manual availability and ICS export remain. Older deployment/checkpoint notes below are historical and must not be used to resume provider setup. See [v3 migration](../docs/BACKEND_CONTRACTS.md#active-v3-migration). Check the GitHub Actions deployment run for the release status of this source revision.
+
 ## Verified live hardening release — 2026-09-19 23:57 UTC
 
 Production now runs **3fc68ee** from `/opt/gobbler-releases/3fc68ee`.
@@ -132,3 +134,20 @@ OAuth exchange, other users remain connected, missing refreshed access tokens fa
 closed, and stale refresh failures cannot expire replacement credentials. Public
 health tests verify live database probes, no-store, redacted outage response and
 HTTP503. Production live-provider sync/write still needs owner consent.
+
+
+## Local v3 retirement verification — September 20, 2026
+
+Architecture checks, all three contract floors, backend/frontend typechecks and
+production build pass. The full suite passes 120 of 121 tests on this macOS host;
+`deploy-release.test.ts` fails because bundled Bash lacks `mapfile`, before testing
+the release behavior. The release script and test were not modified. Updated v3
+smoke/preflight tests pass separately.
+
+Isolated MongoDB API checks cover authenticated 410 responses for every retired
+provider route (including callbacks and repeated writes), no provider calls or new
+OAuth/write records, private-data isolation, and old imported busy blocks excluded
+from discovery. Manual availability and ICS tests still pass. Browser review against
+a disposable local database confirms interests-only setup, no connection panel,
+and friendly source labels with Coming soon in place of a simulated raw error.
+No deployment, production data change or external credential revocation was run.
