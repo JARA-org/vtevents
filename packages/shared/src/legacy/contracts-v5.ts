@@ -1,5 +1,5 @@
 /**
- * My Gobbler boundary contracts, version 6 (event narration retired).
+ * My Gobbler boundary contracts, version 5 (calendar actions retired).
  * This file contains wire data and interfaces ONLY: no validation, fetching,
  * matching, storage, SDK imports, secrets, fixtures, or business implementation.
  * Dates on the wire are ISO strings, never Date/Luxon/Mongo objects.
@@ -145,6 +145,7 @@ export interface HealthView extends Extensible {
   accounts: boolean;
   gemini: boolean;
   sources: Record<string, SourceHealth>;
+  voice?: boolean;
   /** Stored records this process could not represent and therefore excluded from
    * listings. Absent when unknown; zero is the healthy value. Diagnostics only:
    * it never changes authorization or implies a source is complete. */
@@ -154,7 +155,7 @@ export interface BootstrapView extends Extensible {
   categories: Category[];
   timezone: string;
   emptyProfile: Profile;
-  contractVersion: 6;
+  contractVersion: 5;
 }
 export interface EventList extends Extensible {
   mode: Mode;
@@ -278,6 +279,8 @@ export interface HttpApi {
     { clubId: Id; discordTicket: string },
     ManagedClub
   >;
+  /** POST /api/narration. Session required; reserves voice budget, reads public events, caches generated audio. No automatic retry. Binary audio/mpeg is decoded to this transport DTO. */
+  narrate: Operation<{ eventIds: Id[] }, AudioData>;
   /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. GET /api/discord/owned-servers. Session-scoped provider read; no writes. */
   listOwnedDiscordServers: Operation<void, { guilds: DiscordGuild[] }>;
   /** @deprecated Retired: returns HTTP 410; configure the server bot inside Discord. Historical shape retained. GET /api/discord/servers/:guildId. Verifies current ownership and returns allowed channels plus saved selection. */
@@ -377,7 +380,7 @@ export interface Page<T> extends Extensible {
   nextCursor: string | null;
 }
 export interface Capabilities extends Extensible {
-  contractVersion: 6;
+  contractVersion: 5;
   availableOperations: string[];
 }
 export type Visibility =
@@ -652,6 +655,7 @@ export interface AnalyticsService {
   ): Promise<{ localDeleted: boolean; remotePending: boolean }>;
 }
 export interface BackendModules {
+  narration: NarrationService;
   discordPolicy: DiscordPolicyService;
   sources: Record<string, SourceAdapter>;
   events: EventRepository;
@@ -769,6 +773,11 @@ export interface JobService {
   get(input: { jobId: Id }, context: RequestContext): Promise<JobReceipt>;
 }
 
+/** Binary HTTP transport DTO. ArrayBuffer is opaque bytes, not JSON or provider objects. */
+export interface AudioData {
+  bytes: ArrayBuffer;
+  contentType: string;
+}
 export interface DiscordGuild extends Extensible {
   id: Id;
   name: string;
@@ -776,6 +785,13 @@ export interface DiscordGuild extends Extensible {
 export interface DiscordServerSettings extends Extensible {
   channels: DiscordChannel[];
   selected: Id[];
+}
+export interface NarrationService {
+  /** Reads public event records, reserves spend, uses provider/cache; returns audio, never private context. */
+  narrate(
+    input: { eventIds: Id[] },
+    context: RequestContext,
+  ): Promise<AudioData>;
 }
 export interface DiscordPolicyService {
   /** Verifies caller's owner status via provider; returns minimal guild data. */
@@ -919,8 +935,6 @@ export interface DiscordExtractionLimits {
   messageDaily: number;
 }
 export interface DiscordCollectionInspection {
-  /** Operator-only server override. Absent/false means configured spending caps apply. */
-  capsDisabled?: boolean;
   listenerStatus?:
     "connected" | "starting" | "disconnected" | "disabled" | "error";
   guildId: Id;

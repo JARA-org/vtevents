@@ -32,7 +32,7 @@ For Atlas, copy `.env.example` to ignored `.env`, fill real backend values secur
 - Ask Gobbler provides optional Gemini chat grounded in current events, interests, saved events and explicitly confirmed preferences. Its live-discovery buttons work without AI. See [Ask Gobbler](docs/ASK_GOBBLER.md) for consent, limits and the free-tier deployment gate.
 - America/New_York event display, UTC timestamps and retained source timezone.
 - Account deletion, local analytics and public source refresh job endpoint.
-- Gobbler favicon and optional ElevenLabs narration of up to three stored public event summaries. Authenticated requests, shared audio cache, strict character allowance and explicit playback; no private account details sent. Live audio and authenticated endpoint verified on the Free plan; TTS-only key capped at 8,000 credits per refresh period.
+- Gobbler favicon.
 
 See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE.md), [resource inventory](docs/RESOURCES.md), and [verification walkthrough](docs/VERIFICATION.md).
 

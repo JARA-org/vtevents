@@ -39,12 +39,6 @@ async function request<K extends keyof HttpApi>(
                     "We couldn’t finish that request. Check your details and try again.";
     throw new Error(friendly);
   }
-  if (response.headers.get("content-type")?.includes("audio/")) {
-    return {
-      bytes: await response.arrayBuffer(),
-      contentType: response.headers.get("content-type")!,
-    } as HttpApi[K]["output"];
-  }
   return await response.json() as HttpApi[K]["output"];
 }
 const id = encodeURIComponent;
@@ -80,7 +74,6 @@ export const backend: BackendClient = {
     request<"linkClubDiscord">("/clubs/discord", "POST", input),
   clubWorkspace: (input) =>
     request<"clubWorkspace">(`/clubs/${id(input.clubId)}/workspace`),
-  narrate: (input) => request<"narrate">("/narration", "POST", input),
   listOwnedDiscordServers: () =>
     request<"listOwnedDiscordServers">("/discord/owned-servers"),
   getDiscordServer: (input) =>

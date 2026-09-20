@@ -482,3 +482,10 @@ separate from deployment/real-key verification; see docs/ASK_GOBBLER.md.
 The v4 scheduling and v5 calendar-action retirements remain in force. Public history stays separate;
 attendance-aware answers, persistent transcript memory and remote account/provider
 connections are not restored by this change.
+
+## Event narration retirement (September 20, 2026 — latest)
+
+Event narration is retired under contract v6. Remove its player, audio transport,
+provider adapter, credentials and budget/cache/lease initialization. Historical
+contracts remain immutable; stale authenticated requests receive a no-effect 410.
+This supersedes all earlier narration setup and playback tasks.

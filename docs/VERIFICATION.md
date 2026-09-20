@@ -68,7 +68,7 @@ This checkpoint supersedes older local/deployment-pending entries below; those a
 
 ## Historical remaining-work checkpoint (superseded by current status)
 
-- Public Node/HTTPS deployment, real OAuth calendar writes, Discord server installation, ElevenLabs live audio remain unverified. Atlas M0 and real Gemini calls are verified locally against their cloud services.
+- Public Node/HTTPS deployment, real OAuth calendar writes, Discord server installation remain unverified. Atlas M0 and real Gemini calls are verified locally against their cloud services.
 - Sites preview is not published. The existing project returns NOT_FOUND to the currently connected Sites account; recover that account/project access instead of creating a duplicate.
 - Keyboard/200% zoom accessibility, final production mobile/desktop rendering and expired-provider UI need expanded deployed browser checks.
 - Better Auth tests warn that no client IP is available under Supertest. Verify trusted proxy/IP configuration for the actual deployed host.
@@ -88,19 +88,17 @@ This checkpoint supersedes older local/deployment-pending entries below; those a
 
 - Real Atlas M0 ping, schema indexes and source persistence passed. Synthetic account HTTP flow on localhost3001: signup, preferences, Friday recurring availability, live discovery, save/read, ICS, real Gemini recommendations with stored IDs, demo/live separation and account deletion all passed.
 - Latest source counts:2,219 GobblerConnect/349Sports;1,502 current or ongoing events. Counts change with time.
-- Narration tests exercise strict public event IDs, authentication, missing configuration, provider payload grounding, cache reuse, hard character limit and failed-request reservation without automatic retries. These are mock-provider checks, not a live ElevenLabs claim.
 - Production build generated the Gobbler favicon; browser verified its link. Current landing inspected at1280x720 and390x844; document width equals390 at mobile size.
 - The earlier Docker-engine blocker is resolved; see the Vultr preparation checkpoint below. Hosting still waits for cost-safe Vultr approval.
 
-## Latest voice and Discord verification
+## Discord verification
 
-- ElevenLabs Free10,000credit plan confirmed in dashboard. Created a TTS-only key with8,000credits per refresh period and leak auto-disable. Real provider narration produced270,881bytes of MP3; repeat used cached identical bytes. Authenticated HTTP narration endpoint passed; disposable QA account deleted. Final browser playback inspection remains.
 - Latest suite:23/23 tests passed. New Discord tests cover current-owner-only configuration, cross-server rejection, private/non-announcement channel rejection, non-member rejection, ownership transfer, permission revocation and empty-selection removal. These use mocked Discord provider responses; no real server has been installed/configured yet.
 - Production build and frontend/backend typechecks passed after owner configuration UI/API changes. Follow-up targeted Discord test passed after explicit current-owner identity check.
 
 ## Final browser checkpoint
 
-The local Atlas-backed UI completed signup, saved interests, live discovery, grounded Friday-after-five recommendations and ElevenLabs generation. It displayed “Your audio is ready” and the native audio player. Clicking Play crashed the Codex in-app browser tab; the cause is not yet established, so audible playback is NOT claimed verified. The app recovered in a fresh tab, and its disposable browser QA account was deleted through Settings. A standard browser playback check is still required.
+The local Atlas-backed UI completed signup, saved interests, live discovery and grounded recommendations. Its disposable browser QA account was deleted through Settings.
 
 Source checkpoint ace873f was pushed to JARA-org/vtevents/main; local and remote SHAs matched. Known credential values were absent from all 56 tracked/untracked source candidates and the built frontend (99 files total). Secrets remain ignored.
 
@@ -177,3 +175,11 @@ build pass. Updated API tests verify authenticated 410 with no attachment, anony
 without outbox writes. API integration passes after correcting its Origin header.
 The other 109 local tests pass; the existing Linux deployment-shell test requires
 `mapfile`, absent in macOS system Bash. Linux CI validates that test before deploy.
+
+## Narration retirement verification (contract v6)
+
+Architecture checks, immutable v1–v6 contract checks, frontend/backend typechecks
+and the production build passed. The five API/deployment tests passed, including
+authentication, terminal 410 responses for stale narration requests, zero provider
+calls, absence of voice health data and no voice collection initialization.
+Production deployment and external credential revocation were not performed.

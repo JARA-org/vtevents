@@ -8,7 +8,6 @@
 | MongoDB Atlas   | **Live and tested:** M0 cluster `my-little-gobbler`, narrow user/database permissions and workstation/server `/32` entries               | None for production connectivity; retain narrow network entries                                                                |
 | Gemini          | **Live and tested:** `gemini-3.5-flash-lite`, real grounded responses from stored event IDs                               | Production replacement key tested; old exposed setup key deleted                                                                 |
 | Discord         | Read-only signed commands, Gateway-triggered durable queue, server budgets, club linking and automatic qualified-event publication implemented; disabled in production | Endpoint is online; bot token/public key, message-content intent, server installation and command registration remain pending |
-| ElevenLabs      | **Live and tested:** Free plan, TTS-only key capped8,000credits/refresh; realMP3, cache and authenticated endpoint passed | Secret deployed; final audible browser playback QA                                                                             |
 | Vultr           | **Live and tested:** https://vtevents.us on existing VM `45.77.222.255`, Docker/Caddy, source revision `55e3420` | Hard spending cap still unverified; no additional paid resources. Exposed Vultr API key requires rotation |
 | Tiger Data      | Feasibility researched; no resource or adapter claimed                                                                    | Optional public campus-activity metrics extension; verify sponsor free resources before provisioning                     |
 | Render          | Free Node deployment Blueprint implemented, unused                                                                        | Owner explicitly chose to leave hosting pending for Vultr                                                                |
@@ -36,8 +35,6 @@ channel settings or permissions are changed. The latest team implementation uses
 
 ## Official references checked
 
-- https://www.mlh.com/events/vthacks-14/prizes (Vultr, Tiger Data and ElevenLabs are listed; Render is not)
-- https://elevenlabs.io/docs/api-reference/text-to-speech/convert
 - https://docs.vultr.com/platform/billing/manage-account-limits
 
 - https://docs.expo.dev/guides/publishing-websites/

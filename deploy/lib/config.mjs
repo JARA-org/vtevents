@@ -102,7 +102,6 @@ export function checkProductionConfig(text, domain) {
   for (const pair of [
     ["RESEND_API_KEY", "AUTH_EMAIL_FROM"],
     ["DISCORD_CLIENT_ID", "DISCORD_PUBLIC_KEY", "DISCORD_BOT_TOKEN"],
-    ["ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"],
   ]) {
     if (pair.some((key) => values[key]) && !pair.every((key) => values[key]))
       errors.push(

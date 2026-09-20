@@ -34,7 +34,6 @@ import { ansRuntime, isAnsAssistantRequest } from "./ans-runtime.js";
 import { searchPublicMemory, publicEventById, publicEventIds } from "./public-memory.js";
 import { askGobbler, assistantRequestSchema } from "./assistant.js";
 import { assistantState } from "./assistant-state.js";
-import { narrate, voiceReady } from "./narration.js";
 import { analyticsKinds, track, eraseAnalytics } from "./analytics.js";
 import { registerDiscordBotRoutes } from "./discord-bot-http.js";
 import { discordPublication } from "./discord-publication.js";
@@ -233,7 +232,7 @@ export function createApp() {
   };
   app.get("/api/bootstrap", (_req, res) => {
     const view: BootstrapView = {
-      contractVersion: 5,
+      contractVersion: 6,
       categories: [...categories],
       timezone: CAMPUS_TZ,
       emptyProfile,
@@ -300,7 +299,6 @@ export function createApp() {
         database: databaseReady,
         accounts: !!auth,
         gemini: !!process.env.GEMINI_API_KEY,
-        voice: voiceReady(),
         sources: sourceStatus,
         unreadableRecords,
       });
@@ -496,22 +494,12 @@ export function createApp() {
     await track(res.locals.user.id, kind, eventId);
     res.json({ ok: true });
   });
-  app.post(
-    "/api/narration",
-    protect,
-    rateLimit({ windowMs: 60000, limit: 5 }),
-    async (req, res) => {
-      const { eventIds } = z
-        .object({ eventIds: z.array(z.string().max(120)).min(1).max(40) })
-        .strict()
-        .parse(req.body);
-      const audio = await narrate(
-        await Promise.all([...new Set(eventIds)].slice(0, 3).map(currentEvent)),
-      );
-      res.setHeader("Cache-Control", "private, no-store");
-      res.type("audio/mpeg").send(audio);
-    },
-  );
+  // Retired narration accepts stale-client requests only to return a terminal error.
+  // Session required; no domain reads/writes, provider calls, retries or transaction.
+  app.post("/api/narration", protect, (_req, res) => {
+    res.setHeader("Cache-Control", "private, no-store");
+    res.status(410).json({ message: "Event narration has been retired. Please refresh the app.", code: "FEATURE_RETIRED" });
+  });
   // Retirement guard for stale clients. After session authentication, handlers
   // have no provider, database, model or write effects; retries are terminal.
   app.all([
