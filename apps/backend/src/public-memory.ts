@@ -3,6 +3,8 @@ import type { Document, AnyBulkWriteOperation } from "mongodb";
 import type {
   CampusEvent,
   CampusDeadline,
+  ClubHistoryEntry,
+  ClubHistoryView,
   PublicClubMemory,
 } from "../../../packages/shared/src/contracts.js";
 import { database, mongoClient } from "./store.js";
@@ -425,6 +427,157 @@ export async function withdrawPublicMemory(eventIds: string[]): Promise<void> {
 /** Authenticated route/assistant read-only query; no refresh, spending or writes. Literal bounded query
  * searches only public history (including cancellations), max 40 events/40 deadlines/20 organizers.
  * Throws on >200-character query or unavailable Mongo. No caller-selected private scope exists. */
+/** Words too generic to identify anybody on their own. An organizer whose whole name
+ * is made of these is never matched, so "what do clubs do" cannot select a club. */
+const genericNameWords = new Set([
+  "club", "clubs", "the", "and", "of", "at", "for", "a", "an", "vt", "virginia",
+  "tech", "hokie", "hokies", "university", "student", "students", "organization",
+  "org", "association", "society", "group", "center", "centre", "team", "council",
+  "program", "programs", "department", "office", "events", "event",
+]);
+const nameWords = (value: string) =>
+  value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+
+/** Deterministic identity matching. A name matches only when every word of that name
+ * appears in the question and at least one of those words is distinctive, so a
+ * question about "clubs" in general selects nobody. Pure function: no I/O or model. */
+export function matchHistoryName(
+  question: string,
+  candidates: { name: string; clubId?: string }[],
+): { kind: "club" | "observed-organizer"; name: string; clubId?: string } | null {
+  const asked = new Set(nameWords(question));
+  if (!asked.size) return null;
+  let best: { name: string; clubId?: string; words: number } | null = null;
+  for (const candidate of candidates) {
+    const words = nameWords(candidate.name || "");
+    if (!words.length) continue;
+    if (!words.some((word) => !genericNameWords.has(word))) continue;
+    if (!words.every((word) => asked.has(word))) continue;
+    // Prefer the most specific name, so "Fencing Club" beats "Fencing".
+    if (!best || words.length > best.words)
+      best = { name: candidate.name, clubId: candidate.clubId, words: words.length };
+  }
+  if (!best) return null;
+  // Only an account-owned workspace is an identity. An organizer name observed on a
+  // public listing is evidence of a name, never proof of who that club is.
+  return best.clubId
+    ? { kind: "club", name: best.name, clubId: best.clubId }
+    : { kind: "observed-organizer", name: best.name };
+}
+
+/** One past public event by id, for flows that must reach beyond the current
+ * listings. Current listings only contain upcoming events, so this is how an event
+ * that has already happened stays reachable. Withdrawn records are deleted from
+ * public memory, so an absent result is exactly the withdrawal signal. Read-only. */
+export async function publicEventById(id: string): Promise<CampusEvent | null> {
+  if (typeof id !== "string" || !id || id.length > 200) return null;
+  const row = await database()
+    .collection("public_memory_heads")
+    .findOne({ _id: `event:${id}` as never });
+  const value = row?.value as CampusEvent | undefined;
+  return value && typeof value.start === "string" && value.id ? value : null;
+}
+/** Which of these events public memory still holds. A withdrawn or deleted source is
+ * simply absent from the result, which is what marks a personal record unavailable.
+ * Bounded read; no writes, model calls or private context. */
+export async function publicEventsByIds(ids: string[]): Promise<CampusEvent[]> {
+  const wanted = [...new Set(ids.filter((id) => typeof id === "string" && id))].slice(0, 500);
+  if (!wanted.length) return [];
+  const rows = await database()
+    .collection("public_memory_heads")
+    .find({ _id: { $in: wanted.map((id) => `event:${id}`) } as never })
+    .maxTimeMS(3000)
+    .toArray();
+  return rows
+    .map((row) => row.value as CampusEvent | undefined)
+    .filter((value): value is CampusEvent => !!value?.id && typeof value.start === "string");
+}
+export async function publicEventIds(ids: string[]): Promise<Set<string>> {
+  return new Set((await publicEventsByIds(ids)).map((event) => event.id));
+}
+/** Past public activity for a club or an observed organizer named in the question.
+ * Read-only and deterministic: no model call, no writes, no private context. Only
+ * events that have already started are returned, so a historical example can never be
+ * presented as an upcoming plan. Withdrawn records are absent from storage already. */
+export async function clubHistory(
+  question: string,
+  identities: { name: string; clubId?: string }[] = [],
+  limit = 8,
+  now = Date.now(),
+): Promise<ClubHistoryView> {
+  const asked = nameWords(String(question ?? "")).filter(
+    (word) => word.length >= 3 && !genericNameWords.has(word),
+  );
+  if (!asked.length) return { matched: null, entries: [], missing: true };
+  const db = database();
+  // Verified workspaces first: they are the only names that carry an identity.
+  let matched = matchHistoryName(question, identities);
+  if (!matched) {
+    // Bounded candidate read: organizers sharing any distinctive word with the
+    // question, then the same all-words rule decides which one was actually named.
+    const pattern = asked
+      .slice(0, 6)
+      .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|");
+    const rows = await db
+      .collection("public_memory_heads")
+      .find({ kind: "event", "value.organizer": { $regex: pattern, $options: "i" } })
+      .project({ "value.organizer": 1 })
+      .limit(200)
+      .maxTimeMS(3000)
+      .toArray();
+    const names = [
+      ...new Set(
+        rows
+          .map((row) => (row.value as { organizer?: unknown })?.organizer)
+          .filter((name): name is string => typeof name === "string" && !!name.trim()),
+      ),
+    ];
+    matched = matchHistoryName(question, names.map((name) => ({ name })));
+  }
+  if (!matched) return { matched: null, entries: [], missing: true };
+  const rows = await db
+    .collection("public_memory_heads")
+    .find({
+      kind: "event",
+      ...(matched.clubId ? { "value.clubId": matched.clubId } : { "value.organizer": matched.name }),
+      "value.start": { $lt: new Date(now).toISOString() },
+      "value.status": { $ne: "cancelled" },
+    })
+    .sort({ "value.start": -1, _id: 1 })
+    .limit(200)
+    .maxTimeMS(3000)
+    .toArray();
+  const entries: ClubHistoryEntry[] = [];
+  for (const row of rows) {
+    if (entries.length >= Math.max(1, Math.min(8, limit))) break;
+    const value = row.value as CampusEvent | undefined;
+    if (!value || typeof value.start !== "string") continue;
+    const started = Date.parse(value.start);
+    // History only. An event that has not happened is not evidence of what a club has done.
+    if (!Number.isFinite(started) || started >= now) continue;
+    const sourceUrl = (value.sources || []).find((source) =>
+      /^https:\/\//i.test(source?.url || ""),
+    )?.url;
+    if (!sourceUrl || !value.title) continue;
+    entries.push({
+      eventId: value.id,
+      title: value.title,
+      start: value.start,
+      timezone: value.timezone || "America/New_York",
+      sourceUrl,
+      categories: Array.isArray(value.categories) ? [...value.categories] : [],
+    });
+  }
+  return { matched, entries, missing: !entries.length };
+}
+
 export async function searchPublicMemory(query: string): Promise<{
   events: CampusEvent[];
   deadlines: CampusDeadline[];

@@ -162,12 +162,12 @@ test("club accounts isolate events and securely consume server setup tickets", a
       }),
       true,
     );
-    const second = (
-      await b
-        .post("/api/clubs")
-        .set("Origin", origin)
-        .send({ name: "Other", requestId: "create-other" })
-    ).body;
+    const denied = await b.post("/api/clubs").set("Origin", origin).send({ name: "Other", requestId: "create-other" });
+    assert.equal(denied.status, 400, "new clubs require a Discord setup ticket");
+    assert.equal((await b.get("/api/clubs/mine")).body.clubs.length, 0);
+    // Existing unlinked workspaces remain linkable after the policy change.
+    const second = { id: "11111111-1111-4111-8111-111111111111" };
+    await store.database().collection("managed_clubs").insertOne({ _id: second.id as never, name: "Other", ownerId: (await b.get("/api/me")).body.user.id, requestId: "legacy-other", discordGuildId: null });
     assert.equal(
       (
         await b
@@ -284,14 +284,16 @@ test("club accounts isolate events and securely consume server setup tickets", a
       409,
     );
     assert.equal((await fresh[2].get("/api/clubs/mine")).body.canCreate, true);
+    const creationTickets = [await newTicket("905"), await newTicket("906")];
     const simultaneous = await Promise.all(
-      ["one", "two"].map((suffix) =>
+      ["one", "two"].map((suffix, i) =>
         fresh[2]
           .post("/api/clubs")
           .set("Origin", origin)
           .send({
             name: "Concurrent " + suffix,
             requestId: "concurrent-" + suffix,
+            discordTicket: creationTickets[i],
           }),
       ),
     );

@@ -6,7 +6,7 @@
 
 **Live: https://vtevents.us.** The Expo website and Node API run on the existing Vultr server with Caddy HTTPS, MongoDB Atlas M0 and Gemini free-tier API. Production account/profile persistence, live discovery, saves, ICS, grounded Gemini responses and account deletion passed on 2026-09-19. Browser onboarding, details, schedule conflicts and mobile calendar download passed; profiles, saves and sessions survived an app restart.
 
-**The full requested V1 remains incomplete:** Google Calendar personal consent/live testing and public OAuth verification, university-approved Canvas access, Discord installation/collection, Databricks ingestion/dashboard, and email verification/password recovery remain outstanding. The current team-approved v2 requires sign-in and has retired anonymous demo mode. The owner's $0-beyond-credits requirement remains in force, but a Vultr hard spending cap is still **unverified**; no additional paid resources were created. See [current handoff](NEXT_AGENT_PROMPT.md) before operating or extending the deployment.
+**The full requested V1 remains incomplete:** Google Calendar personal consent/live testing and public OAuth verification, university-approved Canvas access, Discord installation/collection, and email verification/password recovery remain outstanding. The current team-approved v2 requires sign-in and has retired anonymous demo mode. The owner's $0-beyond-credits requirement remains in force, but a Vultr hard spending cap is still **unverified**; no additional paid resources were created. See [current handoff](NEXT_AGENT_PROMPT.md) before operating or extending the deployment.
 
 Existing private source repository: https://github.com/JARA-org/vtevents. The repository name is preserved; the application display name and app slug are `My Gobbler` / `my-gobbler`. Existing cloud resource names and calendar UIDs retain their original identifiers for compatibility. See `CHANGELOG.md` and `MAKEOVER_HANDOFF.md` for the local visual refresh.
 
@@ -32,7 +32,7 @@ For Atlas, copy `.env.example` to ignored `.env`, fill real backend values secur
 - Deterministic recommendations and grounded Gobbler responses. Optional backend-only Gemini interprets questions and ranks up to 40 public event candidates; unknown IDs are rejected, and explanations and schedule facts come from stored records.
 - Schedule conflicts and explicit unknown availability. America/New_York campus display; UTC timestamps and retained source timezone.
 - Working ICS download with stable UIDs, escaping and line folding. Connected-calendar confirmation and duplicate prevention.
-- OAuth connection paths, encrypted credentials/private context, sync/disconnect, account deletion, analytics outbox and refresh job endpoint.
+- OAuth connection paths, encrypted credentials/private context, sync/disconnect, account deletion, local analytics and refresh job endpoint.
 - Gobbler favicon and optional ElevenLabs narration of up to three stored public event summaries. Authenticated requests, shared audio cache, strict character allowance and explicit playback; no private schedule sent. Live audio and authenticated endpoint verified on the Free plan; TTS-only key capped at 8,000 credits per refresh period.
 
 See [integration status](docs/INTEGRATIONS.md), [architecture](docs/ARCHITECTURE.md), [resource inventory](docs/RESOURCES.md), and [verification walkthrough](docs/VERIFICATION.md).
@@ -81,9 +81,9 @@ Tests use an isolated disposable MongoDB replica set, synthetic accounts and moc
 - OAuth uses expiring, single-use, user-bound state; Google also uses PKCE. Provider tokens and fetched private context are AES-256-GCM encrypted. Keep the encryption key backed up securely; rotating it requires re-encrypting or reconnecting.
 - Shared public event records contain no personal calendar or Discord data. Every private API derives its owner from the authenticated session.
 - Gemini receives opted-in typed questions, selected interest categories, and bounded public event text. Calendar contents, user identity, saves, credentials and Discord content are excluded. Its free-tier terms may allow use of prompts for product improvement; this is disclosed before opt-in. Requests have a unique daily budget record and SDK retries are disabled.
-- Analytics contains pseudonymous IDs, event IDs, action types and timestamps. No raw calendar text, messages or tokens. Failures queue for bounded retries and do not break the app.
+- Analytics contains pseudonymous IDs, event IDs, action types and timestamps. No raw calendar text, messages or tokens. Local records expire through a 30-day TTL; failures do not break the app.
 - Demo mode and its browser storage have been removed. Public source links lead to the original listing.
-- Account deletion removes account data and credentials and queues remote analytics erasure. A pseudonymous suppression marker is retained to prevent delayed analytics writes from restoring erased activity; erasure retries during outages. Calendar events already written to external services remain in those services. Disconnect attempts token revocation and reports if manual provider revocation is still needed.
+- Account deletion removes account data and credentials and removes local analytics. A pseudonymous suppression marker is retained to prevent delayed analytics writes from restoring erased activity; no remote analytics export runs. Calendar events already written to external services remain in those services. Disconnect attempts token revocation and reports if manual provider revocation is still needed.
 
 Production launch remains gated on cost-safe Vultr hosting, credential rotation, remaining provider testing, campus/server approvals where needed, and final deployed verification. Email verification and password recovery are also still pending before a broad public launch.
 

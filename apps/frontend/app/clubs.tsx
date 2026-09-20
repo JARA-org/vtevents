@@ -360,7 +360,19 @@ export default function ClubsPage() {
                 </View>
               </View>
               <View style={{ flex: 1, minWidth: 0, gap: 20 }}>
-                {canCreate && (
+                {canCreate && !ticket && (
+                  <View style={styles.panel}>
+                    <Text style={styles.title}>
+                      Start from your Discord server
+                    </Text>
+                    <Text style={styles.body}>
+                      A server administrator must run /gobbler setup in Discord
+                      and open the private setup link to create a club
+                      workspace.
+                    </Text>
+                  </View>
+                )}
+                {canCreate && ticket && (
                   <View style={styles.panel}>
                     <Text style={styles.title}>Create your club workspace</Text>
                     <Text style={styles.body}>

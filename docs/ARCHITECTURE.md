@@ -11,8 +11,8 @@ Node.js / Express / TypeScript
         + Gobbler --------- Gemini structured filters + candidate ranking / deterministic fallback
         + integrations ---- Google OAuth+PKCE / Canvas OAuth
         + Discord bot ----- signed read-selection commands / isolated repository
-        + jobs ------------ refresh public/private data + retry analytics
-        + outbox ---------- Databricks Statement Execution API
+        + jobs ------------ refresh public/private data
+        + analytics ------- local pseudonymous interactions (30-day TTL)
 ```
 
 `apps/frontend` contains Expo UI; `apps/backend/src` contains the modular Node backend; `packages/shared/src/contracts.ts` contains type-only boundary contracts. `apps/backend/src/domain.ts` owns runtime validation, scheduling, and ICS generation. The frontend uses the typed HTTP client and renders backend-produced discovery results, after account sign-in.
@@ -27,7 +27,7 @@ Google writes use deterministic SHA-256 IDs accepted by Google Calendar, plus a 
 
 Untrusted descriptions are plain text. Gemini receives at most 40 public candidate summaries, the question and opted-in interest categories. It produces constrained filter/ranking JSON, validated with Zod and against supplied IDs, and has no tools. Normal application code filters real records, computes conflicts, constructs evidence-based explanations, accesses databases, and writes calendars. Invalid output, exhausted budgets and API/database errors fall back to deterministic matching. SDK retries are disabled to keep the request budget enforceable.
 
-Free hosting cannot guarantee uninterrupted jobs. In-process refresh runs when awake; the optional six-hour Actions trigger wakes the Node service after billing constraints are verified. Background failures are caught and redacted. Outbox records survive process restarts in MongoDB. Databricks insertion uses MERGE by operation ID, making retries idempotent. Account deletion records pseudonymous suppression markers, drops queued interactions, and retries remote DELETE statements. Workers check suppression before and after writes; retained markers also reapply erasure after crashes. Remote deletion is eventual during provider outages.
+Free hosting cannot guarantee uninterrupted jobs. In-process refresh runs when awake; the optional six-hour Actions trigger wakes the Node service after billing constraints are verified. Background failures are caught and redacted. Analytics interactions remain local in MongoDB, using the historical outbox collection name and a 30-day TTL. Account deletion installs a pseudonymous suppression marker and deletes local interactions. There is no remote analytics exporter or retry worker.
 
 Optional ElevenLabs narration accepts only current stored public event IDs. Code renders titles, campus-local times and locations; private schedules, user questions and arbitrary client text are excluded. The backend reserves a bounded monthly character allowance before each request, disables automatic retries, coalesces concurrent requests with a database lease and caches bounded MP3 audio for24hours. The frontend requires explicit playback and includes attribution. Provider credentials stay server-side.
 

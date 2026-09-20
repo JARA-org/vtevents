@@ -290,24 +290,75 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
       .set("Origin", origin)
       .send({});
     assert.deepEqual(otherDiscovery.body.savedRecommendations, []);
-    const timelineEffectCollections = ["saved", "feedback", "outbox", "calendar_writes", "oauth_states"];
-    const beforeTimeline = await Promise.all(timelineEffectCollections.map(name => db.collection(name).countDocuments()));
+    const timelineEffectCollections = [
+      "saved",
+      "feedback",
+      "outbox",
+      "calendar_writes",
+      "oauth_states",
+    ];
+    const beforeTimeline = await Promise.all(
+      timelineEffectCollections.map((name) =>
+        db.collection(name).countDocuments(),
+      ),
+    );
     const week = await a.post("/api/timeline").set("Origin", origin).send({});
     assert.equal(week.status, 200);
     assert.equal(week.body.days.length, 7);
     assert.deepEqual(week.body.items, []);
     const range = { startDate: week.body.days[0], endDate: week.body.days[6] };
-    const timelineA = await a.post("/api/timeline").set("Origin", origin).send(range);
-    const timelineB = await b.post("/api/timeline").set("Origin", origin).send(range);
+    const timelineA = await a
+      .post("/api/timeline")
+      .set("Origin", origin)
+      .send(range);
+    const timelineB = await b
+      .post("/api/timeline")
+      .set("Origin", origin)
+      .send(range);
     assert.equal(timelineA.status, 200);
     assert.equal(timelineB.status, 200);
     assert.deepEqual(timelineA.body.items[0].matchedInterests, ["Outdoors"]);
     assert.deepEqual(timelineB.body.items[0].matchedInterests, []);
-    assert.equal(JSON.stringify(timelineB.body).includes("Private course"), false);
-    assert.equal((await a.post("/api/timeline").set("Origin", origin).send({ ...range, userId: "forged" })).status, 400);
-    assert.equal((await a.post("/api/timeline").set("Origin", "https://evil.example").send(range)).status, 403);
-    assert.equal((await a.post("/api/timeline").set("Origin", origin).send({ startDate: range.endDate, endDate: range.startDate })).status, 400);
-    assert.deepEqual(await Promise.all(timelineEffectCollections.map(name => db.collection(name).countDocuments())), beforeTimeline, "timeline queries have no domain writes");
+    assert.equal(
+      JSON.stringify(timelineB.body).includes("Private course"),
+      false,
+    );
+    assert.equal(
+      (
+        await a
+          .post("/api/timeline")
+          .set("Origin", origin)
+          .send({ ...range, userId: "forged" })
+      ).status,
+      400,
+    );
+    assert.equal(
+      (
+        await a
+          .post("/api/timeline")
+          .set("Origin", "https://evil.example")
+          .send(range)
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await a
+          .post("/api/timeline")
+          .set("Origin", origin)
+          .send({ startDate: range.endDate, endDate: range.startDate })
+      ).status,
+      400,
+    );
+    assert.deepEqual(
+      await Promise.all(
+        timelineEffectCollections.map((name) =>
+          db.collection(name).countDocuments(),
+        ),
+      ),
+      beforeTimeline,
+      "timeline queries have no domain writes",
+    );
     const assistant = await a
       .post("/api/assistant")
       .set("Origin", origin)
@@ -488,7 +539,7 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
     assert.equal((await a.get("/api/me")).status, 401);
     assert.equal((await b.get("/api/me")).status, 200);
     const { pseudonym } = await import("../apps/backend/src/security.js");
-    const { track, flushAnalytics } =
+    const { track, eraseAnalytics } =
       await import("../apps/backend/src/analytics.js");
     const deletedKey = pseudonym(me.user.id);
     assert.ok(
@@ -501,32 +552,37 @@ test("authenticated API isolation, CSRF, persistence, connection failure and aut
       await db.collection("outbox").countDocuments({ pseudonym: deletedKey }),
       0,
     );
-    process.env.DATABRICKS_HOST = "https://test.cloud.databricks.com";
-    process.env.DATABRICKS_TOKEN = "synthetic-test-token";
-    process.env.DATABRICKS_WAREHOUSE_ID = "synthetic-warehouse";
-    let remoteDeletes = 0;
-    globalThis.fetch = async (_url, init) => {
-      const payload = JSON.parse(String(init?.body));
-      assert.match(payload.statement, /^DELETE FROM/);
-      assert.equal(payload.parameters[0].value, deletedKey);
-      remoteDeletes++;
-      return Response.json({ status: { state: "SUCCEEDED" } });
+    let analyticsNetworkCalls = 0;
+    globalThis.fetch = async () => {
+      analyticsNetworkCalls++;
+      throw new Error("Analytics must remain local");
     };
     try {
-      await flushAnalytics();
-      assert.equal(remoteDeletes, 1);
-      assert.ok(
-        (
-          await db
-            .collection("analytics_deletions")
-            .findOne({ pseudonym: deletedKey })
-        )?.completedAt,
+      const remainingUser = (await b.get("/api/me")).body.user.id;
+      const remainingKey = pseudonym(remainingUser);
+      await track(remainingUser, "event_view", "live-test-1");
+      const local = await db
+        .collection("outbox")
+        .findOne({ pseudonym: remainingKey, kind: "event_view" });
+      assert.ok(local);
+      assert.equal(local.nextAttempt, undefined);
+      assert.equal(local.attempts, undefined);
+      await Promise.all([
+        ...Array.from({ length: 12 }, () =>
+          track(remainingUser, "save", "live-test-1"),
+        ),
+        eraseAnalytics(remainingUser),
+      ]);
+      await track(remainingUser, "save", "live-test-1");
+      assert.equal(
+        await db
+          .collection("outbox")
+          .countDocuments({ pseudonym: remainingKey }),
+        0,
       );
+      assert.equal(analyticsNetworkCalls, 0);
     } finally {
       globalThis.fetch = savedFetch;
-      delete process.env.DATABRICKS_HOST;
-      delete process.env.DATABRICKS_TOKEN;
-      delete process.env.DATABRICKS_WAREHOUSE_ID;
     }
     assert.equal(
       await db

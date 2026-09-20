@@ -19,6 +19,9 @@ function files(dir) {
 // Explicit current dependencies. New modules need an owner/port and reviewed edges.
 const edges = {
   "public-memory.ts": ["store"],
+  // Reviewed edge: personal memory is its own module. It owns attendance records and
+  // the caller-scoped memory view, and borrows only validation from domain.
+  "user-memory.ts": ["store", "config", "domain", "public-memory"],
   "public-fetch.ts": ["research-sheet"],
   "public-source-store.ts": ["store"],
   "public-source-registry.ts": ["research-sheet"],
@@ -49,6 +52,7 @@ const edges = {
     "account-email",
     "discord-publication",
     "club-accounts",
+    "user-memory",
     "domain",
     "discovery",
     "config",
@@ -85,7 +89,10 @@ const edges = {
   // those rules. It uses the stored-record parsers only; no scheduling or ranking.
   "coordinator.ts": ["store", "domain", "agent-policy", "event-consolidation", "public-source-registry", "public-ingestion", "public-source-store", "public-fetch", "public-memory"],
   "discovery.ts": ["domain", "config"],
-  "assistant.ts": ["domain", "store", "agent-policy", "public-memory"],
+  // Reviewed edges: the assistant performs deterministic retrieval before generating,
+  // so it reads public history, verified club identities and the caller's own memory
+  // through their owning modules rather than querying storage itself.
+  "assistant.ts": ["domain", "store", "agent-policy", "public-memory", "club-accounts", "user-memory"],
   "integrations.ts": ["domain", "config", "store", "security", "analytics", "agent-policy"],
   "discord-limits.ts": [],
   "discord-gateway.ts": [],
@@ -130,8 +137,8 @@ const edges = {
     "discord-collection-store",
   ],
   "narration.ts": ["domain", "store", "config"],
-  "analytics.ts": ["store", "security", "config"],
-  "jobs.ts": ["store", "integrations", "coordinator", "analytics"],
+  "analytics.ts": ["store", "security"],
+  "jobs.ts": ["store", "integrations", "coordinator"],
   "contract-check.ts": [
     "narration",
     "domain",

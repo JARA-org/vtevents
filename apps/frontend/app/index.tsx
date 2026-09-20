@@ -27,6 +27,7 @@ import type {
   UserSummary,
   SourceHealth,
   HealthView,
+  UserMemoryView,
 } from "@gobbler/shared";
 import { backend } from "../services/backend";
 import { C, font } from "../components/theme";
@@ -194,6 +195,7 @@ export default function Home() {
     ),
     [deleteText, setDeleteText] = useState(""),
     [privateContext, setPrivateContext] = useState<PrivateContextView[]>([]),
+    [memory, setMemory] = useState<UserMemoryView | null>(null),
     [deadlines, setDeadlines] = useState<CampusDeadline[]>([]),
     [deadlineStatus, setDeadlineStatus] = useState("Loading deadlines…"),
     [discovery, setDiscovery] = useState<DiscoveryView>({
@@ -221,6 +223,24 @@ export default function Home() {
       setLoading(false);
     }
   };
+  // Submitting intent only. Whether attendance is allowed, and what memory holds
+  // afterwards, are decided and returned by the backend.
+  const confirmAttendance = (eventId: string, attended: boolean) =>
+    run(async () => {
+      setMemory(await backend.setAttendance({ eventId, attended }));
+      notify(
+        attended
+          ? "Gobbler will remember you went to this."
+          : "Removed from your attended events.",
+      );
+    });
+  const forgetActivity = () =>
+    run(async () => {
+      setMemory(await backend.forgetMemory({ scope: "attendance" }));
+      notify("Gobbler forgot your attended events.");
+    });
+  const attended = (eventId: string) =>
+    !!memory?.attendance.some((record) => record.eventId === eventId);
   const go = (p: Page) => {
     setPage(p);
     setSelected(null);
@@ -285,6 +305,27 @@ export default function Home() {
       })
       .catch(() => {});
   }, []);
+  // The backend owns what memory contains and who may read it; this only renders
+  // whatever the session returns and clears it when nobody is signed in.
+  useEffect(() => {
+    if (!user) {
+      setMemory(null);
+      return;
+    }
+    let active = true;
+    setMemory(null);
+    backend
+      .getMemory(undefined)
+      .then((view) => {
+        if (active) setMemory(view);
+      })
+      .catch(() => {
+        if (active) setMemory(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, refreshVersion]);
   useEffect(() => {
     if (!user) { setDeadlines([]); return; }
     if (page !== "discover") return;
@@ -1128,6 +1169,17 @@ export default function Home() {
                 {!!selected.audience?.length && <Text style={s.meta}>For {selected.audience.join(" · ")}</Text>}
                 {!!selected.conflicts?.length && <Text style={{ color: C.orange }}>Sources report different details for {selected.conflicts.map(conflict => conflict.field).join(", ")}. Check the original listings; any club-owner corrections remain in place.</Text>}
                 <View style={s.wrap}>
+                  {/* Explicit confirmation only. Saving or viewing this event never
+                      tells Gobbler you went; the backend rejects events that have
+                      not started yet and explains why. */}
+                  <Button
+                    secondary={!attended(selected.id)}
+                    icon={attended(selected.id) ? "checkmark-circle" : "person-outline"}
+                    label={attended(selected.id) ? "You went to this" : "I went to this"}
+                    onPress={() =>
+                      confirmAttendance(selected.id, !attended(selected.id))
+                    }
+                  />
                   {selected.registrationUrl && <Button secondary label="Register ↗" onPress={() => Linking.openURL(selected.registrationUrl!)} />}
                   {selected.links?.map((link, index) => <Button key={`${link.url}:${index}`} secondary label={`${link.label || link.kind} ↗`} onPress={() => Linking.openURL(link.url)} />)}
                   {selected.sources.map(source => <Button key={`${source.source}:${source.sourceId}`} secondary label={`${source.label || source.source} ↗`} onPress={() => Linking.openURL(source.url)} />)}
@@ -1405,6 +1457,44 @@ export default function Home() {
                       <EventCard key={item.event.id} item={item} />
                     ))}
                   </View>
+                  {answer.clubHistory && (
+                    <View style={s.panel}>
+                      <Text accessibilityRole="header" style={s.sectionTitle}>
+                        {answer.clubHistory.matched
+                          ? `What ${answer.clubHistory.matched.name} has done before`
+                          : "Past activity"}
+                      </Text>
+                      <Text style={s.meta}>
+                        These events already happened. They are not upcoming plans.
+                        {answer.clubHistory.matched?.kind === "observed-organizer"
+                          ? " This name was observed on public listings, which does not confirm a club's identity or ownership."
+                          : ""}
+                      </Text>
+                      {answer.clubHistory.missing ? (
+                        <Text style={s.body}>
+                          Nothing is stored for that name yet, so Gobbler has no
+                          history to show rather than a guess.
+                        </Text>
+                      ) : (
+                        answer.clubHistory.entries.map((entry) => (
+                          <View key={entry.eventId} style={{ gap: 6, paddingVertical: 10 }}>
+                            <Text style={s.eventTitle}>{entry.title}</Text>
+                            <Text style={s.meta}>
+                              {date(entry.start, "ccc, LLL d, yyyy")}
+                              {entry.categories.length ? ` · ${entry.categories.join(" · ")}` : ""}
+                            </Text>
+                            <View style={s.wrap}>
+                              <Button
+                                secondary
+                                label="Original listing ↗"
+                                onPress={() => Linking.openURL(entry.sourceUrl)}
+                              />
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  )}
                   {answer.publicMemory && (
                     <View style={s.panel}>
                       <Text accessibilityRole="header" style={s.sectionTitle}>Public history</Text>
@@ -1504,11 +1594,122 @@ export default function Home() {
                     </Pressable>
                     <Text style={s.meta}>
                       When enabled, your typed question, selected interest
-                      categories, and public event listings are sent to Google
-                      Gemini. Don’t include private details. Calendar contents,
-                      tokens, and private source text are never sent. Google’s
-                      free tier may use prompts to improve its products.
+                      categories, the events you confirmed attending, and public
+                      event listings are sent to Google Gemini. Don’t include
+                      private details. Calendar contents, tokens, and private
+                      source text are never sent. Google’s free tier may use
+                      prompts to improve its products.
                     </Text>
+                  </View>
+                  <View style={s.panel}>
+                    <Text accessibilityRole="header" style={s.sectionTitle}>
+                      What Gobbler remembers about you
+                    </Text>
+                    <Text style={s.meta}>
+                      Only you can see this. It is never added to a club’s
+                      records or shown to anyone else.
+                    </Text>
+                    {!memory ? <Text style={s.body}>Memory is loading or unavailable. Please refresh to try again.</Text> : <>
+                    <Text style={[s.body, { fontWeight: "700" }]}>
+                      Interests you chose
+                    </Text>
+                    <Text style={s.body}>
+                      {memory?.statedInterests.length
+                        ? memory.statedInterests.join(" · ")
+                        : "None chosen yet."}
+                    </Text>
+                    <Text style={[s.body, { fontWeight: "700" }]}>
+                      Interests Gobbler guessed
+                    </Text>
+                    <Text style={s.meta}>
+                      Worked out from the events you confirmed attending, and
+                      kept separate from the interests you chose.
+                    </Text>
+                    <Text style={s.body}>
+                      {memory?.inferredInterests.length
+                        ? memory.inferredInterests
+                            .map(
+                              (item) =>
+                                `${item.category} (${item.fromAttendance} ${item.fromAttendance === 1 ? "event" : "events"})`,
+                            )
+                            .join(" · ")
+                        : "Nothing guessed yet. Confirm an event you attended and it will appear here."}
+                    </Text>
+                    {!!memory?.confirmable?.length && (
+                      <>
+                        <Text style={[s.body, { fontWeight: "700" }]}>
+                          Did you go to these?
+                        </Text>
+                        <Text style={s.meta}>
+                          Events you saved that have since finished. Gobbler only
+                          remembers the ones you confirm; ignoring these keeps no
+                          record at all.
+                        </Text>
+                        {memory.confirmable.map((candidate) => (
+                          <View key={candidate.eventId} style={{ gap: 6, paddingVertical: 8 }}>
+                            <Text style={s.body}>{candidate.title}</Text>
+                            <Text style={s.meta}>
+                              {date(candidate.start, "ccc, LLL d, yyyy")}
+                              {candidate.organizer ? ` · ${candidate.organizer}` : ""}
+                            </Text>
+                            <View style={s.wrap}>
+                              <Button
+                                icon="checkmark-outline"
+                                label="I went"
+                                onPress={() => confirmAttendance(candidate.eventId, true)}
+                              />
+                            </View>
+                          </View>
+                        ))}
+                      </>
+                    )}
+                    <Text style={[s.body, { fontWeight: "700" }]}>
+                      Events you said you attended
+                    </Text>
+                    {memory?.attendance.length ? (
+                      memory.attendance.map((record) => (
+                        <View key={record.eventId} style={{ gap: 6, paddingVertical: 8 }}>
+                          <Text style={s.body}>{record.title}</Text>
+                          <Text style={s.meta}>
+                            {date(record.start, "ccc, LLL d, yyyy")}
+                            {record.organizer ? ` · ${record.organizer}` : ""}
+                            {record.available === false
+                              ? " · the original listing is no longer available, so Gobbler leaves this out of its answers"
+                              : ""}
+                          </Text>
+                          <View style={s.wrap}>
+                            {!!record.sourceUrl && (
+                              <Button
+                                secondary
+                                label="Original listing ↗"
+                                onPress={() => Linking.openURL(record.sourceUrl!)}
+                              />
+                            )}
+                            <Button
+                              secondary
+                              icon="close-outline"
+                              label="Remove"
+                              onPress={() => confirmAttendance(record.eventId, false)}
+                            />
+                          </View>
+                        </View>
+                      ))
+                    ) : (
+                      <Text style={s.body}>
+                        Nothing yet. Open an event you went to and choose “I went
+                        to this”. Saving or viewing an event never counts as
+                        attending.
+                      </Text>
+                    )}
+                    {!!memory?.attendance.length && (
+                      <Button
+                        secondary
+                        icon="trash-outline"
+                        label="Forget my attended events"
+                        onPress={forgetActivity}
+                      />
+                    )}
+                    </>}
                   </View>
                   {availabilityEditor}
                 </View>

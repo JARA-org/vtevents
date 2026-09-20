@@ -22,7 +22,7 @@ encryption and analytics secrets. It has NOT been applied. Explicit question
 pending: apply Discord settings only while retaining production secrets, or leave
 Discord disabled. Never copy that file wholesale. Current Discord remains disabled.
 Keep teammate Discord implementation intact. Google/Canvas live calendar consent,
-mail delivery/account recovery, Databricks, club deletion cleanup and Vultr spending
+mail delivery/account recovery, club deletion cleanup and Vultr spending
 protection/API-key rotation remain unfinished. This release is hardening, not full V1.
 
 # Verification and hackathon walkthrough
@@ -47,7 +47,7 @@ This checkpoint supersedes older local/deployment-pending entries below; those a
 - Runtime is non-root with read-only filesystem, dropped capabilities, rotated logs and internal-only Node port. App log inspection showed only normal startup. Production frontend bundle scanned against configured secrets: 59 files, zero matches.
 - Google configuration follow-up: Calendar API enabled, sole owner test user saved, two scopes declared and exact production callback configured. Env preflight and HTTPS smoke passed after app recreation. Synthetic OAuth-initiation test verified configured status, redirect, PKCE/state and scope set; account deleted. The owner must consent from their own application account before live sync/write testing.
 - Disposable browser account deletion correctly required a fresh login after five minutes; reauthentication and deletion passed. New Gemini still answered successfully after the old key was deleted.
-- Not claimed: whole-host reboot, long-term scheduled execution, real Google/Canvas writes, Discord installation/canonical publication, Databricks live dashboard, or audible browser playback. Email verification/password recovery and Vultr hard spending protection remain unresolved.
+- Not claimed: whole-host reboot, long-term scheduled execution, real Google/Canvas writes, Discord installation/canonical publication, or audible browser playback. Email verification/password recovery and Vultr hard spending protection remain unresolved.
 
 
 ## Verified locally on 2026-09-19
@@ -55,7 +55,7 @@ This checkpoint supersedes older local/deployment-pending entries below; those a
 - TypeScript checks for backend and frontend. Latest suite: **22/22 tests passed**.
 - Expo web export and backend production compilation.
 - Automated tests: unknown availability, exact free coverage, conflicts, touching endpoints, DST, partial coverage, event normalization, cancellations, deduplication/provenance, unsafe source URLs, ICS escaping and stable UID, recommendation grounding, missing-Gemini fallback, authenticated encryption and calendar-write key scope.
-- API tests against isolated real MongoDB: separate users/profiles/private context/saves, unauthenticated rejection, origin/CSRF rejection, demo/live separation, invalid OAuth state, unavailable Google config, expired Google sync state, ICS response, grounded demo assistant, account deletion. Mocked Google writes verify repeated calls produce one provider write. Source replacement removes absent persisted records. Gemini success, unknown-ID rejection, API failure and daily limits are mocked; they are not real Gemini service verification. Analytics erasure and future enqueue suppression are verified with mocked Databricks SQL responses.
+- API tests against isolated real MongoDB: separate users/profiles/private context/saves, unauthenticated rejection, origin/CSRF rejection, demo/live separation, invalid OAuth state, unavailable Google config, expired Google sync state, ICS response, grounded demo assistant, account deletion. Mocked Google writes verify repeated calls produce one provider write. Source replacement removes absent persisted records. Gemini success, unknown-ID rejection, API failure and daily limits are mocked; they are not real Gemini service verification. Analytics tests now cover local recording, deletion suppression, and absence of network exports.
 - Additional checks cover provenance and canonical ID stability, duplicate splits, false substring categories, nonexistent/repeated DST wall times and multi-day all-day ICS end dates.
 - Official GobblerConnect feed: 2,219 validated records at direct check. Official VT Sports schedule metadata: 349 records. These counts include past events; public discovery filters old records.
 - Browser desktop landing inspected at 1280px. Demo save visibly changed to Saved. Details showed time/location/source. Calendar review showed destination and event; ICS click produced download confirmation.
@@ -66,7 +66,7 @@ This checkpoint supersedes older local/deployment-pending entries below; those a
 
 ## Historical remaining-work checkpoint (superseded by current status)
 
-- Public Node/HTTPS deployment, real OAuth calendar writes, Discord server installation, ElevenLabs live audio, and Databricks ingestion/dashboard remain unverified. Atlas M0 and real Gemini calls are verified locally against their cloud services.
+- Public Node/HTTPS deployment, real OAuth calendar writes, Discord server installation, ElevenLabs live audio remain unverified. Atlas M0 and real Gemini calls are verified locally against their cloud services.
 - Sites preview is not published. The existing project returns NOT_FOUND to the currently connected Sites account; recover that account/project access instead of creating a duplicate.
 - Keyboard/200% zoom accessibility, final production mobile/desktop rendering and expired-provider UI need expanded deployed browser checks.
 - Better Auth tests warn that no client IP is available under Supertest. Verify trusted proxy/IP configuration for the actual deployed host.

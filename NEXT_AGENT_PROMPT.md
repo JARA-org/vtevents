@@ -22,7 +22,7 @@ encryption and analytics secrets. It has NOT been applied. Explicit question
 pending: apply Discord settings only while retaining production secrets, or leave
 Discord disabled. Never copy that file wholesale. Current Discord remains disabled.
 Keep teammate Discord implementation intact. Google/Canvas live calendar consent,
-mail delivery/account recovery, Databricks, club deletion cleanup and Vultr spending
+mail delivery/account recovery, club deletion cleanup and Vultr spending
 protection/API-key rotation remain unfinished. This release is hardening, not full V1.
 
 # Resume My Gobbler production work
@@ -52,8 +52,7 @@ confirm applying only Discord fields while preserving production identity secret
 answer pending. Do not copy the supplied file wholesale or commit it.
 
 Still unfinished: auth email verification/recovery (no mail delivery provider
-configured), live Google consent/sync/write, Canvas institutional key, Databricks
-authorization/dashboard, club-owned account deletion review (coordinate with
+configured), live Google consent/sync/write, Canvas institutional key, club-owned account deletion review (coordinate with
 teammate), Vultr exposed API-key rotation and credit protection. Google Cloud trial
 billing page reports prepayment required; $0 limit still applies. No trial payment
 or Gemini backend migration performed. Do not confuse Google Cloud trial credits
@@ -93,7 +92,7 @@ Recovered root password was exposed through a prior browser copy field. It has n
 
 ## Accounts, constraints, dependencies
 
-Owner: GitHub0utsights (John Surles), JARA-org private repo. Google/Atlas/Databricks identity surlezrulez@gmail.com. Vultr John Surles/outsightszs@Outlook.com. Prefer these existing accounts.
+Owner: GitHub0utsights (John Surles), JARA-org private repo. Google/Atlas identity surlezrulez@gmail.com. Vultr John Surles/outsightszs@Outlook.com. Prefer these existing accounts.
 
 **Cost rule remains $0 beyond $100 MLH credit, with a hard cap.** Existing Vultr VM's observed plan is $10/month; credit expires after30days. Last observed accrued cost$0.05. No stop-at-credit-zero cap/free-compute approval verified. Do not claim billing safe or create new paid resources/add-ons/payment methods/subscriptions. Powering off does not stop Vultr billing. Owner rejected switching to Render. Existing resource was reused; resolve billing protection with owner/provider before assuming ongoing zero-cost hosting.
 
@@ -104,7 +103,6 @@ Owner: GitHub0utsights (John Surles), JARA-org private repo. Google/Atlas/Databr
 - **Canvas:** VT-enabled OAuth developer key required. No credential/admin approval. Callback https://vtevents.us/api/connections/canvas/callback. Existing adapter/writes guarded; no live claim.
 - **Discord:** app1550880609491222639 exists. Bot token/public key not configured in production; Message Content Intent off; no server installation. Needs CLIENT_ID/PUBLIC_KEY/BOT_TOKEN, never retired CLIENT_SECRET or user OAuth. Signed endpoint https://vtevents.us/api/discord/interactions. Registration script previews by default; --apply explicitly upserts named commands. Server owner/admin selects public channels and explicit submissions; exclusions override both. New upstream code uses Discord Gateway post/edit/delete IDs and a durable queue (no historical scans); per-guild budgets5/day and2/hour. Qualified events automatically publish with evidence and club ownership; authorized corrections are audited. /clubs and private /gobbler setup server-link flow are implemented. Bot is NOT configured/live in this deployment; do not enable flags before credentials, intent, installation and tests. Deferred imported-club claiming/general event CRUD/conflict review remain out of scope. Follow latest AGENTS/Master instructions; older staged-only descriptions are historical.
 - **ElevenLabs:** Free10kcredits, TTS-only key cap8k/refresh + leak auto-disable. Secret deployed. Earlier real MP3/cache/authenticated endpoint tests passed. Audible browser playback remains unverified after prior browser crash; do not claim it passed.
-- **Databricks:** Free workspace https://dbc-4490568c-354b.cloud.databricks.com. Console explicitly blocks automated browser control. Owner requested Genie One MCP; no callable tools found. OAuthDCR unsupported, plugin catalog ineligible, personal CLI consent incomplete. Do not bypass. Node reliable outbox/SQL/dashboard queries exist; live ingestion/table/dashboard unconfigured.
 - **Sources:** official GobblerConnect public ICS and VT Sports JSON-LD live; latest2242/349 raw records,1520 current discoverable events. No undocumented campus API.
 - **Auth:** Better Auth accounts run in Atlas; email verification/recovery service still missing for broad launch.
 
@@ -119,8 +117,8 @@ Ignored QA helpers: work/verify-production-flow.ts (full flow + cleanup), work/p
 ## Next work
 
 1. Verify current public health/release and git state; do not redo solved SSH/DNS/Atlas/key work.
-2. Google terms/client/API/test-user setup is complete. Finish personal Google consent/sync and an explicitly chosen calendar write if the owner completes connection; observe required at-action browser permission handoffs. Keep all secret capture private. Continue Discord or Databricks only through supported authorized access.
-3. Check auth recovery requirements, Google live write/idempotency, permitted Discord publication, Databricks outbox dashboard and standard-browser voice playback. Record exact dependencies rather than describing required work as complete.
+2. Google terms/client/API/test-user setup is complete. Finish personal Google consent/sync and an explicitly chosen calendar write if the owner completes connection; observe required at-action browser permission handoffs. Keep all secret capture private. Continue Discord only through supported authorized access.
+3. Check auth recovery requirements, Google live write/idempotency, permitted Discord publication, and standard-browser voice playback. Record exact dependencies rather than describing required work as complete.
 4. Update docs/PROGRESS/this handoff, scan secrets, commit/push main and verify remote SHA. User explicitly wants everything safe pushed before usage ends. No secrets, work files, generated production env or private keys may enter Git.
 
 Browser available through cua_repl; call rewriteDocumentation after compaction. Native Windows browser control was blocked by tool policy; do not route around it. Existing in-app browserID2 has cloud dashboards and production QA tab. Rediscover tabs if stale. Do not dump/screenshot credential dialogs. Keep only needed deliverable/handoff tabs. Passwords/MFA/CAPTCHA/personal consent remain personal actions; generic authorization does not override browser at-action confirmations.

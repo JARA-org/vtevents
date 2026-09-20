@@ -35,8 +35,8 @@ const steps: Step[] = [
     icon: "link-outline",
     title: "2. Link the server to your club",
     body: [
-      "Run the setup command in any channel. Gobbler replies privately with a link that works for ten minutes and only for you — treat it like a password and do not share it.",
-      "The link takes you to sign-in, then to a short club form. Submitting that form binds this Discord server to your club. Each website account can create one club workspace.",
+      "Run the setup command in any channel. Gobbler replies privately with a link that works for ten minutes. Anyone holding it can complete setup, so treat it like a password and do not share it.",
+      "New club workspaces must be created through this Discord setup link. It takes you to sign-in, then to a short club form. Submitting that form binds this Discord server to your club. Each website account can create one club workspace. You cannot create a club directly from the website without the link.",
     ],
     commands: [
       { label: "/gobbler setup", note: "private reply with your ten-minute setup link" },

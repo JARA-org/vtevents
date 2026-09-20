@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Refresh campus listings and drain analytics outbox
+      - name: Refresh campus listings
         env:
           GOBBLER_URL: ${{ vars.GOBBLER_URL }}
           JOB_SECRET: ${{ secrets.GOBBLER_JOB_SECRET }}

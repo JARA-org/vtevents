@@ -10,7 +10,6 @@
 | Google Calendar | **Production configured:** OAuth+PKCE initiation verified; free/busy/write/revoke implemented; duplicate writes tested with mocks                         | Owner personal consent and live sync/write test; external/testing restricted to sole owner test user; public verification/publishing pending                        |
 | Canvas          | Scoped OAuth, paginated courses/calendar/announcements, refresh/revoke and guarded writes implemented                     | Virginia Tech must issue/enable an OAuth developer key with permitted scopes; user consent; write permission for writes  |
 | Discord         | Read-only signed commands, Gateway-triggered durable queue, server budgets, club linking and automatic qualified-event publication implemented; disabled in production | Endpoint is online; bot token/public key, message-content intent, server installation and command registration remain pending |
-| Databricks      | Free Edition workspace exists; Node ingestion/outbox and dashboard SQL implemented                                        | Genie One MCP authentication/preview setup and live SQL/dashboard verification; console blocks automated control         |
 | ElevenLabs      | **Live and tested:** Free plan, TTS-only key capped8,000credits/refresh; realMP3, cache and authenticated endpoint passed | Secret deployed; final audible browser playback QA                                                                             |
 | Vultr           | **Live and tested:** https://vtevents.us on existing VM `45.77.222.255`, Docker/Caddy, source revision `55e3420` | Hard spending cap still unverified; no additional paid resources. Exposed Vultr API key requires rotation |
 | Tiger Data      | Feasibility researched; no resource or adapter claimed                                                                    | Optional public campus-activity metrics extension; verify sponsor free resources before provisioning                     |
@@ -53,18 +52,10 @@ linking. Signed commands select channels for automatic reading,
 submit individual messages independently, and exclude messages. No Discord
 channel settings or permissions are changed. The latest team implementation uses Gateway-triggered durable work, per-server AI budgets, verified server-to-club linking and automatic publication of qualified events with audited owner corrections. Live bot configuration and server installation remain pending. See [bot setup and boundaries](DISCORD_BOT.md).
 
-## Databricks
-
-Use Free Edition only; do not start a paid workspace or trial requiring a payment method. Configure workspace URL, token, and warehouse ID. Run `npx tsx scripts/provision-analytics.ts`. It creates `workspace.default.gobbler_interactions` through the supported SQL Statement Execution API. `docs/analytics.sql` contains two useful dashboard queries (daily actions, event engagement). Create a dashboard with these datasets once workspace access is available. No deployed dashboard is claimed before that is done.
-
-A Free Edition workspace has been created. Its console blocks automated browser control; the supported Genie One authentication path and exact blockers are recorded in GENIE_SETUP.md. The old `/learn/free` URL returns 404. Free Edition is intended for learning and personal prototypes; reassess its terms if this student project becomes commercial.
-
 ## Official references checked
 
 - https://www.mlh.com/events/vthacks-14/prizes (Vultr, Tiger Data and ElevenLabs are listed; Render is not)
 - https://elevenlabs.io/docs/api-reference/text-to-speech/convert
-- https://docs.databricks.com/aws/en/agents/mcp-tools/genie-mcp
-- https://docs.databricks.com/aws/en/agents/mcp-tools/connect-clients
 - https://docs.vultr.com/platform/billing/manage-account-limits
 
 - https://docs.expo.dev/guides/publishing-websites/
@@ -78,8 +69,6 @@ A Free Edition workspace has been created. Its console blocks automated browser 
 - https://developers.google.com/workspace/calendar/api/v3/reference/freebusy/query
 - https://developerdocs.instructure.com/services/canvas/oauth2/file.oauth_endpoints
 - https://docs.discord.com/developers/resources/channel
-- https://docs.databricks.com/aws/en/dev-tools/sql-execution-tutorial
-- https://docs.databricks.com/aws/en/getting-started/free-edition-limitations
 - https://render.com/docs/free
 - https://render.com/docs/blueprint-spec
 

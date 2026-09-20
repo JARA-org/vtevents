@@ -177,3 +177,19 @@ Club listing now includes additive `canCreate?: boolean`; absence means creation
 `DiscordMessageTrigger` is an ID-only Gateway notification. `DiscordTriggerQueue` owns durable coalescing, due-job leases, race-safe completion and deletion withdrawals; none of its operations invoke AI. The existing collector accepts optional exact targets for event-driven processing and never scans history in that mode. The legacy polling port remains for compatibility/tests but production schedules only triggered queue work. `DiscordCollectionInspection.listenerStatus` is additive; absence indicates the older server implementation.
 
 `DiscordTextExtractor.propose` accepts additive optional `DiscordExtractionContext` (trusted postedAt/timezone). `DiscordEventCandidate.dateReasoning` is optional and required by runtime validation for inferred dates; explicit-date callers remain compatible. The collector and publication service validate inferred dates with the original message timestamp, never edit or processing time. Fingerprints include context and extraction-policy version. Model interpretation handles language; ordinary backend validation handles obvious calendar arithmetic and weekday consistency.
+
+
+### Implemented personal memory
+
+GET /api/memory returns only the authenticated caller's stated interests, inferred category counts, attendance and recent saved past-event confirmation candidates. PUT /api/memory/attendance/:eventId accepts only { attended: boolean }; true validates a reachable, non-cancelled event that has started, while false removes that caller's record. Repeated confirmation preserves its initial timestamp; a per-user transaction serializes count checks and upserts, with a unique user/event index and a 200-record limit. Invalid input, unavailable storage, missing events and capacity exhaustion fail explicitly. No provider writes or model calls occur in these operations.
+
+DELETE /api/memory accepts { scope: "attendance" | "all" }; both clear the attendance owned by this service and derived interests. Profile interests remain managed through the profile API. Account deletion also removes attendance. Reads have no refresh or model effects. The optional events argument of UserMemoryService.view is a backend-owned, consent-checked public projection; it is never accepted from browser JSON. Route orchestration resolves archived availability and excludes withdrawn records from derived interest context. Confirmation responses return authoritative state; reads after a concurrent later mutation may reflect that mutation.
+
+Assistant replies optionally include clubHistory and usedMemory. History requires actual clubId associations for managed identities; observed organizer matches convey no ownership. Dates, source links and category comparisons come from stored records, not unconstrained generated prose. The existing AI setting controls external model transmission. Chat transcript persistence and automatic conversation-memory extraction remain planned.
+
+CreateManagedClubInput.discordTicket stays optional in the shared historical shape for compatibility, but new workspace creation requires a valid Discord setup ticket under current policy. Existing successful request replay and linking an older unlinked workspace remain supported. No GobblerConnect ownership claim or editing API is advertised.
+
+
+### Local analytics
+
+The existing authenticated analytics operation now records pseudonymous interaction metadata only in MongoDB. Its public input/output shape is unchanged. The historical `outbox` collection retains a 30-day TTL but has no exporter, remote SQL client, credentials, retry worker, or provisioning step. Account deletion removes local interactions and retains a suppression marker for late requests. The connections status reports analytics as configured when local database storage is present. This does not add model training or change recommendation scoring.

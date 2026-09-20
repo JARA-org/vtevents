@@ -224,6 +224,13 @@ export interface TimelineView {
 }
 export interface AssistantReply extends Extensible {
   publicMemory?: PublicMemoryView;
+  /** Past activity the backend retrieved for this question, with its own source links
+   * and dates. Absent when the question named no club or organizer. Render it as
+   * history: it is never a current plan or an upcoming event. */
+  clubHistory?: ClubHistoryView;
+  /** True when the model was given the caller's own memory under their AI setting.
+   * Diagnostics for the person, never an authorization signal. */
+  usedMemory?: boolean;
   engine: string;
   notice: string;
   answer: string;
@@ -310,6 +317,16 @@ export interface Operation<Input, Output> {
   output: Output;
 }
 export interface HttpApi {
+  /** GET /api/memory. The caller's own memory, derived from the authenticated
+   * session. No model spending, no writes, never another user's data. */
+  getMemory: Operation<void, UserMemoryView>;
+  /** PUT /api/memory/attendance/:eventId. Explicit confirmation by the caller for one
+   * event they can currently see and that has already started. Idempotent; returns the
+   * resulting memory. Saving or viewing an event never reaches this operation. */
+  setAttendance: Operation<{ eventId: Id; attended: boolean }, UserMemoryView>;
+  /** DELETE /api/memory. Removes the caller's derived memory in the requested scope
+   * and returns what remains. Stated profile interests are edited through the profile. */
+  forgetMemory: Operation<{ scope: "attendance" | "all" }, UserMemoryView>;
   /** GET /api/public-memory?q=... Authenticated public history query. No model/refresh effects, no private context. */
   searchPublicMemory: Operation<{ query: string }, PublicMemoryView>;
   /** GET /api/deadlines. Authenticated public deadline query; no refresh/model effects. */
@@ -1223,12 +1240,17 @@ export interface ClubWorkspace {
 export interface CreateManagedClubInput {
   name: string;
   requestId: string;
+  /** Required by backend policy for new workspaces; optional only for historical request replay. */
   discordTicket?: string;
 }
 export interface ClubAccountService {
   /** Session-derived user only. Reads owned clubs; no provider, AI or writes. */
   list(userId: Id): Promise<{ clubs: ManagedClub[]; canCreate?: boolean }>;
-  /** Validates name/ticket. Atomically creates new identity and owner membership, optionally binds guild and consumes ticket. Idempotent by user/requestId. Never claims imported clubs. Invalid/expired/used tickets fail without creating a club. */
+  /** Bounded read of verified workspace identities (id and name only) for matching a
+   * name in a question. Not user-scoped because a club name is already public, and it
+   * carries no ownership, membership or contact data. No writes or model calls. */
+  identities?(limit?: number): Promise<{ clubId: Id; name: string }[]>;
+  /** Validates name/ticket. Atomically creates new identity and owner membership, requires a Discord ticket for new workspaces, binds guild and consumes ticket. Idempotent by user/requestId. Never claims imported clubs. Invalid/expired/used tickets fail without creating a club. */
   create(userId: Id, input: CreateManagedClubInput): Promise<ManagedClub>;
   /** Owner-scoped event/candidate read; forbidden for other users. No refresh or model calls. */
   workspace(userId: Id, clubId: Id): Promise<ClubWorkspace>;
@@ -1384,6 +1406,94 @@ export interface AgentTrustEvaluation {
   verificationTier?: "BRONZE" | "SILVER" | "GOLD";
 }
 
+/** One event the authenticated user confirmed attending. Saving, viewing, being
+ * recommended or adding an event to a calendar NEVER creates one of these: only an
+ * explicit confirmation by that user, or a future authorized attendance record, does.
+ * Private to its owner and never merged into shared club or event records. */
+export interface AttendanceRecord extends Extensible {
+  eventId: Id;
+  /** Snapshot taken at confirmation so the user's own record stays readable. */
+  title: string;
+  start: Instant;
+  timezone: string;
+  organizer: string | null;
+  sourceUrl?: string;
+  categories: Category[];
+  confirmedAt: Instant;
+  /** How attendance was established. Only explicit user confirmation exists today. */
+  source: "user";
+  /** False when the public source has since been withdrawn or is unavailable. The
+   * record is kept for its owner but withheld from model context and explanations. */
+  available?: boolean;
+}
+/** A past event this person saved and has not answered about yet. Offering it is not
+ * a claim that they attended: only their own explicit confirmation establishes that,
+ * and ignoring it leaves no record at all. */
+export interface AttendanceCandidate extends Extensible {
+  eventId: Id;
+  title: string;
+  start: Instant;
+  timezone: string;
+  organizer: string | null;
+  sourceUrl?: string;
+  categories: Category[];
+}
+/** A derived interest, kept separate from the interests the user stated themselves.
+ * Presentation and model context must keep the distinction; it never edits the profile. */
+export interface InferredInterest extends Extensible {
+  category: Category;
+  /** Confirmed attendances supporting it. Evidence count, not a score or a ranking. */
+  fromAttendance: number;
+}
+/** The caller's own memory. Session-scoped: it can never contain another user's
+ * preferences, attendance or history, and is not shared with club records. */
+export interface UserMemoryView extends Extensible {
+  statedInterests: Category[];
+  inferredInterests: InferredInterest[];
+  attendance: AttendanceRecord[];
+  /** Past events the caller saved that they have not answered about. Absent when the
+   * server does not offer them. Never used as evidence of attendance by itself. */
+  confirmable?: AttendanceCandidate[];
+  /** Whether the user has opted this context in to the model at all. */
+  aiEnabled: boolean;
+}
+/** One past public activity, retained with its source link and date. Never presented
+ * as upcoming and never evidence of a current plan. */
+export interface ClubHistoryEntry extends Extensible {
+  eventId: Id;
+  title: string;
+  start: Instant;
+  timezone: string;
+  sourceUrl: string;
+  categories: Category[];
+}
+/** Deterministically matched public history. An observed organizer name is NOT an
+ * identity claim: only a verified club workspace carries clubId. */
+export interface ClubHistoryView extends Extensible {
+  matched: {
+    kind: "club" | "observed-organizer";
+    name: string;
+    clubId?: Id;
+  } | null;
+  entries: ClubHistoryEntry[];
+  /** True when no history was found, so an answer must say so instead of inventing. */
+  missing: boolean;
+}
+/** Backend-only port. Retrieval, permissions and bounded selection live here; a model
+ * never chooses what context it receives. */
+export interface UserMemoryService {
+  /** Session-scoped read of the caller's own memory. No writes, model or provider calls. */
+  view(userId: Id, events?: CampusEvent[]): Promise<UserMemoryView>;
+  /** Explicit confirmation for one event the caller can currently see. Rejects events
+   * that have not started. Idempotent per user and event; returns the resulting state. */
+  confirm(userId: Id, eventId: Id, attended: boolean, events: CampusEvent[]): Promise<UserMemoryView>;
+  /** Removes the caller's derived memory. "attendance" clears confirmations and the
+   * inferred interests that depend on them; "all" additionally clears stated context
+   * this service owns. Stated profile interests remain the profile's own data. */
+  forget(userId: Id, scope: "attendance" | "all"): Promise<UserMemoryView>;
+  /** Irreversible removal for account deletion. No receipts retained. */
+  erase(userId: Id): Promise<void>;
+}
 /** Public source media references only; backend validates URLs, no binary data or automatic embedding. */
 export interface EventMedia {
   url: string;

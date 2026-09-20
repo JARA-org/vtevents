@@ -44,6 +44,7 @@ export async function connectDB() {
       );
   }
   await Promise.all([
+    db.collection("user_attendance").createIndex({ userId: 1, eventId: 1 }, { unique: true }),
     db
       .collection("account_email_outbox")
       .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
@@ -115,7 +116,6 @@ export async function connectDB() {
     db
       .collection("calendar_writes")
       .createIndex({ userId: 1, eventId: 1, destination: 1 }, { unique: true }),
-    db.collection("outbox").createIndex({ nextAttempt: 1 }),
     db
       .collection("private_context")
       .createIndex({ userId: 1, provider: 1 }, { unique: true }),

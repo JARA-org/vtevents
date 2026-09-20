@@ -53,6 +53,12 @@ async function request<K extends keyof HttpApi>(
 }
 const id = encodeURIComponent;
 export const backend: BackendClient = {
+  getMemory: () => request<"getMemory">("/memory"),
+  setAttendance: ({ eventId, attended }) =>
+    request<"setAttendance">(`/memory/attendance/${id(eventId)}`, "PUT", {
+      attended,
+    }),
+  forgetMemory: (input) => request<"forgetMemory">("/memory", "DELETE", input),
   searchPublicMemory: ({query}) => request<"searchPublicMemory">(`/public-memory?q=${encodeURIComponent(query)}`),
   listDeadlines: () => request<"listDeadlines">("/deadlines"),
   accountEmail: () => request<"accountEmail">("/account-email"),

@@ -22,7 +22,7 @@ encryption and analytics secrets. It has NOT been applied. Explicit question
 pending: apply Discord settings only while retaining production secrets, or leave
 Discord disabled. Never copy that file wholesale. Current Discord remains disabled.
 Keep teammate Discord implementation intact. Google/Canvas live calendar consent,
-mail delivery/account recovery, Databricks, club deletion cleanup and Vultr spending
+mail delivery/account recovery, club deletion cleanup and Vultr spending
 protection/API-key rotation remain unfinished. This release is hardening, not full V1.
 
 # Vultr deployment

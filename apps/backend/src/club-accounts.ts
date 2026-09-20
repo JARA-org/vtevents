@@ -110,6 +110,17 @@ async function transaction<T>(
   }
 }
 export const clubAccounts: ClubAccountService = {
+  /** Identity and display name only. Never ownerId, guild binding or ticket state. */
+  async identities(limit = 200) {
+    const rows = await clubs()
+      .find({}, { projection: { _id: 1, name: 1 } })
+      .sort({ name: 1 })
+      .limit(Math.max(1, Math.min(500, limit)))
+      .toArray();
+    return rows
+      .filter((row) => typeof row.name === "string" && !!row.name.trim())
+      .map((row) => ({ clubId: String(row._id), name: row.name }));
+  },
   async list(userId) {
     const owned = await clubs()
       .find({ ownerId: userId })
@@ -157,6 +168,11 @@ export const clubAccounts: ClubAccountService = {
         throw new HttpError(
           409,
           "Your account already has a club. Open your existing club workspace.",
+        );
+      if (!input.discordTicket)
+        throw new HttpError(
+          400,
+          "Create your club from Discord: a server administrator must run /gobbler setup and open the private link.",
         );
       const club = {
         _id: randomUUID(),

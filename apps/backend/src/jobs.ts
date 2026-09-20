@@ -1,7 +1,6 @@
 import { db } from "./store.js";
 import { syncCalendar } from "./integrations.js";
 import { refreshSources } from "./coordinator.js";
-import { flushAnalytics } from "./analytics.js";
 let pending: Promise<void> | undefined;
 export function runJobs() {
   if (pending) return pending;
@@ -35,7 +34,6 @@ export function runJobs() {
         }
       }
     }
-    await flushAnalytics();
   })().finally(() => {
     pending = undefined;
   });

@@ -22,7 +22,7 @@ encryption and analytics secrets. It has NOT been applied. Explicit question
 pending: apply Discord settings only while retaining production secrets, or leave
 Discord disabled. Never copy that file wholesale. Current Discord remains disabled.
 Keep teammate Discord implementation intact. Google/Canvas live calendar consent,
-mail delivery/account recovery, Databricks, club deletion cleanup and Vultr spending
+mail delivery/account recovery, club deletion cleanup and Vultr spending
 protection/API-key rotation remain unfinished. This release is hardening, not full V1.
 
 # Production hardening — 2026-09-19 (awaiting coordinated deployment)
@@ -43,7 +43,7 @@ do not overwrite current server files. See NEXT_AGENT_PROMPT.md.
 
 Live source **55e3420** at https://vtevents.us, integrating team main7bbfbf9. 50/50tests, typechecks/contracts, actual-host production build and production dependency audit pass (0 vulnerabilities). Fixed API test fixture isolation from local Google credentials. Core live HTTP flow/Gemini/OAuth initiation and HTTPS smoke pass after update; 1,519 current events. Previous3b003bb release retained. All synthetic QA accounts deleted.
 
-Google app/client/API/scopes/test user are configured and secret deployed. Personal calendar connection is NOT complete: zero connections observed, and owner clarified they needed the site sign-in page, now opened. Next: owner signs in to vtevents.us -> Settings -> Google Calendar -> Connect. Canvas, Discord live installation, Databricks and auth recovery remain pending. New upstream Gateway/club/publication code is present but Discord stays disabled. Vultr hard spending protection is still unverified; no additional resources created. See NEXT_AGENT_PROMPT.md.
+Google app/client/API/scopes/test user are configured and secret deployed. Personal calendar connection is NOT complete: zero connections observed, and owner clarified they needed the site sign-in page, now opened. Next: owner signs in to vtevents.us -> Settings -> Google Calendar -> Connect. Canvas, Discord live installation and auth recovery remain pending. New upstream Gateway/club/publication code is present but Discord stays disabled. Vultr hard spending protection is still unverified; no additional resources created. See NEXT_AGENT_PROMPT.md.
 
 ---
 
@@ -53,7 +53,7 @@ Google app/client/API/scopes/test user are configured and secret deployed. Perso
 
 45 tests/typechecks/contracts pass; production image built on Vultr. Public HTTPS smoke and real account/preferences/live discovery/save/ICS/Gemini/deletion flow pass. Browser desktop/mobile onboarding/details/calendar export and schedule conflict pass. App restart retained session/profile/save and refreshed both official feeds. Production web bundle has zero known-secret matches.
 
-Google OAuth client/API/testing consent and owner test user are now configured and deployed; production initiation checks pass. Personal consent/live calendar sync/write and public OAuth verification remain. Other remaining work: VT Canvas developer key, Discord bot credentials/install/collection publication, Databricks authorized ingestion/dashboard, auth email verification/recovery, audible voice QA. Vultr hard spending cap remains unverified under owner's $0-over-credit limit. Old Gemini key was deleted after owner approval; Vultr API key rotation remains a security follow-up. See NEXT_AGENT_PROMPT.md and docs/RESOURCES.md for exact state. Earlier entries below are historical and superseded.
+Google OAuth client/API/testing consent and owner test user are now configured and deployed; production initiation checks pass. Personal consent/live calendar sync/write and public OAuth verification remain. Other remaining work: VT Canvas developer key, Discord bot credentials/install/collection publication, auth email verification/recovery, audible voice QA. Vultr hard spending cap remains unverified under owner's $0-over-credit limit. Old Gemini key was deleted after owner approval; Vultr API key rotation remains a security follow-up. See NEXT_AGENT_PROMPT.md and docs/RESOURCES.md for exact state. Earlier entries below are historical and superseded.
 
 ---
 
@@ -72,12 +72,12 @@ Implement shared scheduling/event model, integration modules and security, front
 
 ## Handoff checkpoint — 2026-09-19 06:20 UTC
 
-- Working monorepo implemented: Expo 57 / React Native / Expo Router frontend, Express TypeScript backend, Better Auth and MongoDB adapter, shared schemas/scheduling, integration modules, analytics outbox and jobs.
+- Working monorepo implemented: Expo 57 / React Native / Expo Router frontend, Express TypeScript backend, Better Auth and MongoDB adapter, shared schemas/scheduling, integration modules, local analytics and jobs.
 - Official GobblerConnect ICS and VT Sports public JSON-LD fetched and normalized successfully (2,219 / 349 records at direct verification; counts include past records).
 - Latest `npm run typecheck`, `npm test` (15/15, including account isolation/deletion and mocked duplicate Google write), and `npm run build` all passed after preview-mode and job changes.
 - Desktop landing and 390px mobile demo inspected. Save, details, destination review and ICS download exercised. Full production and latest preview browser verification remain outstanding.
 - Site registered: `appgprj_6aae24e2bd588191a3b403b7ff3b54ba`. Manifest saved; **not deployed**. Reuse it.
-- Production Atlas, Render, Gemini, Google OAuth, Canvas, Discord and Databricks not provisioned/live-tested. Owner email and Render sign-in were requested; no answer received. No payment method or billable resource enabled.
+- Production Atlas, Render, Gemini, Google OAuth, Canvas, Discord not provisioned/live-tested. Owner email and Render sign-in were requested; no answer received. No payment method or billable resource enabled.
 - `NEXT_AGENT_PROMPT.md` contains the full resumable takeover prompt. README and docs cover architecture, integration status, resource inventory, tests and demo.
 - 13 moderate transitive dependency audit findings remain; inspect nested lockfile resolution despite overrides. More targeted launch-readiness work is listed in the takeover prompt.
 - Source checkpoint `b9fde92462e32fe0fd7cafd83b71b566ade847e5` pushed successfully to private `JARA-org/vtevents/main`; local and remote SHAs matched. 45 project files added; staged secret/path scan passed. Local secrets, database, dependencies and builds are ignored. Audit scratch moved into ignored `work/`.
@@ -87,12 +87,12 @@ Implement shared scheduling/event model, integration modules and security, front
 
 - Read both original Google reference documents through the connected Drive account; prompt still governs scope.
 - Investigated Stripe Projects catalog/preflight: Render Free available, Atlas/Gemini absent, Stripe browser authentication required. No substitute database or billable resources created.
-- Core account browser steps remain pending: Render GitHub consent (`0utsights`), Atlas login, AI Studio first-use terms on observed Google session. Discord developer login and Databricks Free Edition signup also reached; personal sign-in/consent required. No production URL yet.
+- Core account browser steps remain pending: Render GitHub consent (`0utsights`), Atlas login, AI Studio first-use terms on observed Google session. Discord developer login also reached; personal sign-in/consent required. No production URL yet.
 - Existing Sites project now returns NOT_FOUND to current connected account. Preserved project ID and did not create a duplicate.
 - Fixed lockfile override resolution; clean install and audits now report zero vulnerabilities.
 - Added transactional per-source snapshots with removal handling and canonical identity/provenance preservation. Failed partial sports refresh retains prior records. Fixed category substring false positives.
 - Extended Gemini to validated semantic ranking of bounded public candidates, with unknown-ID rejection, unique daily budget, disabled SDK retries, and deterministic fallback even if budget storage fails. Updated opt-in disclosure; private schedules/messages never sent.
-- Added durable remote analytics erasure/suppression and tested it with mocked Databricks. Background failures are redacted and caught; failed manual provider sync persists error status.
+- Analytics erasure/suppression is now local-only. Background failures are redacted and caught; failed manual provider sync persists error status.
 - Fixed persistent local Mongo restart by preserving its port. Existing data survived stop/start. Live adapters refreshed again: 2,219 GobblerConnect / 349 Sports; 1,503 current/ongoing listings.
 - Added DST ambiguous/nonexistent boundary handling and multi-day all-day ICS end dates. Fixed sign-in navigation and initial profile display name.
 - 21/21 tests, frontend/backend typechecks and production build passed. Browser verified synthetic-account onboarding, live search/details/save, calendar review/export feedback, saved schedule conflict and grounded Friday-after-five fallback. Live ICS endpoint separately verified HTTP200 text/calendar.
@@ -108,7 +108,6 @@ Implement shared scheduling/event model, integration modules and security, front
 - Added non-root Docker build and Caddy/Compose HTTPS deployment package. Docker Desktop engine was unavailable, so container build is not yet verified.
 - User chose Vultr and explicitly requires $0 beyond credits with a hard cap. Verified $100 MLH credit but no credit-zero stop cap; submitted Free Tier application. User explicitly declined Render fallback and asked to keep hosting pending. No VM or public deployment exists.
 - Discord app creation completed after user CAPTCHA: application1550880609491222639; branding description saved. No server authorization/channel selection or bot credentials yet.
-- Databricks Free Edition exists. Genie One requested, but no callable MCP connection: catalog plugin ineligible, direct OAuth lacks dynamic registration, personal CLI consent incomplete. Exact supported path recorded in docs/GENIE_SETUP.md; do not bypass console's automation restriction.
 - 22/22 tests, typechecks and production build passed. Current live-backed landing inspected at1280x720 and390x844 with no overflow; favicon linked correctly. Disposable cloud QA account deleted through the app.
 - Updated resource inventory and takeover prompt. V1 is not fully deployed; provider setup, auth email recovery/verification and production HTTPS QA remain.
 - Follow-up: ElevenLabs Free plan verified, TTS-only capped key provisioned and real narration/cache/authenticated HTTP endpoint passed. User confirmed age and completed Discord CAPTCHA.
@@ -145,5 +144,5 @@ Vultr View Console opens no usable popup in this in-app browser, including after
 - All 60 tests passed, including verification, password reset single-use/session
   revocation, non-enumerating reset response, encryption and retry idempotency.
 - Local Expo/backend build and typechecks passed. Resend signup consent is pending;
-  provider delivery, Google personal consent and Databricks authorization remain
+  provider delivery and Google personal consent remain
   external dependencies. Do not call this a fully completed public launch.

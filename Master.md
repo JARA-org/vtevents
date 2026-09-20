@@ -26,7 +26,6 @@ Agents return general form of data \-\> receivers do not know how data is retrie
 
 &nbsp;
 
-Databricks for data analytics, recommendations for events based on individual user data and past events
 
 ## Interfaces:
 
@@ -177,7 +176,6 @@ John \- Backend:
 * Web hosting/cloud functions on vultr  
   * Setup progress: Docker/Caddy package, production preflight and read-only smoke checks are implemented; see [deployment runbook](deploy/README.md). Image build and isolated MongoDB container checks pass. Live at https://vtevents.us on the existing Vultr VM; public core flow and restart persistence passed. Hard spending protection remains unverified; see NEXT_AGENT_PROMPT.md.
 * Maybe work on agents?  
-* Databricks analytics for user preferences
 
 Arthur \- UI/UX:
 
@@ -408,3 +406,19 @@ grid with all upcoming events, preserving search/category/day controls. Keep VT
 colors with a creamier, restrained surface. Respect reduced motion and keyboard
 access; maintain sign-in, permissions and explicit calendar-write confirmation.
 See docs/TIMELINE.md for implementation scope, including web/native distinction.
+
+
+## Memory and Discord-only workspace creation (September 20, 2026)
+
+Personal memory now stores explicit attendance confirmations separately from stated profile interests. Authenticated users can review, remove or clear attendance in Settings; recent saved past events are offered for confirmation without assuming attendance. Backend retrieval includes public website history and currently eligible past Discord publications. Records withdrawn from their public source remain visible only to the person who confirmed them, but are excluded from assistant attendance context and inferred interests. Account deletion removes attendance. Confirmation is serialized per user, unique per event, and bounded to 200 records.
+
+The assistant retrieves bounded public history before optional model interpretation. History for a managed workspace requires an actual clubId association; organizer-name matches cannot claim imported history. Historical dates and links and category-based personal comparisons are rendered from stored evidence. Arbitrary generated historical prose is not displayed: citation indexes alone cannot validate its factual claims. Gemini receives minimized personal context only under existing AI opt-in and spending controls. Persistent conversation transcripts and automatic memories extracted from chats are still planned, not implemented by this attendance feature.
+
+New club workspaces require the private ten-minute ticket from a Discord administrator's /gobbler setup command. Direct ticketless creation is rejected by the backend; existing unlinked workspaces remain linkable and historical request replay remains supported. GobblerConnect organization claiming and direct provider editing are not implemented. Name equality never grants ownership. General event creation/deletion and manual cross-source conflict resolution remain deferred.
+
+Existing MongoDB and deterministic backend queries serve the current memory and category comparisons; recommendation quality should be measured before considering trained models.
+
+
+## Local analytics only (September 20, 2026)
+
+External analytics export and its setup/provisioning workflow are removed. Interaction metadata stays in MongoDB with the existing 30-day TTL and user-deletion suppression. Recommendation scoring and attendance memory remain independent of an analytics vendor. Distilled conversational memory remains a proposal; no implementation was added in the cancelled chatbot task. Presentation notes are in presentation.md.

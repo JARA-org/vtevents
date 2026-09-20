@@ -17,7 +17,9 @@ import {
 } from "./domain.js";
 import type {
   BootstrapView,
+  CampusEvent,
   DiscoveryView,
+  UserMemoryView,
 } from "../../../packages/shared/src/contracts.js";
 import {
   discoverySchema,
@@ -32,7 +34,7 @@ import { db, database, mongoClient } from "./store.js";
 import { sourceStatus, liveEvents, liveDeadlines, refreshSources, unreadableRecords } from "./coordinator.js";
 import { consolidateEvents } from "./event-consolidation.js";
 import { ansRuntime, isAnsAssistantRequest } from "./ans-runtime.js";
-import { searchPublicMemory } from "./public-memory.js";
+import { searchPublicMemory, publicEventById, publicEventIds } from "./public-memory.js";
 import { askGobbler } from "./assistant.js";
 import { narrate, voiceReady } from "./narration.js";
 import { analyticsKinds, track, eraseAnalytics } from "./analytics.js";
@@ -49,6 +51,7 @@ import {
 import { registerDiscordBotRoutes } from "./discord-bot-http.js";
 import { discordPublication } from "./discord-publication.js";
 import { clubAccounts } from "./club-accounts.js";
+import { userMemory, inferInterests } from "./user-memory.js";
 import { accountEmailReady, queueAccountEmail } from "./account-email.js";
 import { runJobs } from "./jobs.js";
 import { unseal, pseudonym } from "./security.js";
@@ -222,8 +225,8 @@ export function createApp() {
       }),
     );
   });
-  const currentEvents = async () => {
-    const published = (await discordPublication.list()).map((row) => row.event);
+  const currentEvents = async (includePast = false) => {
+    const published = (await discordPublication.list({ includePast })).map((row) => row.event);
     const publicEvents = liveEvents();
     // Website records were already reconciled by the coordinator. Discord
     // eligibility is rechecked on every read so withdrawals never use a cache.
@@ -324,6 +327,55 @@ export function createApp() {
   });
   app.get("/api/deadlines", protect, (_req, res) => res.json({deadlines:liveDeadlines()}));
   app.get("/api/public-memory", protect, async (req,res) => res.json(await searchPublicMemory(z.string().max(200).parse(req.query.q||""))));
+  // A personal record stays available while its event is still reachable. Current
+  // listings only carry upcoming events, so an event that has already happened is
+  // resolved through public memory; a withdrawn record is absent from both.
+  const withAvailability = async (memory: UserMemoryView, listings: CampusEvent[]) => {
+    const missing = memory.attendance
+      .filter((record) => !listings.some((event) => event.id === record.eventId))
+      .map((record) => record.eventId);
+    const remembered = missing.length ? await publicEventIds(missing) : new Set<string>();
+    const attendance = memory.attendance.map((record) => ({
+        ...record,
+        available:
+          listings.some((event) => event.id === record.eventId) ||
+          remembered.has(record.eventId),
+      }));
+    return { ...memory, attendance, inferredInterests: inferInterests(attendance) };
+  };
+  app.get("/api/memory", protect, async (_req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const listings = await currentEvents(true);
+    const memory = await userMemory.view(res.locals.user.id, listings);
+    res.json(await withAvailability(memory, listings));
+  });
+  app.put("/api/memory/attendance/:eventId", protect, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const { attended } = z.object({ attended: z.boolean() }).strict().parse(req.body);
+    const eventId = String(req.params.eventId);
+    const listings = await currentEvents(true);
+    // Attendance is about events that already happened, which have left the current
+    // listings. Offer the remembered public record for exactly the requested id.
+    const remembered =
+      attended && !listings.some((e) => e.id === eventId || e.aliases?.includes(eventId))
+        ? await publicEventById(eventId)
+        : null;
+    const memory = await userMemory.confirm(
+      res.locals.user.id,
+      eventId,
+      attended,
+      remembered ? [...listings, remembered] : listings,
+    );
+    res.json(await withAvailability(memory, listings));
+  });
+  app.delete("/api/memory", protect, async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    const { scope } = z
+      .object({ scope: z.enum(["attendance", "all"]) })
+      .strict()
+      .parse(req.body ?? {});
+    res.json(await userMemory.forget(res.locals.user.id, scope));
+  });
   app.get("/api/events/:id/ics", protect, async (req, res) => {
     if (req.query.mode && req.query.mode !== "live")
       throw new HttpError(400, "Unsupported event mode.");
@@ -426,13 +478,19 @@ export function createApp() {
         database().collection("saved").find({ userId: id }).toArray(),
         database().collection("feedback").find({ userId: id }).toArray(),
       ]);
+      const listings = await currentEvents();
+      // Memory is read under this session only, and marked against what is still
+      // retrievable so a withdrawn source cannot re-enter an explanation.
+      const memoryListings = await currentEvents(true);
+      const memory = await userMemory.view(id, memoryListings);
       res.json(
         await askGobbler(
           query,
-          await currentEvents(),
+          listings,
           p,
           saved.map((r) => r.eventId),
           Object.fromEntries(feedback.map((r) => [r.eventId, r.value])),
+          memory && (await withAvailability(memory, memoryListings)),
         ),
       );
     },
@@ -480,7 +538,7 @@ export function createApp() {
             : "Google OAuth client and consent configuration required.",
       })),
       sources: sourceStatus,
-      analytics: process.env.DATABRICKS_TOKEN ? "configured" : "unavailable",
+      analytics: db ? "configured" : "unavailable",
     });
   });
   app.post("/api/connections/:provider/connect", protect, async (req, res) => {
@@ -589,10 +647,13 @@ export function createApp() {
       "oauth_states",
       "session",
       "account",
+      // Personal memory is deleted with the account it belongs to.
+      "user_attendance",
     ])
       await database()
         .collection(name)
         .deleteMany({ userId: { $in: identifiers } });
+    await database().collection("user_memory_locks").deleteMany({ _id: { $in: identifiers } as never });
     await database()
       .collection("outbox")
       .deleteMany({ pseudonym: pseudonym(id) });

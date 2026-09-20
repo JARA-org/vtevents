@@ -2,7 +2,6 @@ import { connectDB } from "./store.js";
 import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { runJobs } from "./jobs.js";
-import { flushAnalytics } from "./analytics.js";
 import { flushAccountEmail } from "./account-email.js";
 import { clubPublicationNotifications } from "./club-publication-email.js";
 import { startDiscordCollection } from "./discord-jobs.js";
@@ -41,7 +40,6 @@ process.once("SIGTERM", () => {
   void Promise.all([stopDiscord(), stopAns?.()]).finally(() => process.exit(0));
 });
 setInterval(() => background(runJobs, "refresh"), 60000).unref();
-setInterval(() => background(flushAnalytics, "analytics"), 60000).unref();
 setInterval(
   () => background(flushAccountEmail, "account-email"),
   10000,
